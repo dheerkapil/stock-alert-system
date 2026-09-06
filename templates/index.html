@@ -12,65 +12,68 @@
         .card { border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 12px; padding: 12px; }
         .card h5 { font-size: 1rem; margin-bottom: 8px; }
 
-        /* ----- Scrollable Table Container ----- */
+        /* ----- Scrollable Table Container (Only if needed) ----- */
         .table-scroll {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             margin: 0 -2px;
             padding: 0 2px;
-            /* This container handles horizontal scroll. Vertical scroll is handled by the page itself. */
         }
         .table-scroll table {
-            table-layout: fixed; /* Forces even column widths */
-            min-width: 780px;
             width: 100%;
             margin-bottom: 0;
             border-collapse: collapse;
+            /* NO table-layout: fixed – columns size naturally based on content */
         }
 
-        /* ----- Column Widths (Fixed Distribution) ----- */
-        .table-scroll .col-symbol { width: 12%; }
-        .table-scroll .col-cond { width: 7%; text-align: center; }
-        .table-scroll .col-trigger { width: 11%; text-align: right; }
-        .table-scroll .col-cmp { width: 11%; text-align: right; }
-        .table-scroll .col-gap { width: 12%; text-align: right; }
-        .table-scroll .col-status { width: 9%; text-align: center; }
-        .table-scroll .col-added { width: 13%; }
-        .table-scroll .col-actions { width: 18%; text-align: center; }
-
-        /* ----- Sticky Header (Fixed on Vertical Scroll) ----- */
+        /* ----- Table Headers (Sticky) ----- */
         .table-scroll thead {
             position: sticky;
             top: 0;
             z-index: 10;
         }
         .table-scroll thead th {
-            background: #f8f9fa; /* Matches body background */
+            background: #f8f9fa;
             border-bottom: 2px solid #ccc;
-            padding: 8px 4px;
+            padding: 8px 6px;
             font-size: 0.65rem;
             text-transform: uppercase;
             color: #333;
             font-weight: 700;
-            cursor: pointer;
+            cursor: default;
             user-select: none;
             white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* subtle shadow to separate from scrolling body */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            /* Alignment will be set via classes */
         }
-        .table-scroll thead th:hover { background: #eef1f4; }
-        .table-scroll thead th .sort-icon { margin-left: 4px; font-size: 0.6rem; opacity: 0.5; }
-        .table-scroll thead th.active .sort-icon { opacity: 1; }
+        .table-scroll thead th.sortable {
+            cursor: pointer;
+        }
+        .table-scroll thead th.sortable:hover {
+            background: #eef1f4;
+        }
+        .table-scroll thead th .sort-icon {
+            margin-left: 4px;
+            font-size: 0.6rem;
+            opacity: 0.5;
+        }
+        .table-scroll thead th.active .sort-icon {
+            opacity: 1;
+        }
 
         /* ----- Table Body (Rows) ----- */
         .table-scroll tbody td {
-            padding: 8px 4px;
+            padding: 8px 6px;
             vertical-align: middle;
             border-bottom: 1px solid #eee;
             font-size: 0.8rem;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
+
+        /* ----- Alignment Classes ----- */
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
 
         /* ----- Status Circle ----- */
         .status-btn {
@@ -149,8 +152,8 @@
             body { padding: 5px; }
             .card { padding: 8px; margin-bottom: 8px; }
             .card h5 { font-size: 0.9rem; }
-            .table-scroll thead th { font-size: 0.55rem; padding: 6px 2px; }
-            .table-scroll tbody td { font-size: 0.7rem; padding: 6px 2px; }
+            .table-scroll thead th { font-size: 0.55rem; padding: 6px 4px; }
+            .table-scroll tbody td { font-size: 0.7rem; padding: 6px 4px; }
             .table .btn-sm {
                 padding: 3px 5px;
                 font-size: 0.65rem;
@@ -162,7 +165,6 @@
             .btn-tool { font-size: 0.6rem; padding: 0.15rem 0.4rem; }
             .autocomplete-item { padding: 5px 8px; font-size: 0.8rem; }
             .autocomplete-item .name { font-size: 0.7rem; }
-            .table-scroll table { min-width: 700px; }
         }
     </style>
 </head>
@@ -171,7 +173,7 @@
 
     <h1 class="text-center mb-3" style="font-size: 1.4rem;">📊 Alert Manager</h1>
 
-    <!-- ADD ALERT FORM (Will scroll away, header stays sticky) -->
+    <!-- ADD ALERT FORM -->
     <div class="card">
         <h5>➕ Add New Alert</h5>
         <div class="row g-2 align-items-end">
@@ -211,21 +213,21 @@
         </div>
     </div>
 
-    <!-- ALERTS TABLE (STICKY HEADER + HORIZONTAL SCROLL) -->
+    <!-- ALERTS TABLE (STICKY HEADER + NATURAL COLUMN WIDTHS) -->
     <div class="card" style="padding: 4px 2px;">
         <h5 style="padding-left:4px; font-size:0.95rem;">📋 Your Alerts</h5>
         <div class="table-scroll">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="col-symbol sortable" data-sort="symbol">Symbol <span class="sort-icon">↕</span></th>
-                        <th class="col-cond">Cond</th>
-                        <th class="col-trigger sortable" data-sort="trigger">Trigger <span class="sort-icon">↕</span></th>
-                        <th class="col-cmp sortable" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
-                        <th class="col-gap sortable" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
-                        <th class="col-status sortable" data-sort="status">Status <span class="sort-icon">↕</span></th>
-                        <th class="col-added sortable" data-sort="added">Added <span class="sort-icon">↕</span></th>
-                        <th class="col-actions">Actions</th>
+                        <th class="sortable text-left" data-sort="symbol">Symbol <span class="sort-icon">↕</span></th>
+                        <th class="text-center">Cond</th>
+                        <th class="sortable text-right" data-sort="trigger">Trigger <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="alertTableBody">
@@ -394,18 +396,18 @@ function renderAlerts(data) {
         const dateDisplay = formatDate(a.added_at);
 
         html += `<tr>
-            <td class="col-symbol"><strong>${a.symbol}</strong></td>
-            <td class="col-cond">${a.condition}</td>
-            <td class="col-trigger">${a.trigger_price}</td>
-            <td class="col-cmp ${cmpClass}">${cmpDisplay}</td>
-            <td class="col-gap ${gapClass}">${gapDisplay}</td>
-            <td class="col-status">
+            <td class="text-left"><strong>${a.symbol}</strong></td>
+            <td class="text-center">${a.condition}</td>
+            <td class="text-right">${a.trigger_price}</td>
+            <td class="text-right ${cmpClass}">${cmpDisplay}</td>
+            <td class="text-right ${gapClass}">${gapDisplay}</td>
+            <td class="text-center">
                 <button class="status-btn ${statusClass}" data-id="${a.id}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" ${disabled}>
                     ${statusText}
                 </button>
             </td>
-            <td class="col-added">${dateDisplay}</td>
-            <td class="col-actions" style="white-space:nowrap;">
+            <td class="text-left">${dateDisplay}</td>
+            <td class="text-center" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}" title="Edit">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}" title="Delete">🗑️</button>
