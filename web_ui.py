@@ -1,6 +1,9 @@
 import sqlite3
+import threading
+import time
 from flask import Flask, render_template, request, jsonify
 import config
+import stock_alert
 
 app = Flask(__name__)
 
@@ -81,5 +84,18 @@ def delete_alert(alert_id):
     conn.close()
     return jsonify({'status': 'ok'})
 
+# ------------------------------------------------------------------
+#  START THE ALERT WORKER IN A BACKGROUND THREAD
+# ------------------------------------------------------------------
+def start_worker():
+    # Give the web server a moment to start
+    time.sleep(5)
+    stock_alert.main()
+
+# Run the worker as a daemon thread (will exit when main process ends)
+worker_thread = threading.Thread(target=start_worker, daemon=True)
+worker_thread.start()
+
+# ------------------------------------------------------------------
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
