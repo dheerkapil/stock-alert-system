@@ -3,17 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 Stock Alert Manager</title>
+    <title>📊 Alert Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #f8f9fa; padding: 20px; }
-        .container { max-width: 750px; margin: auto; }
-        .card { border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        body { background: #f8f9fa; padding: 8px; }
+        .container { max-width: 100%; padding: 0; }
+        .card { border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 12px; padding: 12px; }
+        .card h5 { font-size: 0.95rem; margin-bottom: 8px; }
+
+        /* Badges */
         .badge-triggered { background: #dc3545; }
         .badge-active { background: #28a745; }
         .badge-inactive { background: #6c757d; }
+
+        /* CMP colors */
+        .cmp-green { color: #28a745; font-weight: bold; }
+        .cmp-red { color: #dc3545; font-weight: bold; }
+        .cmp-neutral { color: #6c757d; }
+
+        /* Autocomplete */
         .input-group { position: relative; }
-        #symbolInput { position: relative; z-index: 1000; }
+        #symbolInput { position: relative; z-index: 1000; font-size: 0.9rem; }
         .autocomplete-items {
             position: absolute;
             z-index: 999;
@@ -21,7 +31,7 @@
             background: white;
             border: 1px solid #ccc;
             border-top: none;
-            max-height: 300px;
+            max-height: 200px;
             overflow-y: auto;
             border-radius: 0 0 8px 8px;
             top: 100%;
@@ -29,77 +39,129 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .autocomplete-item {
-            padding: 10px 14px;
+            padding: 8px 10px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
         }
         .autocomplete-item:hover { background: #f0f0f0; }
-        .autocomplete-item .symbol { font-weight: bold; margin-right: 8px; }
-        .autocomplete-item .name { color: #555; font-size: 0.85rem; }
-        .btn-tool { border-radius: 20px; margin: 0 2px; }
+        .autocomplete-item .symbol { font-weight: bold; margin-right: 6px; }
+        .autocomplete-item .name { color: #555; font-size: 0.75rem; }
+
+        /* Table: dense and compact */
+        .table {
+            margin-bottom: 0;
+            font-size: 0.75rem;
+        }
+        .table th {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #666;
+            border-bottom: 1px solid #ddd;
+            padding: 4px 2px;
+        }
+        .table td {
+            padding: 4px 2px;
+            vertical-align: middle;
+            border-bottom: 1px solid #eee;
+        }
+        .table .btn-sm {
+            padding: 0.1rem 0.3rem;
+            font-size: 0.65rem;
+            border-radius: 12px;
+            margin: 0 1px;
+        }
+        .badge { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+
+        /* Data Tools */
+        .btn-tool { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+
+        /* Mobile form: stacked */
+        .form-label { font-size: 0.7rem; margin-bottom: 0; font-weight: 600; color: #555; }
+        .form-control-sm, .form-select-sm { font-size: 0.85rem; padding: 0.3rem 0.5rem; }
+        #addBtn { font-size: 0.85rem; padding: 0.3rem 0.5rem; }
+
+        /* Responsive tweaks for very small screens */
         @media (max-width: 576px) {
-            .table th, .table td { font-size: 0.7rem; padding: 0.3rem; }
-            .btn-sm { font-size: 0.6rem; padding: 0.2rem 0.5rem; }
-            .autocomplete-item { padding: 8px 10px; font-size: 0.9rem; }
-            .btn-tool { font-size: 0.7rem; }
+            body { padding: 4px; }
+            .card { padding: 8px; margin-bottom: 8px; }
+            .card h5 { font-size: 0.85rem; }
+            .table { font-size: 0.65rem; }
+            .table th { font-size: 0.55rem; padding: 2px 1px; }
+            .table td { padding: 2px 1px; }
+            .table .btn-sm { padding: 0.05rem 0.2rem; font-size: 0.55rem; margin: 0; }
+            .badge { font-size: 0.5rem; padding: 0.1rem 0.3rem; }
+            .btn-tool { font-size: 0.6rem; padding: 0.1rem 0.4rem; }
+            .form-control-sm, .form-select-sm { font-size: 0.8rem; padding: 0.2rem 0.3rem; }
+            #addBtn { font-size: 0.8rem; padding: 0.2rem 0.3rem; }
+            .autocomplete-item { padding: 6px 8px; font-size: 0.75rem; }
+            .autocomplete-item .name { font-size: 0.65rem; }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1 class="text-center mb-4">📊 Alert Manager</h1>
 
-    <!-- Add Alert Form -->
-    <div class="card p-3">
+    <!-- Title -->
+    <h1 class="text-center mb-2" style="font-size: 1.4rem;">📊 Alert Manager</h1>
+
+    <!-- Add Alert Form - Mobile Optimized -->
+    <div class="card">
         <h5>➕ Add New Alert</h5>
-        <div class="row g-2 align-items-end">
-            <div class="col-4">
-                <label class="form-label small">Symbol</label>
+        <div class="row g-1">
+            <div class="col-12 col-md-4">
+                <label class="form-label">Symbol</label>
                 <div class="input-group">
                     <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off" style="z-index:1001;">
                     <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
                 </div>
             </div>
-            <div class="col-3">
-                <label class="form-label small">Condition</label>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Condition</label>
                 <select id="condSelect" class="form-select form-select-sm">
                     <option value=">=" selected>&gt;=</option>
                     <option value="<=">&lt;=</option>
                 </select>
             </div>
-            <div class="col-3">
-                <label class="form-label small">Price</label>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Price</label>
                 <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="e.g. 5000" step="0.01">
             </div>
-            <div class="col-2">
+            <div class="col-12 col-md-2 d-flex align-items-end">
                 <button id="addBtn" class="btn btn-primary btn-sm w-100">Add</button>
             </div>
         </div>
-        <div id="addMessage" class="mt-2 small"></div>
+        <div id="addMessage" class="mt-1 small"></div>
     </div>
 
-    <!-- Tools: Export / Import -->
-    <div class="card p-2">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="fw-bold me-2">💾 Data Tools:</span>
-            <button id="exportBtn" class="btn btn-outline-success btn-sm btn-tool">📥 Export</button>
-            <button id="importBtn" class="btn btn-outline-primary btn-sm btn-tool">📤 Import</button>
+    <!-- Data Tools -->
+    <div class="card" style="padding: 6px 10px;">
+        <div class="d-flex flex-wrap gap-1 align-items-center">
+            <span class="fw-bold me-1" style="font-size:0.75rem;">💾</span>
+            <button id="exportBtn" class="btn btn-outline-success btn-tool">📥 Export</button>
+            <button id="importBtn" class="btn btn-outline-primary btn-tool">📤 Import</button>
             <input type="file" id="fileInput" accept=".json" style="display: none;">
-            <span id="importStatus" class="small text-muted"></span>
+            <span id="importStatus" class="small text-muted" style="font-size:0.65rem;"></span>
         </div>
     </div>
 
-    <!-- Alerts Table -->
-    <div class="card p-2">
-        <h5>📋 Your Alerts</h5>
+    <!-- Alerts Table - Dense -->
+    <div class="card" style="padding: 6px 4px;">
+        <h5 style="padding-left:4px;">📋 Your Alerts</h5>
         <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
+            <table class="table table-hover mb-0">
                 <thead>
-                    <tr><th>Symbol</th><th>Cond</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Cond</th>
+                        <th>Trigger</th>
+                        <th>CMP</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
                 </thead>
                 <tbody id="alertTableBody">
-                    <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted" style="font-size:0.7rem;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -150,47 +212,64 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ---------- FETCH ALERTS ----------
+// ---------- FETCH ALERTS (with CMP) ----------
 function fetchAlerts() {
     fetch('/api/alerts')
         .then(res => res.json())
         .then(data => {
             const tbody = document.getElementById('alertTableBody');
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center">No alerts set.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="font-size:0.7rem;">No alerts set.</td></tr>`;
                 return;
             }
             let html = '';
             data.forEach(a => {
-                let statusText = '🔴 Triggered', statusClass = 'badge-triggered';
+                // Status
+                let statusText = '🔴', statusClass = 'badge-triggered';
                 if (a.is_triggered === 0 && a.is_active === 1) {
-                    statusText = '🟢 Active';
+                    statusText = '🟢';
                     statusClass = 'badge-active';
                 } else if (a.is_active === 0) {
-                    statusText = '⚪ Paused';
+                    statusText = '⚪';
                     statusClass = 'badge-inactive';
                 }
+
+                // CMP
+                let cmpDisplay = '-';
+                let cmpClass = 'cmp-neutral';
+                if (a.cmp !== null && a.cmp !== undefined) {
+                    cmpDisplay = a.cmp;
+                    if (a.condition === '>=' && a.cmp >= a.trigger_price) {
+                        cmpClass = 'cmp-green';
+                    } else if (a.condition === '<=' && a.cmp <= a.trigger_price) {
+                        cmpClass = 'cmp-green';
+                    } else {
+                        cmpClass = 'cmp-red';
+                    }
+                }
+
                 html += `<tr>
                     <td><strong>${a.symbol}</strong></td>
                     <td>${a.condition}</td>
                     <td>${a.trigger_price}</td>
+                    <td class="${cmpClass}">${cmpDisplay}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}">✏️</button>
-                        <button class="btn btn-sm btn-outline-secondary toggle-btn" data-id="${a.id}" data-active="${a.is_active}">${a.is_active ? '⏸' : '▶️'}</button>
-                        ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}">🔄</button>` : ''}
-                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}">🗑️</button>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}" title="Edit price">✏️</button>
+                        <button class="btn btn-outline-secondary toggle-btn" data-id="${a.id}" data-active="${a.is_active}" title="Toggle">${a.is_active ? '⏸' : '▶️'}</button>
+                        ${a.is_triggered ? `<button class="btn btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
+                        <button class="btn btn-outline-danger delete-btn" data-id="${a.id}" title="Delete">🗑️</button>
                     </td>
                 </tr>`;
             });
             tbody.innerHTML = html;
 
-            // Edit
+            // Attach events (unchanged logic, just re-bind)
             document.querySelectorAll('.edit-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     const id = this.dataset.id;
                     const currentPrice = this.dataset.price;
-                    const newPrice = prompt(`Enter new trigger price for alert ID ${id}:`, currentPrice);
+                    const newPrice = prompt(`Enter new trigger price for ${id}:`, currentPrice);
                     if (newPrice !== null && !isNaN(parseFloat(newPrice)) && parseFloat(newPrice) > 0) {
                         fetch(`/api/update/${id}`, {
                             method: 'POST',
@@ -199,20 +278,13 @@ function fetchAlerts() {
                         })
                         .then(res => res.json())
                         .then(data => {
-                            if (data.status === 'ok') {
-                                alert('✅ Price updated!');
-                                fetchAlerts();
-                            } else {
-                                alert('❌ Update failed: ' + data.message);
-                            }
+                            if (data.status === 'ok') { alert('✅ Updated!'); fetchAlerts(); }
+                            else { alert('❌ ' + data.message); }
                         });
-                    } else if (newPrice !== null) {
-                        alert('❌ Invalid price.');
-                    }
+                    } else if (newPrice !== null) { alert('❌ Invalid price.'); }
                 });
             });
 
-            // Toggle, Reactivate, Delete
             document.querySelectorAll('.toggle-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'}).then(() => fetchAlerts());
@@ -234,7 +306,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="5" class="text-center text-danger">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="6" class="text-center text-danger" style="font-size:0.7rem;">Error loading alerts.</td></tr>`;
         });
 }
 
@@ -259,12 +331,12 @@ document.getElementById('addBtn').addEventListener('click', function() {
     .then(res => res.json())
     .then(data => {
         if (data.status === 'ok') {
-            document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Alert added!</span>';
+            document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Added!</span>';
             document.getElementById('symbolInput').value = '';
             document.getElementById('priceInput').value = '';
             fetchAlerts();
         } else if (data.status === 'warning') {
-            if (confirm(`⚠️ Warning: ${data.message}\n\nDo you still want to add this alert?`)) {
+            if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
                 payload.force = true;
                 fetch('/api/add', {
                     method: 'POST',
@@ -274,7 +346,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 .then(res2 => res2.json())
                 .then(data2 => {
                     if (data2.status === 'ok') {
-                        document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Alert added anyway!</span>';
+                        document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Added anyway!</span>';
                         document.getElementById('symbolInput').value = '';
                         document.getElementById('priceInput').value = '';
                         fetchAlerts();
@@ -283,18 +355,18 @@ document.getElementById('addBtn').addEventListener('click', function() {
                     }
                 });
             } else {
-                document.getElementById('addMessage').innerHTML = '<span class="text-warning">⏸️ Alert not added.</span>';
+                document.getElementById('addMessage').innerHTML = '<span class="text-warning">⏸️ Cancelled.</span>';
             }
         } else {
             document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
         }
     })
     .catch(err => {
-        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ Server error: ${err}</span>`;
+        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ Server error</span>`;
     });
 });
 
-// ---------- EXPORT ----------
+// ---------- EXPORT / IMPORT ----------
 document.getElementById('exportBtn').addEventListener('click', function() {
     fetch('/api/export')
         .then(res => res.json())
@@ -309,10 +381,9 @@ document.getElementById('exportBtn').addEventListener('click', function() {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         })
-        .catch(err => alert('Export failed: ' + err));
+        .catch(err => alert('Export failed.'));
 });
 
-// ---------- IMPORT ----------
 document.getElementById('importBtn').addEventListener('click', function() {
     document.getElementById('fileInput').click();
 });
@@ -324,11 +395,8 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            if (!Array.isArray(data)) {
-                alert('Invalid file format. Must be a JSON array.');
-                return;
-            }
-            if (confirm(`This will replace ALL existing alerts with ${data.length} alerts. Proceed?`)) {
+            if (!Array.isArray(data)) { alert('Invalid JSON format.'); return; }
+            if (confirm(`Replace all alerts with ${data.length} from this file?`)) {
                 fetch('/api/import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -337,25 +405,22 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'ok') {
-                        document.getElementById('importStatus').innerHTML = `✅ Imported ${result.count} alerts successfully!`;
+                        document.getElementById('importStatus').innerHTML = `✅ ${result.count} imported!`;
                         fetchAlerts();
                     } else {
                         alert('Import failed: ' + result.message);
                     }
-                })
-                .catch(err => alert('Import error: ' + err));
+                });
             }
-        } catch (err) {
-            alert('Invalid JSON file.');
-        }
+        } catch (err) { alert('Invalid JSON file.'); }
     };
     reader.readAsText(file);
-    this.value = ''; // Reset file input
+    this.value = '';
 });
 
 // ---------- INIT ----------
 fetchAlerts();
-setInterval(fetchAlerts, 30000);
+setInterval(fetchAlerts, 60000);
 </script>
 </body>
 </html>
