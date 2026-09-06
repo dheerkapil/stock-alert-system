@@ -11,20 +11,17 @@
         .card { border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 12px; padding: 12px; }
         .card h5 { font-size: 1rem; margin-bottom: 8px; }
 
-        /* ----- Scrollable Table (No fixed layout) ----- */
         .table-scroll {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
         .table-scroll table {
             width: 100%;
-            min-width: 700px;         /* Forces horizontal scroll on mobile */
+            min-width: 750px;
             margin-bottom: 0;
             border-collapse: collapse;
-            /* table-layout is auto by default – columns size to content */
         }
 
-        /* ----- Sticky Header ----- */
         .table-scroll thead {
             position: sticky;
             top: 0;
@@ -33,7 +30,7 @@
         .table-scroll thead th {
             background: #f8f9fa;
             border-bottom: 2px solid #ccc;
-            padding: 8px 8px;
+            padding: 8px 6px;
             font-size: 0.65rem;
             text-transform: uppercase;
             color: #333;
@@ -58,27 +55,33 @@
             opacity: 1;
         }
 
-        /* ----- Table Body ----- */
         .table-scroll tbody td {
-            padding: 8px 8px;
+            padding: 8px 6px;
             vertical-align: middle;
             border-bottom: 1px solid #eee;
             font-size: 0.8rem;
             white-space: nowrap;
         }
-        /* Actions column: ensure it has a minimum width so buttons are visible */
-        .table-scroll tbody td:last-child,
-        .table-scroll thead th:last-child {
+
+        /* ----- Column width control ----- */
+        /* Symbol and Added: natural width */
+        /* Cond, Trigger, CMP, %Gap, Status, Actions: tight */
+        /* MGAP: absorbs leftover space */
+        .col-mgap {
+            min-width: 80px;
+            width: auto;        /* expands to fill space */
+            text-align: right;
+        }
+        .col-actions {
             min-width: 110px;
+            width: 1%;          /* shrinks to content */
             text-align: center;
         }
 
-        /* ----- Alignment ----- */
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
 
-        /* ----- Status Circle ----- */
         .status-btn {
             width: 24px;
             height: 24px;
@@ -98,12 +101,10 @@
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.8; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
 
-        /* ----- CMP & Gap Colors ----- */
         .cmp-green, .gap-green { color: #28a745; font-weight: 600; }
         .cmp-red, .gap-red { color: #dc3545; font-weight: 600; }
         .cmp-neutral, .gap-neutral { color: #6c757d; }
 
-        /* ----- Action Buttons (Compact, but visible) ----- */
         .table .btn-sm {
             padding: 4px 8px;
             font-size: 0.75rem;
@@ -118,13 +119,11 @@
         .table .btn-outline-danger { color: #dc3545; border-color: #dc3545; background: white; }
         .table .btn-outline-warning { color: #ffc107; border-color: #ffc107; background: white; }
 
-        /* ----- Form ----- */
         .form-label { font-size: 0.75rem; margin-bottom: 2px; font-weight: 600; color: #444; }
         .form-control-sm, .form-select-sm { font-size: 0.9rem; padding: 0.3rem 0.5rem; }
         #addBtn { font-size: 0.9rem; padding: 0.3rem 0.6rem; }
         .btn-tool { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 10px; }
 
-        /* ----- Autocomplete ----- */
         .input-group { position: relative; }
         #symbolInput { position: relative; z-index: 1000; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
         .autocomplete-items {
@@ -151,12 +150,11 @@
         .autocomplete-item .symbol { font-weight: bold; margin-right: 6px; }
         .autocomplete-item .name { color: #555; font-size: 0.75rem; }
 
-        /* ----- Mobile ----- */
         @media (max-width: 576px) {
             body { padding: 5px; }
             .card { padding: 8px; margin-bottom: 8px; }
             .card h5 { font-size: 0.9rem; }
-            .table-scroll table { min-width: 650px; }
+            .table-scroll table { min-width: 720px; }
             .table-scroll thead th { font-size: 0.55rem; padding: 6px 4px; }
             .table-scroll tbody td { font-size: 0.7rem; padding: 6px 4px; }
             .table .btn-sm { padding: 3px 6px; font-size: 0.65rem; margin: 0 1px; }
@@ -166,10 +164,8 @@
             .btn-tool { font-size: 0.6rem; padding: 0.15rem 0.4rem; }
             .autocomplete-item { padding: 5px 8px; font-size: 0.8rem; }
             .autocomplete-item .name { font-size: 0.7rem; }
-            .table-scroll tbody td:last-child,
-            .table-scroll thead th:last-child {
-                min-width: 100px;
-            }
+            .col-actions { min-width: 100px; }
+            .col-mgap { min-width: 60px; }
         }
     </style>
 </head>
@@ -178,7 +174,6 @@
 
     <h1 class="text-center mb-3" style="font-size: 1.4rem;">📊 Alert Manager</h1>
 
-    <!-- ADD ALERT FORM -->
     <div class="card">
         <h5>➕ Add New Alert</h5>
         <div class="row g-2 align-items-end">
@@ -207,7 +202,6 @@
         <div id="addMessage" class="mt-2 small" style="font-size:0.85rem;"></div>
     </div>
 
-    <!-- DATA TOOLS -->
     <div class="card" style="padding: 6px 10px;">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <span style="font-size:0.8rem; font-weight:600;">💾</span>
@@ -218,7 +212,6 @@
         </div>
     </div>
 
-    <!-- ALERTS TABLE -->
     <div class="card" style="padding: 4px 2px;">
         <h5 style="padding-left:4px; font-size:0.95rem;">📋 Your Alerts</h5>
         <div class="table-scroll">
@@ -230,13 +223,14 @@
                         <th class="sortable text-right" data-sort="trigger">Trigger <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right col-mgap" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
-                        <th class="text-center">Actions</th>
+                        <th class="text-center col-actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="alertTableBody">
-                    <tr><td colspan="8" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -278,11 +272,10 @@ document.addEventListener('click', function(e) {
     if (e.target !== symbolInput) autocompleteList.style.display = 'none';
 });
 
-// ---------- SORTING STATE ----------
+// ---------- SORTING ----------
 let currentSort = { column: null, direction: 1 };
 let alertsData = [];
 
-// ---------- SORT FUNCTION ----------
 function sortAlerts(data, column, direction) {
     const sorted = [...data];
     sorted.sort((a, b) => {
@@ -305,6 +298,13 @@ function sortAlerts(data, column, direction) {
                 const gapB = calculateGap(b);
                 return direction * (gapA - gapB);
             }
+            case 'mgap': {
+                const gapA = calculateGap(a);
+                const gapB = calculateGap(b);
+                const absA = isFinite(gapA) ? Math.abs(gapA) : Infinity;
+                const absB = isFinite(gapB) ? Math.abs(gapB) : Infinity;
+                return direction * (absA - absB);
+            }
             case 'status': {
                 const getStatusVal = (item) => {
                     if (item.is_triggered === 1) return 2;
@@ -325,7 +325,6 @@ function sortAlerts(data, column, direction) {
     return sorted;
 }
 
-// ---------- CALCULATE % GAP ----------
 function calculateGap(item) {
     const cmp = parseFloat(item.cmp);
     const trigger = parseFloat(item.trigger_price);
@@ -333,7 +332,6 @@ function calculateGap(item) {
     return ((trigger - cmp) / cmp) * 100;
 }
 
-// ---------- FORMAT DATE ----------
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     try {
@@ -344,11 +342,11 @@ function formatDate(dateStr) {
     }
 }
 
-// ---------- RENDER TABLE ----------
+// ---------- RENDER ----------
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         return;
     }
 
@@ -382,7 +380,14 @@ function renderAlerts(data) {
             }
         }
 
-        // Status Button
+        // MGAP (absolute value)
+        let mgapDisplay = '-';
+        if (isFinite(gap)) {
+            const absGap = Math.abs(gap);
+            mgapDisplay = absGap.toFixed(1) + '%';
+        }
+
+        // Status button
         let statusClass = 'inactive';
         let statusText = '⚪';
         let disabled = '';
@@ -406,6 +411,7 @@ function renderAlerts(data) {
             <td class="text-right">${a.trigger_price}</td>
             <td class="text-right ${cmpClass}">${cmpDisplay}</td>
             <td class="text-right ${gapClass}">${gapDisplay}</td>
+            <td class="text-right">${mgapDisplay}</td>
             <td class="text-center">
                 <button class="status-btn ${statusClass}" data-id="${a.id}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" ${disabled}>
                     ${statusText}
@@ -421,7 +427,7 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
-    // Attach Events
+    // Attach events
     document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -478,7 +484,7 @@ function renderAlerts(data) {
     });
 }
 
-// ---------- FETCH ALERTS ----------
+// ---------- FETCH ----------
 function fetchAlerts() {
     fetch('/api/alerts')
         .then(res => res.json())
@@ -494,11 +500,11 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="8" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="9" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 
-// ---------- SORT HEADER CLICK ----------
+// ---------- SORT CLICK ----------
 document.querySelectorAll('.sortable').forEach(header => {
     header.addEventListener('click', function() {
         const column = this.dataset.sort;
