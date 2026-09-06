@@ -63,7 +63,6 @@
             white-space: nowrap;
         }
 
-        /* ----- Actions column stays tight ----- */
         .col-actions {
             min-width: 110px;
             width: 1%;
@@ -323,11 +322,17 @@ function calculateGap(item) {
     return ((trigger - cmp) / cmp) * 100;
 }
 
+// ---------- FORMAT DATE + TIME ----------
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     try {
         const d = new Date(dateStr);
-        return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     } catch {
         return '-';
     }
@@ -394,6 +399,7 @@ function renderAlerts(data) {
             statusText = '⚪';
         }
 
+        // Date with time
         const dateDisplay = formatDate(a.added_at);
 
         html += `<tr>
