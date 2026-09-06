@@ -7,16 +7,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background: #f8f9fa; padding: 20px; }
-        .container { max-width: 700px; margin: auto; }
+        .container { max-width: 750px; margin: auto; }
         .card { border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .badge-triggered { background: #dc3545; }
         .badge-active { background: #28a745; }
         .badge-inactive { background: #6c757d; }
         .input-group { position: relative; }
-        #symbolInput {
-            position: relative;
-            z-index: 1000;
-        }
+        #symbolInput { position: relative; z-index: 1000; }
         .autocomplete-items {
             position: absolute;
             z-index: 999;
@@ -37,21 +34,15 @@
             border-bottom: 1px solid #eee;
             font-size: 0.95rem;
         }
-        .autocomplete-item:hover {
-            background: #f0f0f0;
-        }
-        .autocomplete-item .symbol {
-            font-weight: bold;
-            margin-right: 8px;
-        }
-        .autocomplete-item .name {
-            color: #555;
-            font-size: 0.85rem;
-        }
+        .autocomplete-item:hover { background: #f0f0f0; }
+        .autocomplete-item .symbol { font-weight: bold; margin-right: 8px; }
+        .autocomplete-item .name { color: #555; font-size: 0.85rem; }
+        .btn-tool { border-radius: 20px; margin: 0 2px; }
         @media (max-width: 576px) {
             .table th, .table td { font-size: 0.7rem; padding: 0.3rem; }
             .btn-sm { font-size: 0.6rem; padding: 0.2rem 0.5rem; }
             .autocomplete-item { padding: 8px 10px; font-size: 0.9rem; }
+            .btn-tool { font-size: 0.7rem; }
         }
     </style>
 </head>
@@ -59,6 +50,7 @@
 <div class="container">
     <h1 class="text-center mb-4">📊 Alert Manager</h1>
 
+    <!-- Add Alert Form -->
     <div class="card p-3">
         <h5>➕ Add New Alert</h5>
         <div class="row g-2 align-items-end">
@@ -87,6 +79,18 @@
         <div id="addMessage" class="mt-2 small"></div>
     </div>
 
+    <!-- Tools: Export / Import -->
+    <div class="card p-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="fw-bold me-2">💾 Data Tools:</span>
+            <button id="exportBtn" class="btn btn-outline-success btn-sm btn-tool">📥 Export</button>
+            <button id="importBtn" class="btn btn-outline-primary btn-sm btn-tool">📤 Import</button>
+            <input type="file" id="fileInput" accept=".json" style="display: none;">
+            <span id="importStatus" class="small text-muted"></span>
+        </div>
+    </div>
+
+    <!-- Alerts Table -->
     <div class="card p-2">
         <h5>📋 Your Alerts</h5>
         <div class="table-responsive">
@@ -181,7 +185,7 @@ function fetchAlerts() {
             });
             tbody.innerHTML = html;
 
-            // Edit button
+            // Edit
             document.querySelectorAll('.edit-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     const id = this.dataset.id;
@@ -203,7 +207,7 @@ function fetchAlerts() {
                             }
                         });
                     } else if (newPrice !== null) {
-                        alert('❌ Invalid price. Please enter a positive number.');
+                        alert('❌ Invalid price.');
                     }
                 });
             });
@@ -290,6 +294,66 @@ document.getElementById('addBtn').addEventListener('click', function() {
     });
 });
 
+// ---------- EXPORT ----------
+document.getElementById('exportBtn').addEventListener('click', function() {
+    fetch('/api/export')
+        .then(res => res.json())
+        .then(data => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        })
+        .catch(err => alert('Export failed: ' + err));
+});
+
+// ---------- IMPORT ----------
+document.getElementById('importBtn').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', function(event) {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!Array.isArray(data)) {
+                alert('Invalid file format. Must be a JSON array.');
+                return;
+            }
+            if (confirm(`This will replace ALL existing alerts with ${data.length} alerts. Proceed?`)) {
+                fetch('/api/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if (result.status === 'ok') {
+                        document.getElementById('importStatus').innerHTML = `✅ Imported ${result.count} alerts successfully!`;
+                        fetchAlerts();
+                    } else {
+                        alert('Import failed: ' + result.message);
+                    }
+                })
+                .catch(err => alert('Import error: ' + err));
+            }
+        } catch (err) {
+            alert('Invalid JSON file.');
+        }
+    };
+    reader.readAsText(file);
+    this.value = ''; // Reset file input
+});
+
+// ---------- INIT ----------
 fetchAlerts();
 setInterval(fetchAlerts, 30000);
 </script>

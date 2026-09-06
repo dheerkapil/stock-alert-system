@@ -4,8 +4,9 @@ import time
 import logging
 import requests
 import pandas as pd
+import json
 from io import StringIO
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import config
 import stock_alert
 
@@ -38,7 +39,7 @@ def refresh_nse_symbols():
             {"symbol": row[symbol_col].strip(), "name": row[name_col].strip()}
             for _, row in df.iterrows()
         ]
-        logger.info(f"Cached {len(NSE_SYMBOLS)} symbols for autocomplete.")
+        logger.info(f"Cached {len(NSE_SYMBOLS)} symbols.")
     except Exception as e:
         logger.error(f"Failed to fetch NSE symbols: {e}")
         NSE_SYMBOLS = []
@@ -89,7 +90,7 @@ def search_symbols():
         name = item['name']
         if query in symbol or query in name.upper():
             results.append(item)
-            if len(results) >= 50:  # Increased for better visibility
+            if len(results) >= 50:
                 break
     return jsonify(results)
 
@@ -241,6 +242,51 @@ def delete_alert(alert_id):
     except Exception as e:
         logger.error(f"Error in /api/delete: {e}")
         return jsonify({'status': 'error'}), 500
+
+# ---------- EXPORT & IMPORT (NEW) ----------
+@app.route('/api/export')
+def export_alerts():
+    """Export all alerts as a JSON file."""
+    try:
+        conn = get_db()
+        alerts = conn.execute('SELECT * FROM watchlist').fetchall()
+        conn.close()
+        data = [dict(row) for row in alerts]
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import', methods=['POST'])
+def import_alerts():
+    """Import alerts from a JSON file (replaces current data)."""
+    try:
+        data = request.json
+        if not isinstance(data, list):
+            return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
+
+        conn = get_db()
+        # Clear existing alerts
+        conn.execute('DELETE FROM watchlist')
+        # Insert new alerts
+        for item in data:
+            # Only insert safe fields
+            conn.execute('''
+                INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                item.get('symbol', '').upper(),
+                item.get('condition', '>='),
+                float(item.get('trigger_price', 0)),
+                int(item.get('is_active', 1)),
+                int(item.get('is_triggered', 0))
+            ))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'ok', 'count': len(data)})
+    except Exception as e:
+        logger.error(f"Import error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # ---------- WORKER THREAD ----------
 def start_worker():
