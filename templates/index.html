@@ -12,6 +12,11 @@
         .badge-triggered { background: #dc3545; }
         .badge-active { background: #28a745; }
         .badge-inactive { background: #6c757d; }
+        .input-group { position: relative; }
+        #symbolInput {
+            position: relative;
+            z-index: 1000;
+        }
         .autocomplete-items {
             position: absolute;
             z-index: 999;
@@ -19,22 +24,34 @@
             background: white;
             border: 1px solid #ccc;
             border-top: none;
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
             border-radius: 0 0 8px 8px;
+            top: 100%;
+            left: 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .autocomplete-item {
-            padding: 8px 12px;
+            padding: 10px 14px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
+            font-size: 0.95rem;
         }
-        .autocomplete-item:hover { background: #f0f0f0; }
-        .autocomplete-item .symbol { font-weight: bold; }
-        .autocomplete-item .name { color: #666; font-size: 0.8rem; margin-left: 8px; }
-        .input-group { position: relative; }
+        .autocomplete-item:hover {
+            background: #f0f0f0;
+        }
+        .autocomplete-item .symbol {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .autocomplete-item .name {
+            color: #555;
+            font-size: 0.85rem;
+        }
         @media (max-width: 576px) {
             .table th, .table td { font-size: 0.7rem; padding: 0.3rem; }
             .btn-sm { font-size: 0.6rem; padding: 0.2rem 0.5rem; }
+            .autocomplete-item { padding: 8px 10px; font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -48,7 +65,7 @@
             <div class="col-4">
                 <label class="form-label small">Symbol</label>
                 <div class="input-group">
-                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off">
+                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off" style="z-index:1001;">
                     <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
                 </div>
             </div>
@@ -164,7 +181,7 @@ function fetchAlerts() {
             });
             tbody.innerHTML = html;
 
-            // Edit button logic
+            // Edit button
             document.querySelectorAll('.edit-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     const id = this.dataset.id;
@@ -191,7 +208,7 @@ function fetchAlerts() {
                 });
             });
 
-            // Other buttons (same as before)
+            // Toggle, Reactivate, Delete
             document.querySelectorAll('.toggle-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'}).then(() => fetchAlerts());

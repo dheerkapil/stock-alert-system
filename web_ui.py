@@ -15,10 +15,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ---------- GLOBAL CACHE FOR NSE SYMBOLS (for autocomplete) ----------
-NSE_SYMBOLS = []  # List of {"symbol": "RELIANCE", "name": "Reliance Industries Ltd"}
+NSE_SYMBOLS = []
 
 def refresh_nse_symbols():
-    """Fetch the NSE master list and cache it for autocomplete."""
     global NSE_SYMBOLS
     url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
     headers = {"User-Agent": config.USER_AGENT}
@@ -26,28 +25,24 @@ def refresh_nse_symbols():
         resp = requests.get(url, headers=headers, timeout=30)
         resp.raise_for_status()
         df = pd.read_csv(StringIO(resp.text))
-        # Find columns
         symbol_col = next((c for c in df.columns if 'SYMBOL' in c.upper()), None)
         name_col = next((c for c in df.columns if 'NAME' in c.upper()), None)
         series_col = next((c for c in df.columns if 'SERIES' in c.upper()), None)
         if not symbol_col or not name_col:
             logger.error("Could not find columns in NSE CSV")
             return
-        # Filter for EQ and BE
         if series_col:
             df[series_col] = df[series_col].str.strip()
             df = df[df[series_col].isin(['EQ', 'BE'])]
-        # Store as list of dicts
         NSE_SYMBOLS = [
             {"symbol": row[symbol_col].strip(), "name": row[name_col].strip()}
             for _, row in df.iterrows()
         ]
         logger.info(f"Cached {len(NSE_SYMBOLS)} symbols for autocomplete.")
     except Exception as e:
-        logger.error(f"Failed to fetch NSE symbols for autocomplete: {e}")
+        logger.error(f"Failed to fetch NSE symbols: {e}")
         NSE_SYMBOLS = []
 
-# Refresh on startup
 refresh_nse_symbols()
 
 # ---------- DATABASE ----------
@@ -83,7 +78,6 @@ def init_db():
 def index():
     return render_template('index.html')
 
-# ---------- AUTOCOMPLETE ----------
 @app.route('/api/search')
 def search_symbols():
     query = request.args.get('q', '').strip().upper()
@@ -95,11 +89,10 @@ def search_symbols():
         name = item['name']
         if query in symbol or query in name.upper():
             results.append(item)
-            if len(results) >= 20:  # Limit results for performance
+            if len(results) >= 50:  # Increased for better visibility
                 break
     return jsonify(results)
 
-# ---------- GET CURRENT PRICE (for smart check) ----------
 @app.route('/api/price/<symbol>')
 def get_price(symbol):
     try:
@@ -112,14 +105,13 @@ def get_price(symbol):
         logger.error(f"Price fetch error: {e}")
         return jsonify({"symbol": symbol, "error": str(e)}), 500
 
-# ---------- ADD ALERT (with smart check) ----------
 @app.route('/api/add', methods=['POST'])
 def add_alert():
     data = request.json
     symbol = data.get('symbol', '').upper()
     condition = data.get('condition')
     trigger_price = data.get('price')
-    force = data.get('force', False)  # If user confirms to add even if triggered
+    force = data.get('force', False)
 
     if not symbol or condition not in ('>=', '<=') or not trigger_price:
         return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
@@ -129,7 +121,6 @@ def add_alert():
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
 
-    # Smart check: fetch current price
     current_price = None
     try:
         prices = stock_alert.get_prices([symbol])
@@ -137,7 +128,6 @@ def add_alert():
     except Exception as e:
         logger.warning(f"Could not fetch price for {symbol}: {e}")
 
-    # If we got a price and the condition is already met
     warning = None
     if current_price is not None:
         if condition == '>=' and current_price >= trigger_price:
@@ -145,7 +135,6 @@ def add_alert():
         elif condition == '<=' and current_price <= trigger_price:
             warning = f"Current price is {current_price}, which already meets the condition."
 
-    # If not forcing and there is a warning, ask the frontend to confirm
     if warning and not force:
         return jsonify({
             'status': 'warning',
@@ -153,7 +142,6 @@ def add_alert():
             'current_price': current_price
         }), 200
 
-    # Add the alert
     conn = get_db()
     try:
         conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price) VALUES (?, ?, ?)',
@@ -169,7 +157,6 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATE ALERT PRICE (for splits/bonuses) ----------
 @app.route('/api/update/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
     try:
@@ -190,7 +177,6 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- OTHER API ROUTES ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
