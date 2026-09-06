@@ -10,10 +10,12 @@ TRADINGVIEW_CHUNK_SIZE = 150
 TRADINGVIEW_DELAY = 0.5
 YAHOO_FINANCE_ENABLED = True
 
-# Telegram credentials – will be None if not set (no crash)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 DB_FILE = os.environ.get("DB_FILE", "watchlist.db")
 CONSECUTIVE_TV_FAILURES_THRESHOLD = 3
 LOG_LEVEL = "INFO"
+
+# ADD THIS LINE:
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
