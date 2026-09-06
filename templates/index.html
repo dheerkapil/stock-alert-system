@@ -20,22 +20,22 @@
             padding: 0 2px;
         }
         .table-scroll table {
-            table-layout: fixed;  /* Forces columns to respect widths */
+            table-layout: fixed;
             width: 100%;
-            min-width: 700px;     /* Ensures horizontal scroll on mobile if needed */
+            min-width: 700px;
             margin-bottom: 0;
             border-collapse: collapse;
         }
 
-        /* ----- Column Widths (Balanced Percentages) ----- */
-        .col-symbol { width: 12%; }
-        .col-cond { width: 6%; }
-        .col-trigger { width: 10%; }
-        .col-cmp { width: 10%; }
-        .col-gap { width: 10%; }
-        .col-status { width: 8%; }
-        .col-added { width: 12%; }
-        .col-actions { width: 22%; } /* Slightly wider for buttons */
+        /* ----- Column Widths (Balanced, without Actions) ----- */
+        .col-symbol { width: 14%; }
+        .col-cond { width: 7%; }
+        .col-trigger { width: 11%; }
+        .col-cmp { width: 11%; }
+        .col-gap { width: 11%; }
+        .col-status { width: 9%; }
+        .col-added { width: 14%; }
+        /* Actions column has NO fixed width – it shrinks to content */
 
         /* ----- Table Headers (Sticky) ----- */
         .table-scroll thead {
@@ -79,7 +79,13 @@
             font-size: 0.8rem;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis; /* Fallback if content overflows */
+            text-overflow: ellipsis;
+        }
+        /* Actions column: no fixed width, just content */
+        .table-scroll tbody td:last-child {
+            width: 1%;          /* Forces shrink-to-fit */
+            white-space: nowrap;
+            text-align: center;
         }
 
         /* ----- Alignment Classes ----- */
@@ -112,14 +118,15 @@
         .cmp-red, .gap-red { color: #dc3545; font-weight: 600; }
         .cmp-neutral, .gap-neutral { color: #6c757d; }
 
-        /* ----- Action Buttons (Compact) ----- */
+        /* ----- Action Buttons (Compact, Tight) ----- */
         .table .btn-sm {
             padding: 4px 6px;
             font-size: 0.75rem;
             border-radius: 6px;
-            margin: 0 2px;
+            margin: 0 1px;      /* Minimal margin between buttons */
             border: 1px solid transparent;
             background: #f1f3f5;
+            display: inline-block;
         }
         .table .btn-sm:hover { background: #e9ecef; }
         .table .btn-outline-primary { color: #0d6efd; border-color: #0d6efd; background: white; }
@@ -159,7 +166,7 @@
         .autocomplete-item .symbol { font-weight: bold; margin-right: 6px; }
         .autocomplete-item .name { color: #555; font-size: 0.75rem; }
 
-        /* ----- Mobile Adjustments (tune column widths & font) ----- */
+        /* ----- Mobile Adjustments ----- */
         @media (max-width: 576px) {
             body { padding: 5px; }
             .card { padding: 8px; margin-bottom: 8px; }
@@ -178,7 +185,6 @@
             .btn-tool { font-size: 0.6rem; padding: 0.15rem 0.4rem; }
             .autocomplete-item { padding: 5px 8px; font-size: 0.8rem; }
             .autocomplete-item .name { font-size: 0.7rem; }
-            .col-actions { width: 26%; } /* slightly wider on mobile for easier tapping */
         }
     </style>
 </head>
@@ -227,7 +233,7 @@
         </div>
     </div>
 
-    <!-- ALERTS TABLE (STICKY HEADER + FIXED LAYOUT) -->
+    <!-- ALERTS TABLE -->
     <div class="card" style="padding: 4px 2px;">
         <h5 style="padding-left:4px; font-size:0.95rem;">📋 Your Alerts</h5>
         <div class="table-scroll">
@@ -241,7 +247,7 @@
                         <th class="col-gap sortable text-right" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
                         <th class="col-status sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="col-added sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
-                        <th class="col-actions text-center">Actions</th>
+                        <th class="text-center" style="width:1%; white-space:nowrap;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="alertTableBody">
@@ -421,7 +427,7 @@ function renderAlerts(data) {
                 </button>
             </td>
             <td class="col-added text-left">${dateDisplay}</td>
-            <td class="col-actions text-center" style="white-space:nowrap;">
+            <td class="text-center" style="white-space:nowrap; width:1%;">
                 <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}" title="Edit">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}" title="Delete">🗑️</button>
