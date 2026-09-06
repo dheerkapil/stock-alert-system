@@ -12,6 +12,23 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def init_db():
+    conn = sqlite3.connect(config.DB_FILE)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS watchlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            condition TEXT NOT NULL CHECK(condition IN ('>=', '<=')),
+            trigger_price REAL NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            is_triggered INTEGER DEFAULT 0,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -88,14 +105,13 @@ def delete_alert(alert_id):
 #  START THE ALERT WORKER IN A BACKGROUND THREAD
 # ------------------------------------------------------------------
 def start_worker():
-    # Give the web server a moment to start
     time.sleep(5)
     stock_alert.main()
 
-# Run the worker as a daemon thread (will exit when main process ends)
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
 # ------------------------------------------------------------------
 if __name__ == '__main__':
+    init_db()
     app.run(host='0.0.0.0', port=5000)
