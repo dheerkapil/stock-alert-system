@@ -178,7 +178,6 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- ALERTS API WITH CMP ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
@@ -256,7 +255,6 @@ def delete_alert(alert_id):
         logger.error(f"Error in /api/delete: {e}")
         return jsonify({'status': 'error'}), 500
 
-# ---------- EXPORT & IMPORT ----------
 @app.route('/api/export')
 def export_alerts():
     try:
