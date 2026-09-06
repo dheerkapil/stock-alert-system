@@ -73,6 +73,9 @@ def get_prices(symbols):
     return tv_prices
 
 def send_telegram(message):
+    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
+        logger.error("Telegram credentials missing – alert not sent.")
+        return
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": config.TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
     try:
@@ -86,7 +89,7 @@ def is_market_open(now):
     return start <= now.time() <= stop
 
 def main():
-    logger.info(f"🚀 Started. Poll interval: {config.POLL_INTERVAL}s. Market hours: {config.START_TIME} - {config.STOP_TIME} IST.")
+    logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s. Market hours: {config.START_TIME} - {config.STOP_TIME} IST.")
     while True:
         now = datetime.now(config.TIMEZONE)
         while not is_market_open(now):

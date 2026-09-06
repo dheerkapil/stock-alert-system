@@ -25,10 +25,21 @@
     <div class="card p-3">
         <h5>➕ Add New Alert</h5>
         <div class="row g-2">
-            <div class="col-4"><input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Symbol" style="text-transform: uppercase;"></div>
-            <div class="col-3"><select id="condSelect" class="form-select form-select-sm"><option value=">=" selected>&gt;=</option><option value="<=">&lt;=</option></select></div>
-            <div class="col-3"><input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="0.01"></div>
-            <div class="col-2"><button id="addBtn" class="btn btn-primary btn-sm w-100">Add</button></div>
+            <div class="col-4">
+                <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Symbol" style="text-transform: uppercase;">
+            </div>
+            <div class="col-3">
+                <select id="condSelect" class="form-select form-select-sm">
+                    <option value=">=" selected>&gt;=</option>
+                    <option value="<=">&lt;=</option>
+                </select>
+            </div>
+            <div class="col-3">
+                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="0.01">
+            </div>
+            <div class="col-2">
+                <button id="addBtn" class="btn btn-primary btn-sm w-100">Add</button>
+            </div>
         </div>
         <div id="addMessage" class="mt-2 small"></div>
     </div>
@@ -37,8 +48,12 @@
         <h5>📋 Your Alerts</h5>
         <div class="table-responsive">
             <table class="table table-hover table-sm mb-0">
-                <thead><tr><th>Symbol</th><th>Cond</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody id="alertTableBody"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
+                <thead>
+                    <tr><th>Symbol</th><th>Cond</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="alertTableBody">
+                    <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+                </tbody>
             </table>
         </div>
     </div>
@@ -46,37 +61,103 @@
 
 <script>
 function fetchAlerts() {
-    fetch('/api/alerts').then(res => res.json()).then(data => {
-        const tbody = document.getElementById('alertTableBody');
-        if (data.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center">No alerts set.</td></tr>`; return; }
-        let html = '';
-        data.forEach(a => {
-            let statusText = '🔴 Triggered', statusClass = 'badge-triggered';
-            if (a.is_triggered === 0 && a.is_active === 1) { statusText = '🟢 Active'; statusClass = 'badge-active'; }
-            else if (a.is_active === 0) { statusText = '⚪ Paused'; statusClass = 'badge-inactive'; }
-            html += `<tr><td><strong>${a.symbol}</strong></td><td>${a.condition}</td><td>${a.trigger_price}</td><td><span class="badge ${statusClass}">${statusText}</span></td>
-                <td><button class="btn btn-sm btn-outline-secondary toggle-btn" data-id="${a.id}" data-active="${a.is_active}">${a.is_active ? '⏸' : '▶️'}</button>
-                ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}">🔄</button>` : ''}
-                <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}">🗑️</button></td></tr>`;
+    fetch('/api/alerts')
+        .then(res => {
+            if (!res.ok) {
+                return res.text().then(text => { throw new Error(text) });
+            }
+            return res.json();
+        })
+        .then(data => {
+            const tbody = document.getElementById('alertTableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center">No alerts set.</td></tr>`;
+                return;
+            }
+            let html = '';
+            data.forEach(a => {
+                let statusText = '🔴 Triggered', statusClass = 'badge-triggered';
+                if (a.is_triggered === 0 && a.is_active === 1) {
+                    statusText = '🟢 Active';
+                    statusClass = 'badge-active';
+                } else if (a.is_active === 0) {
+                    statusText = '⚪ Paused';
+                    statusClass = 'badge-inactive';
+                }
+                html += `<tr>
+                    <td><strong>${a.symbol}</strong></td>
+                    <td>${a.condition}</td>
+                    <td>${a.trigger_price}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary toggle-btn" data-id="${a.id}" data-active="${a.is_active}">${a.is_active ? '⏸' : '▶️'}</button>
+                        ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}">🔄</button>` : ''}
+                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}">🗑️</button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            // Attach event listeners
+            document.querySelectorAll('.toggle-btn').forEach(b => {
+                b.addEventListener('click', function() {
+                    fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'})
+                        .then(() => fetchAlerts());
+                });
+            });
+            document.querySelectorAll('.reactivate-btn').forEach(b => {
+                b.addEventListener('click', function() {
+                    fetch(`/api/reactivate/${this.dataset.id}`, {method:'POST'})
+                        .then(() => fetchAlerts());
+                });
+            });
+            document.querySelectorAll('.delete-btn').forEach(b => {
+                b.addEventListener('click', function() {
+                    if (confirm('Delete this alert?')) {
+                        fetch(`/api/delete/${this.dataset.id}`, {method:'DELETE'})
+                            .then(() => fetchAlerts());
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            document.getElementById('alertTableBody').innerHTML =
+                `<tr><td colspan="5" class="text-center text-danger">Error loading alerts. Check logs.</td></tr>`;
         });
-        tbody.innerHTML = html;
-        document.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', function() { fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'}).then(()=>fetchAlerts()); }));
-        document.querySelectorAll('.reactivate-btn').forEach(b => b.addEventListener('click', function() { fetch(`/api/reactivate/${this.dataset.id}`, {method:'POST'}).then(()=>fetchAlerts()); }));
-        document.querySelectorAll('.delete-btn').forEach(b => b.addEventListener('click', function() { if(confirm('Delete?')) fetch(`/api/delete/${this.dataset.id}`, {method:'DELETE'}).then(()=>fetchAlerts()); }));
-    });
 }
+
 document.getElementById('addBtn').addEventListener('click', function() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const condition = document.getElementById('condSelect').value;
     const price = document.getElementById('priceInput').value.trim();
-    if (!symbol || !price) { document.getElementById('addMessage').innerHTML = '<span class="text-danger">Fill all fields.</span>'; return; }
-    fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, condition, price: parseFloat(price) }) })
-    .then(res => res.json()).then(data => {
-        if (data.status === 'ok') { document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Added!</span>'; document.getElementById('symbolInput').value = ''; document.getElementById('priceInput').value = ''; fetchAlerts(); }
-        else { document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`; }
+    if (!symbol || !price) {
+        document.getElementById('addMessage').innerHTML = '<span class="text-danger">Fill all fields.</span>';
+        return;
+    }
+    fetch('/api/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, condition, price: parseFloat(price) })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Added!</span>';
+            document.getElementById('symbolInput').value = '';
+            document.getElementById('priceInput').value = '';
+            fetchAlerts();
+        } else {
+            document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ Server error: ${err}</span>`;
     });
 });
+
+// Initial load
 fetchAlerts();
+// Refresh every 30 seconds
 setInterval(fetchAlerts, 30000);
 </script>
 </body>
