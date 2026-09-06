@@ -322,21 +322,21 @@ function calculateGap(item) {
     return ((trigger - cmp) / cmp) * 100;
 }
 
-// ---------- FORMAT DATE + TIME (Convert UTC to IST) ----------
+// ---------- FORMAT DATE + TIME (Manual IST conversion) ----------
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     try {
+        // Parse as UTC (Render server time is UTC)
         const d = new Date(dateStr);
-        // Convert to IST using toLocaleString
-        return d.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false   // 24-hour format
-        }).replace(',', ''); // Remove comma (e.g., "06/09/2026, 14:30" -> "06/09/2026 14:30")
+        // Add 5 hours 30 minutes for IST
+        d.setHours(d.getHours() + 5);
+        d.setMinutes(d.getMinutes() + 30);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     } catch {
         return '-';
     }
