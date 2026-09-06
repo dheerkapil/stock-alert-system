@@ -28,9 +28,7 @@
             cursor: pointer;
             border-bottom: 1px solid #eee;
         }
-        .autocomplete-item:hover {
-            background: #f0f0f0;
-        }
+        .autocomplete-item:hover { background: #f0f0f0; }
         .autocomplete-item .symbol { font-weight: bold; }
         .autocomplete-item .name { color: #666; font-size: 0.8rem; margin-left: 8px; }
         .input-group { position: relative; }
@@ -114,12 +112,10 @@ symbolInput.addEventListener('input', function() {
             });
             autocompleteList.innerHTML = html;
             autocompleteList.style.display = 'block';
-            // Add click listeners
             document.querySelectorAll('.autocomplete-item').forEach(el => {
                 el.addEventListener('click', function() {
                     symbolInput.value = this.dataset.symbol;
                     autocompleteList.style.display = 'none';
-                    // Trigger a blur event to close
                     symbolInput.blur();
                 });
             });
@@ -127,7 +123,6 @@ symbolInput.addEventListener('input', function() {
         .catch(() => { autocompleteList.style.display = 'none'; });
 });
 
-// Hide autocomplete when clicking outside
 document.addEventListener('click', function(e) {
     if (e.target !== symbolInput) {
         autocompleteList.style.display = 'none';
@@ -160,6 +155,7 @@ function fetchAlerts() {
                     <td>${a.trigger_price}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
                     <td>
+                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}">✏️</button>
                         <button class="btn btn-sm btn-outline-secondary toggle-btn" data-id="${a.id}" data-active="${a.is_active}">${a.is_active ? '⏸' : '▶️'}</button>
                         ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}">🔄</button>` : ''}
                         <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}">🗑️</button>
@@ -167,7 +163,35 @@ function fetchAlerts() {
                 </tr>`;
             });
             tbody.innerHTML = html;
-            // Attach event listeners
+
+            // Edit button logic
+            document.querySelectorAll('.edit-btn').forEach(b => {
+                b.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const currentPrice = this.dataset.price;
+                    const newPrice = prompt(`Enter new trigger price for alert ID ${id}:`, currentPrice);
+                    if (newPrice !== null && !isNaN(parseFloat(newPrice)) && parseFloat(newPrice) > 0) {
+                        fetch(`/api/update/${id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ price: parseFloat(newPrice) })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'ok') {
+                                alert('✅ Price updated!');
+                                fetchAlerts();
+                            } else {
+                                alert('❌ Update failed: ' + data.message);
+                            }
+                        });
+                    } else if (newPrice !== null) {
+                        alert('❌ Invalid price. Please enter a positive number.');
+                    }
+                });
+            });
+
+            // Other buttons (same as before)
             document.querySelectorAll('.toggle-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'}).then(() => fetchAlerts());
@@ -193,7 +217,7 @@ function fetchAlerts() {
         });
 }
 
-// ---------- ADD ALERT (with smart warning) ----------
+// ---------- ADD ALERT ----------
 document.getElementById('addBtn').addEventListener('click', function() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const condition = document.getElementById('condSelect').value;
@@ -206,7 +230,6 @@ document.getElementById('addBtn').addEventListener('click', function() {
 
     const payload = { symbol, condition, price: parseFloat(price) };
 
-    // First attempt: check if the alert is already triggered
     fetch('/api/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -220,9 +243,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
             document.getElementById('priceInput').value = '';
             fetchAlerts();
         } else if (data.status === 'warning') {
-            // Ask user if they want to add it anyway
             if (confirm(`⚠️ Warning: ${data.message}\n\nDo you still want to add this alert?`)) {
-                // Force add with 'force: true'
                 payload.force = true;
                 fetch('/api/add', {
                     method: 'POST',
@@ -252,9 +273,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
     });
 });
 
-// Initial load
 fetchAlerts();
-// Refresh every 30 seconds
 setInterval(fetchAlerts, 30000);
 </script>
 </body>

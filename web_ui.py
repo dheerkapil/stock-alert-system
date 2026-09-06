@@ -169,7 +169,28 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- OTHER API ROUTES (unchanged) ----------
+# ---------- UPDATE ALERT PRICE (for splits/bonuses) ----------
+@app.route('/api/update/<int:alert_id>', methods=['POST'])
+def update_alert(alert_id):
+    try:
+        data = request.json
+        new_price = data.get('price')
+        if new_price is None:
+            return jsonify({'status': 'error', 'message': 'Missing price'}), 400
+        try:
+            new_price = float(new_price)
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
+        conn = get_db()
+        conn.execute('UPDATE watchlist SET trigger_price = ? WHERE id = ?', (new_price, alert_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        logger.error(f"Error in /api/update: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ---------- OTHER API ROUTES ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
