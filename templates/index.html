@@ -12,6 +12,28 @@
         .badge-triggered { background: #dc3545; }
         .badge-active { background: #28a745; }
         .badge-inactive { background: #6c757d; }
+        .autocomplete-items {
+            position: absolute;
+            z-index: 999;
+            width: 100%;
+            background: white;
+            border: 1px solid #ccc;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 0 0 8px 8px;
+        }
+        .autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .autocomplete-item:hover {
+            background: #f0f0f0;
+        }
+        .autocomplete-item .symbol { font-weight: bold; }
+        .autocomplete-item .name { color: #666; font-size: 0.8rem; margin-left: 8px; }
+        .input-group { position: relative; }
         @media (max-width: 576px) {
             .table th, .table td { font-size: 0.7rem; padding: 0.3rem; }
             .btn-sm { font-size: 0.6rem; padding: 0.2rem 0.5rem; }
@@ -24,18 +46,24 @@
 
     <div class="card p-3">
         <h5>➕ Add New Alert</h5>
-        <div class="row g-2">
+        <div class="row g-2 align-items-end">
             <div class="col-4">
-                <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Symbol" style="text-transform: uppercase;">
+                <label class="form-label small">Symbol</label>
+                <div class="input-group">
+                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off">
+                    <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
+                </div>
             </div>
             <div class="col-3">
+                <label class="form-label small">Condition</label>
                 <select id="condSelect" class="form-select form-select-sm">
                     <option value=">=" selected>&gt;=</option>
                     <option value="<=">&lt;=</option>
                 </select>
             </div>
             <div class="col-3">
-                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="0.01">
+                <label class="form-label small">Price</label>
+                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="e.g. 5000" step="0.01">
             </div>
             <div class="col-2">
                 <button id="addBtn" class="btn btn-primary btn-sm w-100">Add</button>
@@ -60,14 +88,56 @@
 </div>
 
 <script>
+// ---------- AUTOCOMPLETE ----------
+const symbolInput = document.getElementById('symbolInput');
+const autocompleteList = document.getElementById('autocompleteList');
+
+symbolInput.addEventListener('input', function() {
+    const query = this.value.trim();
+    if (query.length < 1) {
+        autocompleteList.style.display = 'none';
+        return;
+    }
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.length === 0) {
+                autocompleteList.style.display = 'none';
+                return;
+            }
+            let html = '';
+            data.forEach(item => {
+                html += `<div class="autocomplete-item" data-symbol="${item.symbol}">
+                    <span class="symbol">${item.symbol}</span>
+                    <span class="name">${item.name}</span>
+                </div>`;
+            });
+            autocompleteList.innerHTML = html;
+            autocompleteList.style.display = 'block';
+            // Add click listeners
+            document.querySelectorAll('.autocomplete-item').forEach(el => {
+                el.addEventListener('click', function() {
+                    symbolInput.value = this.dataset.symbol;
+                    autocompleteList.style.display = 'none';
+                    // Trigger a blur event to close
+                    symbolInput.blur();
+                });
+            });
+        })
+        .catch(() => { autocompleteList.style.display = 'none'; });
+});
+
+// Hide autocomplete when clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target !== symbolInput) {
+        autocompleteList.style.display = 'none';
+    }
+});
+
+// ---------- FETCH ALERTS ----------
 function fetchAlerts() {
     fetch('/api/alerts')
-        .then(res => {
-            if (!res.ok) {
-                return res.text().then(text => { throw new Error(text) });
-            }
-            return res.json();
-        })
+        .then(res => res.json())
         .then(data => {
             const tbody = document.getElementById('alertTableBody');
             if (data.length === 0) {
@@ -100,21 +170,18 @@ function fetchAlerts() {
             // Attach event listeners
             document.querySelectorAll('.toggle-btn').forEach(b => {
                 b.addEventListener('click', function() {
-                    fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'})
-                        .then(() => fetchAlerts());
+                    fetch(`/api/toggle/${this.dataset.id}`, {method:'POST'}).then(() => fetchAlerts());
                 });
             });
             document.querySelectorAll('.reactivate-btn').forEach(b => {
                 b.addEventListener('click', function() {
-                    fetch(`/api/reactivate/${this.dataset.id}`, {method:'POST'})
-                        .then(() => fetchAlerts());
+                    fetch(`/api/reactivate/${this.dataset.id}`, {method:'POST'}).then(() => fetchAlerts());
                 });
             });
             document.querySelectorAll('.delete-btn').forEach(b => {
                 b.addEventListener('click', function() {
                     if (confirm('Delete this alert?')) {
-                        fetch(`/api/delete/${this.dataset.id}`, {method:'DELETE'})
-                            .then(() => fetchAlerts());
+                        fetch(`/api/delete/${this.dataset.id}`, {method:'DELETE'}).then(() => fetchAlerts());
                     }
                 });
             });
@@ -122,30 +189,60 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="5" class="text-center text-danger">Error loading alerts. Check logs.</td></tr>`;
+                `<tr><td colspan="5" class="text-center text-danger">Error loading alerts.</td></tr>`;
         });
 }
 
+// ---------- ADD ALERT (with smart warning) ----------
 document.getElementById('addBtn').addEventListener('click', function() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const condition = document.getElementById('condSelect').value;
     const price = document.getElementById('priceInput').value.trim();
+
     if (!symbol || !price) {
         document.getElementById('addMessage').innerHTML = '<span class="text-danger">Fill all fields.</span>';
         return;
     }
+
+    const payload = { symbol, condition, price: parseFloat(price) };
+
+    // First attempt: check if the alert is already triggered
     fetch('/api/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, condition, price: parseFloat(price) })
+        body: JSON.stringify(payload)
     })
     .then(res => res.json())
     .then(data => {
         if (data.status === 'ok') {
-            document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Added!</span>';
+            document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Alert added!</span>';
             document.getElementById('symbolInput').value = '';
             document.getElementById('priceInput').value = '';
             fetchAlerts();
+        } else if (data.status === 'warning') {
+            // Ask user if they want to add it anyway
+            if (confirm(`⚠️ Warning: ${data.message}\n\nDo you still want to add this alert?`)) {
+                // Force add with 'force: true'
+                payload.force = true;
+                fetch('/api/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res2 => res2.json())
+                .then(data2 => {
+                    if (data2.status === 'ok') {
+                        document.getElementById('addMessage').innerHTML = '<span class="text-success">✅ Alert added anyway!</span>';
+                        document.getElementById('symbolInput').value = '';
+                        document.getElementById('priceInput').value = '';
+                        fetchAlerts();
+                    } else {
+                        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data2.message}</span>`;
+                    }
+                });
+            } else {
+                document.getElementById('addMessage').innerHTML = '<span class="text-warning">⏸️ Alert not added.</span>';
+            }
         } else {
             document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
         }
