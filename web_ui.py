@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 import json
 from io import StringIO
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 import config
 import stock_alert
 
@@ -178,13 +178,26 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ---------- ALERTS API WITH CMP ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
         conn = get_db()
         alerts = conn.execute('SELECT * FROM watchlist ORDER BY symbol').fetchall()
         conn.close()
-        return jsonify([dict(row) for row in alerts])
+        alerts_list = [dict(row) for row in alerts]
+
+        if alerts_list:
+            symbols = list(set(a['symbol'] for a in alerts_list))
+            try:
+                prices = stock_alert.get_prices(symbols)
+                for alert in alerts_list:
+                    alert['cmp'] = prices.get(alert['symbol'])
+            except Exception as e:
+                logger.error(f"Failed to fetch prices for CMP: {e}")
+                for alert in alerts_list:
+                    alert['cmp'] = None
+        return jsonify(alerts_list)
     except Exception as e:
         logger.error(f"Error in /api/alerts: {e}")
         return jsonify({'error': str(e)}), 500
@@ -243,10 +256,9 @@ def delete_alert(alert_id):
         logger.error(f"Error in /api/delete: {e}")
         return jsonify({'status': 'error'}), 500
 
-# ---------- EXPORT & IMPORT (NEW) ----------
+# ---------- EXPORT & IMPORT ----------
 @app.route('/api/export')
 def export_alerts():
-    """Export all alerts as a JSON file."""
     try:
         conn = get_db()
         alerts = conn.execute('SELECT * FROM watchlist').fetchall()
@@ -259,18 +271,13 @@ def export_alerts():
 
 @app.route('/api/import', methods=['POST'])
 def import_alerts():
-    """Import alerts from a JSON file (replaces current data)."""
     try:
         data = request.json
         if not isinstance(data, list):
             return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
-
         conn = get_db()
-        # Clear existing alerts
         conn.execute('DELETE FROM watchlist')
-        # Insert new alerts
         for item in data:
-            # Only insert safe fields
             conn.execute('''
                 INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
                 VALUES (?, ?, ?, ?, ?)
@@ -296,7 +303,7 @@ def start_worker():
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
-# ---------- INIT DB AND RUN ----------
+# ---------- INIT DB ----------
 init_db()
 
 if __name__ == '__main__':
