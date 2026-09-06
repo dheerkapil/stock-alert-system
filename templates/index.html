@@ -63,18 +63,10 @@
             white-space: nowrap;
         }
 
-        /* ----- Column width control ----- */
-        /* Symbol and Added: natural width */
-        /* Cond, Trigger, CMP, %Gap, Status, Actions: tight */
-        /* MGAP: absorbs leftover space */
-        .col-mgap {
-            min-width: 80px;
-            width: auto;        /* expands to fill space */
-            text-align: right;
-        }
+        /* ----- Actions column stays tight ----- */
         .col-actions {
             min-width: 110px;
-            width: 1%;          /* shrinks to content */
+            width: 1%;
             text-align: center;
         }
 
@@ -165,7 +157,6 @@
             .autocomplete-item { padding: 5px 8px; font-size: 0.8rem; }
             .autocomplete-item .name { font-size: 0.7rem; }
             .col-actions { min-width: 100px; }
-            .col-mgap { min-width: 60px; }
         }
     </style>
 </head>
@@ -223,7 +214,7 @@
                         <th class="sortable text-right" data-sort="trigger">Trigger <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
-                        <th class="sortable text-right col-mgap" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
                         <th class="text-center col-actions">Actions</th>
