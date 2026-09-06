@@ -2,11 +2,11 @@ import os
 import pytz
 
 # ---- Time & Polling ----
-POLL_INTERVAL = 60
+POLL_INTERVAL = 300            # 5 minutes
 
-# 🔥 TEMPORARY: Run 24/7 for testing. Change back to "09:15" and "15:30" later.
-START_TIME = "00:00"
-STOP_TIME  = "23:59"
+# ---- Market Hours (IST) ----
+START_TIME = "09:00"
+STOP_TIME  = "15:45"
 
 TIMEZONE = pytz.timezone("Asia/Kolkata")
 
@@ -28,5 +28,5 @@ CONSECUTIVE_TV_FAILURES_THRESHOLD = 3
 # ---- Logging ----
 LOG_LEVEL = "INFO"
 
-# ---- User‑Agent (required for NSE symbol fetch) ----
+# ---- User‑Agent ----
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

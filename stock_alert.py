@@ -11,6 +11,21 @@ logger = logging.getLogger(__name__)
 
 WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 
+# ------------------------------------------------------------------
+#  HELPERS
+# ------------------------------------------------------------------
+def is_market_open(now):
+    start = datetime.strptime(config.START_TIME, "%H:%M").time()
+    stop  = datetime.strptime(config.STOP_TIME, "%H:%M").time()
+    return start <= now.time() <= stop
+
+def is_weekday(now):
+    # Monday = 0, Sunday = 6
+    return now.weekday() < 5
+
+# ------------------------------------------------------------------
+#  FETCH ALERTS FROM WEB UI
+# ------------------------------------------------------------------
 def get_active_alerts():
     try:
         resp = requests.get(f"{WEBUI_URL}/api/alerts", timeout=10)
@@ -21,6 +36,9 @@ def get_active_alerts():
         logger.error(f"Failed to fetch alerts: {e}")
         return []
 
+# ------------------------------------------------------------------
+#  PRICE FETCHING
+# ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
@@ -72,9 +90,12 @@ def get_prices(symbols):
         tv_prices.update(yf_prices)
     return tv_prices
 
+# ------------------------------------------------------------------
+#  TELEGRAM
+# ------------------------------------------------------------------
 def send_telegram(message):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
-        logger.error("Telegram credentials missing – alert not sent.")
+        logger.error("Telegram credentials missing.")
         return
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": config.TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
@@ -83,19 +104,22 @@ def send_telegram(message):
     except Exception as e:
         logger.error(f"Telegram error: {e}")
 
-def is_market_open(now):
-    start = datetime.strptime(config.START_TIME, "%H:%M").time()
-    stop = datetime.strptime(config.STOP_TIME, "%H:%M").time()
-    return start <= now.time() <= stop
-
+# ------------------------------------------------------------------
+#  MAIN LOOP (with weekday check)
+# ------------------------------------------------------------------
 def main():
-    logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s. Market hours: {config.START_TIME} - {config.STOP_TIME} IST.")
+    logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
+    logger.info(f"Market hours: {config.START_TIME} - {config.STOP_TIME} IST. Weekdays only.")
+
     while True:
         now = datetime.now(config.TIMEZONE)
-        while not is_market_open(now):
-            time.sleep(60)
+
+        # Wait until it is a weekday AND market is open
+        while not is_weekday(now) or not is_market_open(now):
+            time.sleep(60)  # check every minute
             now = datetime.now(config.TIMEZONE)
 
+        # If we reach here, it's a weekday and market is open
         alerts = get_active_alerts()
         if not alerts:
             logger.info("No active alerts.")
@@ -113,11 +137,13 @@ def main():
             current = prices.get(symbol)
             if current is None:
                 continue
+
             triggered = False
             if cond == '>=' and current >= trigger:
                 triggered = True
             elif cond == '<=' and current <= trigger:
                 triggered = True
+
             if triggered:
                 msg = (f"🔔 ALERT\n{symbol} {cond} {trigger}\nCurrent: {current}\n{now.strftime('%H:%M:%S')} IST")
                 send_telegram(msg)
@@ -126,6 +152,7 @@ def main():
                 except Exception as e:
                     logger.error(f"Failed to mark triggered: {e}")
                 logger.info(f"Alert {alert['id']} triggered.")
+
         time.sleep(config.POLL_INTERVAL)
 
 if __name__ == "__main__":
