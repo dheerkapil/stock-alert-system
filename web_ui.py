@@ -5,6 +5,7 @@ import logging
 import requests
 import pandas as pd
 import json
+import yfinance as yf
 from io import StringIO
 from flask import Flask, render_template, request, jsonify
 import config
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ---------- GLOBAL CACHE FOR NSE SYMBOLS (for autocomplete) ----------
+# ---------- GLOBAL CACHE FOR NSE SYMBOLS ----------
 NSE_SYMBOLS = []
 
 def refresh_nse_symbols():
@@ -178,6 +179,7 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ---------- UPDATED ALERTS API (WITH % CHG) ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
@@ -190,12 +192,22 @@ def get_alerts():
             symbols = list(set(a['symbol'] for a in alerts_list))
             try:
                 prices = stock_alert.get_prices(symbols)
+                prev_closes = stock_alert.get_prev_closes(symbols)
+
                 for alert in alerts_list:
-                    alert['cmp'] = prices.get(alert['symbol'])
+                    cmp = prices.get(alert['symbol'])
+                    alert['cmp'] = cmp
+
+                    prev_close = prev_closes.get(alert['symbol'])
+                    if prev_close and cmp:
+                        alert['pct_chg'] = ((cmp - prev_close) / prev_close) * 100
+                    else:
+                        alert['pct_chg'] = None
             except Exception as e:
-                logger.error(f"Failed to fetch prices for CMP: {e}")
+                logger.error(f"Failed to fetch prices: {e}")
                 for alert in alerts_list:
                     alert['cmp'] = None
+                    alert['pct_chg'] = None
         return jsonify(alerts_list)
     except Exception as e:
         logger.error(f"Error in /api/alerts: {e}")

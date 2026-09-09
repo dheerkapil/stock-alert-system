@@ -17,7 +17,7 @@
         }
         .table-scroll table {
             width: 100%;
-            min-width: 750px;
+            min-width: 850px;
             margin-bottom: 0;
             border-collapse: collapse;
         }
@@ -92,9 +92,9 @@
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.8; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
 
-        .cmp-green, .gap-green { color: #28a745; font-weight: 600; }
-        .cmp-red, .gap-red { color: #dc3545; font-weight: 600; }
-        .cmp-neutral, .gap-neutral { color: #6c757d; }
+        .cmp-green, .gap-green, .pct-green { color: #28a745; font-weight: 600; }
+        .cmp-red, .gap-red, .pct-red { color: #dc3545; font-weight: 600; }
+        .cmp-neutral, .gap-neutral, .pct-neutral { color: #6c757d; }
 
         .table .btn-sm {
             padding: 4px 8px;
@@ -145,7 +145,7 @@
             body { padding: 5px; }
             .card { padding: 8px; margin-bottom: 8px; }
             .card h5 { font-size: 0.9rem; }
-            .table-scroll table { min-width: 720px; }
+            .table-scroll table { min-width: 800px; }
             .table-scroll thead th { font-size: 0.55rem; padding: 6px 4px; }
             .table-scroll tbody td { font-size: 0.7rem; padding: 6px 4px; }
             .table .btn-sm { padding: 3px 6px; font-size: 0.65rem; margin: 0 1px; }
@@ -214,13 +214,14 @@
                         <th class="sortable text-right" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" data-sort="pct_chg">% Chg <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
                         <th class="text-center col-actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="alertTableBody">
-                    <tr><td colspan="9" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -295,6 +296,11 @@ function sortAlerts(data, column, direction) {
                 const absB = isFinite(gapB) ? Math.abs(gapB) : Infinity;
                 return direction * (absA - absB);
             }
+            case 'pct_chg': {
+                valA = parseFloat(a.pct_chg) || 0;
+                valB = parseFloat(b.pct_chg) || 0;
+                return direction * (valA - valB);
+            }
             case 'status': {
                 const getStatusVal = (item) => {
                     if (item.is_triggered === 1) return 2;
@@ -322,13 +328,10 @@ function calculateGap(item) {
     return ((trigger - cmp) / cmp) * 100;
 }
 
-// ---------- FORMAT DATE + TIME (Manual IST conversion) ----------
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     try {
-        // Parse as UTC (Render server time is UTC)
         const d = new Date(dateStr);
-        // Add 5 hours 30 minutes for IST
         d.setHours(d.getHours() + 5);
         d.setMinutes(d.getMinutes() + 30);
         const day = String(d.getDate()).padStart(2, '0');
@@ -346,7 +349,7 @@ function formatDate(dateStr) {
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         return;
     }
 
@@ -380,11 +383,21 @@ function renderAlerts(data) {
             }
         }
 
-        // MGAP (absolute value)
+        // MGAP
         let mgapDisplay = '-';
         if (isFinite(gap)) {
             const absGap = Math.abs(gap);
             mgapDisplay = absGap.toFixed(1) + '%';
+        }
+
+        // % Change vs Previous Close
+        let pctChgDisplay = '-';
+        let pctChgClass = 'pct-neutral';
+        if (a.pct_chg !== null && a.pct_chg !== undefined && isFinite(a.pct_chg)) {
+            pctChgDisplay = (a.pct_chg > 0 ? '+' : '') + a.pct_chg.toFixed(2) + '%';
+            if (a.pct_chg > 0) pctChgClass = 'pct-green';
+            else if (a.pct_chg < 0) pctChgClass = 'pct-red';
+            else pctChgClass = 'pct-neutral';
         }
 
         // Status button
@@ -403,7 +416,6 @@ function renderAlerts(data) {
             statusText = '⚪';
         }
 
-        // Date with time (IST)
         const dateDisplay = formatDate(a.added_at);
 
         html += `<tr>
@@ -413,6 +425,7 @@ function renderAlerts(data) {
             <td class="text-right ${cmpClass}">${cmpDisplay}</td>
             <td class="text-right ${gapClass}">${gapDisplay}</td>
             <td class="text-right">${mgapDisplay}</td>
+            <td class="text-right ${pctChgClass}">${pctChgDisplay}</td>
             <td class="text-center">
                 <button class="status-btn ${statusClass}" data-id="${a.id}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" ${disabled}>
                     ${statusText}
@@ -428,7 +441,7 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
-    // Attach events
+    // Attach events (unchanged)
     document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -501,7 +514,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="9" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="10" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 

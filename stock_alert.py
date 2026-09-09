@@ -20,7 +20,6 @@ def is_market_open(now):
     return start <= now.time() <= stop
 
 def is_weekday(now):
-    # Monday = 0, Sunday = 6
     return now.weekday() < 5
 
 # ------------------------------------------------------------------
@@ -37,7 +36,7 @@ def get_active_alerts():
         return []
 
 # ------------------------------------------------------------------
-#  PRICE FETCHING
+#  PRICE FETCHING (TradingView)
 # ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
@@ -68,6 +67,9 @@ def get_prices_tradingview_chunked(symbols):
         time.sleep(config.TRADINGVIEW_DELAY)
     return prices
 
+# ------------------------------------------------------------------
+#  PRICE FETCHING (Yahoo Finance)
+# ------------------------------------------------------------------
 def get_prices_yfinance(symbols):
     prices = {}
     for sym in symbols:
@@ -80,6 +82,32 @@ def get_prices_yfinance(symbols):
             pass
     return prices
 
+# ------------------------------------------------------------------
+#  NEW FUNCTION: PREVIOUS CLOSE (Yahoo Finance)
+# ------------------------------------------------------------------
+def get_prev_closes(symbols):
+    """
+    Fetch the previous day's closing price for each symbol using Yahoo Finance.
+    Returns a dict {symbol: prev_close_price}.
+    """
+    prices = {}
+    for sym in symbols:
+        try:
+            ticker = yf.Ticker(f"{sym.upper()}.NS")
+            info = ticker.info
+            prev_close = info.get('previousClose')
+            if prev_close:
+                prices[sym] = float(prev_close)
+            else:
+                prices[sym] = None
+        except Exception as e:
+            logger.debug(f"Failed to get previous close for {sym}: {e}")
+            prices[sym] = None
+    return prices
+
+# ------------------------------------------------------------------
+#  MASTER PRICE FETCHER (TradingView + Yahoo Fallback)
+# ------------------------------------------------------------------
 def get_prices(symbols):
     symbols = list(set(symbols))
     tv_prices = get_prices_tradingview_chunked(symbols)
@@ -105,7 +133,7 @@ def send_telegram(message):
         logger.error(f"Telegram error: {e}")
 
 # ------------------------------------------------------------------
-#  MAIN LOOP (with weekday check)
+#  MAIN LOOP
 # ------------------------------------------------------------------
 def main():
     logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
@@ -114,12 +142,10 @@ def main():
     while True:
         now = datetime.now(config.TIMEZONE)
 
-        # Wait until it is a weekday AND market is open
         while not is_weekday(now) or not is_market_open(now):
-            time.sleep(60)  # check every minute
+            time.sleep(60)
             now = datetime.now(config.TIMEZONE)
 
-        # If we reach here, it's a weekday and market is open
         alerts = get_active_alerts()
         if not alerts:
             logger.info("No active alerts.")
