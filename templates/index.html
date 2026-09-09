@@ -433,7 +433,7 @@ function renderAlerts(data) {
             </td>
             <td class="text-left">${dateDisplay}</td>
             <td class="text-center" style="white-space:nowrap;">
-                <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}" title="Edit">✏️</button>
+                <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${a.id}" data-price="${a.trigger_price}" data-condition="${a.condition}" title="Edit">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}" title="Delete">🗑️</button>
             </td>
@@ -441,42 +441,61 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
-    // Attach events (unchanged)
-    document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.dataset.id;
-            fetch(`/api/toggle/${id}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') fetchAlerts();
-                });
-        });
-    });
-
+    // ---------- UPDATED: EDIT BUTTON (Allows changing condition + price) ----------
     document.querySelectorAll('.edit-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
+            const currentCondition = this.dataset.condition;
             const currentPrice = this.dataset.price;
-            const newPrice = prompt(`New price for alert ${id}:`, currentPrice);
-            if (newPrice !== null && !isNaN(parseFloat(newPrice)) && parseFloat(newPrice) > 0) {
-                fetch(`/api/update/${id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ price: parseFloat(newPrice) })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') { alert('✅ Updated!'); fetchAlerts(); }
-                    else { alert('❌ ' + data.message); }
-                });
-            } else if (newPrice !== null) alert('❌ Invalid price.');
+            const input = prompt(`Edit condition & price (e.g., ">= 4000" or "<= 5000"):`, `${currentCondition} ${currentPrice}`);
+            if (input) {
+                const parts = input.trim().split(' ');
+                if (parts.length === 2 && ['>=', '<='].includes(parts[0])) {
+                    const newCond = parts[0];
+                    const newPrice = parseFloat(parts[1]);
+                    if (!isNaN(newPrice) && newPrice > 0) {
+                        fetch(`/api/update/${id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ condition: newCond, price: newPrice })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'ok') { alert('✅ Updated!'); fetchAlerts(); }
+                            else { alert('❌ ' + data.message); }
+                        });
+                    } else { alert('❌ Invalid price.'); }
+                } else { alert('❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"'); }
+            }
         });
     });
 
+    // ---------- REACTIVATE BUTTON (Will trigger immediately if condition is met) ----------
     document.querySelectorAll('.reactivate-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
             fetch(`/api/reactivate/${id}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        if (data.triggered) {
+                            alert('✅ Alert re-triggered immediately (condition was already met)!');
+                        } else {
+                            alert('✅ Alert reactivated. Will check on next poll.');
+                        }
+                        fetchAlerts();
+                    } else {
+                        alert('❌ Reactivation failed: ' + data.message);
+                    }
+                });
+        });
+    });
+
+    // ---------- TOGGLE & DELETE (unchanged) ----------
+    document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            fetch(`/api/toggle/${id}`, { method: 'POST' })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'ok') fetchAlerts();
@@ -500,7 +519,6 @@ function renderAlerts(data) {
 
 // ---------- FETCH ----------
 function fetchAlerts() {
-    // 🔥 FIX: Add timestamp to prevent API caching – ensures fresh prices every time
     fetch('/api/alerts?t=' + Date.now())
         .then(res => res.json())
         .then(data => {

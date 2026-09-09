@@ -159,19 +159,29 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ---------- UPDATED UPDATE (Supports both condition & price) ----------
 @app.route('/api/update/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
     try:
         data = request.json
         new_price = data.get('price')
-        if new_price is None:
-            return jsonify({'status': 'error', 'message': 'Missing price'}), 400
-        try:
-            new_price = float(new_price)
-        except ValueError:
-            return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
+        new_condition = data.get('condition')
+
         conn = get_db()
-        conn.execute('UPDATE watchlist SET trigger_price = ? WHERE id = ?', (new_price, alert_id))
+        if new_price is not None:
+            try:
+                new_price = float(new_price)
+                conn.execute('UPDATE watchlist SET trigger_price = ? WHERE id = ?', (new_price, alert_id))
+            except ValueError:
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
+
+        if new_condition is not None:
+            if new_condition not in ('>=', '<='):
+                conn.close()
+                return jsonify({'status': 'error', 'message': 'Invalid condition'}), 400
+            conn.execute('UPDATE watchlist SET condition = ? WHERE id = ?', (new_condition, alert_id))
+
         conn.commit()
         conn.close()
         return jsonify({'status': 'ok'})
@@ -179,7 +189,47 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATED ALERTS API (WITH % CHG) ----------
+# ---------- UPDATED REACTIVATE (Immediate price check) ----------
+@app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
+def reactivate_alert(alert_id):
+    try:
+        conn = get_db()
+        alert = conn.execute('SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        if not alert:
+            conn.close()
+            return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
+
+        # Reset triggered and activate
+        conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
+        conn.commit()
+
+        # --- IMMEDIATE PRICE CHECK ---
+        prices = stock_alert.get_prices([alert['symbol']])
+        current_price = prices.get(alert['symbol'])
+        triggered = False
+        if current_price is not None:
+            if alert['condition'] == '>=' and current_price >= alert['trigger_price']:
+                triggered = True
+            elif alert['condition'] == '<=' and current_price <= alert['trigger_price']:
+                triggered = True
+
+        if triggered:
+            # Mark as triggered again and send alert
+            conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
+            conn.commit()
+            conn.close()
+            msg = (f"🔔 ALERT (Reactivated)\n{alert['symbol']} {alert['condition']} {alert['trigger_price']}\nCurrent: {current_price}")
+            stock_alert.send_telegram(msg)
+            return jsonify({'status': 'ok', 'triggered': True})
+        else:
+            conn.close()
+            return jsonify({'status': 'ok', 'triggered': False})
+
+    except Exception as e:
+        logger.error(f"Error in /api/reactivate: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ---------- ALERTS API WITH CMP & %CHG ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
@@ -229,18 +279,6 @@ def toggle_alert(alert_id):
         return jsonify({'status': 'ok', 'is_active': new_val})
     except Exception as e:
         logger.error(f"Error in /api/toggle: {e}")
-        return jsonify({'status': 'error'}), 500
-
-@app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
-def reactivate_alert(alert_id):
-    try:
-        conn = get_db()
-        conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'status': 'ok'})
-    except Exception as e:
-        logger.error(f"Error in /api/reactivate: {e}")
         return jsonify({'status': 'error'}), 500
 
 @app.route('/api/mark_triggered/<int:alert_id>', methods=['POST'])
