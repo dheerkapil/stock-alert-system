@@ -365,25 +365,45 @@ function renderAlerts(data) {
             else cmpClass = 'cmp-red';
         }
 
-        // % Gap
+        // ---------- % GAP (FIXED FOR TRIGGERED EVENTS) ----------
         let gapDisplay = '-';
         let gapClass = 'gap-neutral';
         const gap = calculateGap(a);
         if (isFinite(gap)) {
+            // Always show the numeric gap
             gapDisplay = gap.toFixed(1) + '%';
+
+            // Check if condition is currently met
             const conditionMet = (a.condition === '>=' && a.cmp >= a.trigger_price) ||
                                  (a.condition === '<=' && a.cmp <= a.trigger_price);
-            if (conditionMet) {
-                gapDisplay = '✅ 0%';
-                gapClass = 'gap-green';
-            } else if (gap > 0) {
-                gapClass = 'gap-red';
+
+            // If the alert is triggered, show the actual gap with a bell icon
+            if (a.is_triggered === 1) {
+                // Show the actual percentage distance from trigger
+                // Color it green if still favorable, red if moved back
+                if (conditionMet) {
+                    gapClass = 'gap-green';
+                } else {
+                    gapClass = 'gap-red';
+                }
+                // Add a bell icon to indicate it's triggered, but keep the number
+                gapDisplay = '🔔 ' + gapDisplay;
             } else {
-                gapClass = 'gap-red';
+                // Active (not triggered) alerts
+                if (conditionMet) {
+                    // This alert is already meeting the condition (will trigger on next poll)
+                    // Show the actual gap, colored green
+                    gapClass = 'gap-green';
+                    gapDisplay = '⏳ ' + gapDisplay;
+                } else {
+                    // Condition not met yet
+                    if (gap > 0) gapClass = 'gap-red';
+                    else gapClass = 'gap-red';
+                }
             }
         }
 
-        // MGAP
+        // MGAP (absolute value)
         let mgapDisplay = '-';
         if (isFinite(gap)) {
             const absGap = Math.abs(gap);
@@ -441,7 +461,7 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
-    // ---------- UPDATED: EDIT BUTTON (Allows changing condition + price) ----------
+    // ---------- EDIT BUTTON (Allows changing condition + price) ----------
     document.querySelectorAll('.edit-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
