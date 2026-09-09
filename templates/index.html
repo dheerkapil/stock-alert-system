@@ -500,7 +500,8 @@ function renderAlerts(data) {
 
 // ---------- FETCH ----------
 function fetchAlerts() {
-    fetch('/api/alerts')
+    // 🔥 FIX: Add timestamp to prevent API caching – ensures fresh prices every time
+    fetch('/api/alerts?t=' + Date.now())
         .then(res => res.json())
         .then(data => {
             alertsData = data;
@@ -645,7 +646,7 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 
 // ---------- INIT ----------
 fetchAlerts();
-setInterval(fetchAlerts, 60000);
+setInterval(fetchAlerts, 15000);
 </script>
 </body>
 </html>
