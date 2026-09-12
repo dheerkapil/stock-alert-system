@@ -54,17 +54,34 @@
             --code-bg: #1e1e1e;
         }
 
-        /* ============ GLOBAL ============ */
+        /* ============ GLOBAL RESET & FIX WHITE BOUNDARY ============ */
         * { box-sizing: border-box; }
-        html, body {
-            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 12px;
+        
+        /* 🔥 FIX: Apply dark background to the outermost HTML element */
+        html {
+            background-color: var(--bg) !important;
+            min-height: 100vh;
             margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background-color: var(--bg) !important;
+            color: var(--text);
+            margin: 0;
+            padding: 12px;
+            min-height: 100vh;
+            overflow-x: hidden;
             transition: background 0.2s ease, color 0.2s ease;
         }
-        .container { max-width: 100%; padding: 0; }
+        
+        .container { 
+            max-width: 100%; 
+            padding: 0; 
+            background-color: transparent;
+        }
+        
         .card {
             border-radius: 16px;
             background: var(--surface);
@@ -197,7 +214,6 @@
         .btn-outline-secondary:hover {
             background: var(--surface-2) !important;
         }
-        /* Active state for duplicates button */
         #duplicateBtn.active {
             background: var(--primary-fill) !important;
             color: var(--primary-text) !important;
@@ -349,7 +365,6 @@
             #searchBox { max-width: 100%; font-size: 0.8rem; }
         }
 
-        /* Dark mode: neutralize Bootstrap white backgrounds */
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
         body.dark .badge { background: var(--surface-2); }
     </style>
