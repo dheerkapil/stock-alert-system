@@ -5,8 +5,8 @@ import logging
 import requests
 import pandas as pd
 import json
-import yfinance as yf
 from io import StringIO
+from datetime import datetime, date
 from flask import Flask, render_template, request, jsonify
 import config
 import stock_alert
@@ -150,6 +150,13 @@ def add_alert():
                      (symbol, condition, trigger_price))
         conn.commit()
         conn.close()
+
+        # Pre-warm prev-close cache for the newly added symbol (once per day)
+        try:
+            stock_alert.add_symbol_to_cache(symbol)
+        except Exception as e:
+            logger.warning(f"Could not pre-cache prev close for {symbol}: {e}")
+
         return jsonify({'status': 'ok'})
     except sqlite3.IntegrityError:
         conn.close()
@@ -159,7 +166,6 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATED UPDATE (Supports both condition & price) ----------
 @app.route('/api/update/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
     try:
@@ -189,7 +195,6 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATED REACTIVATE (Immediate price check) ----------
 @app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
 def reactivate_alert(alert_id):
     try:
@@ -199,11 +204,9 @@ def reactivate_alert(alert_id):
             conn.close()
             return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
 
-        # Reset triggered and activate
         conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
         conn.commit()
 
-        # --- IMMEDIATE PRICE CHECK ---
         prices = stock_alert.get_prices([alert['symbol']])
         current_price = prices.get(alert['symbol'])
         triggered = False
@@ -214,7 +217,6 @@ def reactivate_alert(alert_id):
                 triggered = True
 
         if triggered:
-            # Mark as triggered again and send alert
             conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
             conn.commit()
             conn.close()
@@ -229,7 +231,6 @@ def reactivate_alert(alert_id):
         logger.error(f"Error in /api/reactivate: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- ALERTS API WITH CMP & %CHG ----------
 @app.route('/api/alerts')
 def get_alerts():
     try:
@@ -338,10 +339,52 @@ def import_alerts():
             ))
         conn.commit()
         conn.close()
+
+        # Pre-warm prev-close cache for all imported symbols
+        try:
+            all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
+            if all_symbols:
+                stock_alert.get_prev_closes(all_symbols)
+        except Exception as e:
+            logger.warning(f"Could not pre-cache prev closes after import: {e}")
+
         return jsonify({'status': 'ok', 'count': len(data)})
     except Exception as e:
         logger.error(f"Import error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ---------- 8 AM CACHE WARMER THREAD ----------
+def daily_cache_warmer():
+    """
+    Runs every day at 08:00 IST.
+    Fetches previous close for all watchlist symbols in one batch call.
+    """
+    last_run_date = None
+    while True:
+        try:
+            now = datetime.now(config.TIMEZONE)
+            today = now.date()
+
+            if (now.hour == 8 and now.minute < 5 and last_run_date != today):
+                logger.info("🕗 8 AM: warming previous-close cache for all watchlist symbols...")
+                try:
+                    conn = sqlite3.connect(config.DB_FILE)
+                    rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
+                    conn.close()
+                    symbols = [r[0].upper() for r in rows if r[0]]
+                    if symbols:
+                        stock_alert.get_prev_closes(symbols)
+                        logger.info(f"✅ Cache warmed for {len(symbols)} symbols.")
+                    else:
+                        logger.info("No symbols in watchlist to warm.")
+                    last_run_date = today
+                except Exception as e:
+                    logger.error(f"Cache warmer failed: {e}")
+
+            time.sleep(60)
+        except Exception as e:
+            logger.error(f"Cache warmer thread error: {e}")
+            time.sleep(60)
 
 # ---------- WORKER THREAD ----------
 def start_worker():
@@ -350,6 +393,10 @@ def start_worker():
 
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
+
+# Start the daily 8 AM cache warmer
+cache_warmer_thread = threading.Thread(target=daily_cache_warmer, daemon=True)
+cache_warmer_thread.start()
 
 # ---------- INIT DB ----------
 init_db()

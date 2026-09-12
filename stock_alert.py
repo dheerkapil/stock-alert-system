@@ -3,13 +3,19 @@ import time
 import logging
 import requests
 import yfinance as yf
-from datetime import datetime
+from datetime import datetime, date
 import config
 
 logging.basicConfig(level=config.LOG_LEVEL, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
+
+# ------------------------------------------------------------------
+#  DAY-LEVEL CACHE FOR PREVIOUS CLOSES
+# ------------------------------------------------------------------
+_PREV_CLOSE_CACHE = {}          # {symbol: prev_close}
+_PREV_CLOSE_DATE = None         # date when cache was built
 
 # ------------------------------------------------------------------
 #  HELPERS
@@ -68,7 +74,7 @@ def get_prices_tradingview_chunked(symbols):
     return prices
 
 # ------------------------------------------------------------------
-#  PRICE FETCHING (Yahoo Finance)
+#  PRICE FETCHING (Yahoo Finance fallback)
 # ------------------------------------------------------------------
 def get_prices_yfinance(symbols):
     prices = {}
@@ -83,30 +89,7 @@ def get_prices_yfinance(symbols):
     return prices
 
 # ------------------------------------------------------------------
-#  NEW FUNCTION: PREVIOUS CLOSE (Yahoo Finance)
-# ------------------------------------------------------------------
-def get_prev_closes(symbols):
-    """
-    Fetch the previous day's closing price for each symbol using Yahoo Finance.
-    Returns a dict {symbol: prev_close_price}.
-    """
-    prices = {}
-    for sym in symbols:
-        try:
-            ticker = yf.Ticker(f"{sym.upper()}.NS")
-            info = ticker.info
-            prev_close = info.get('previousClose')
-            if prev_close:
-                prices[sym] = float(prev_close)
-            else:
-                prices[sym] = None
-        except Exception as e:
-            logger.debug(f"Failed to get previous close for {sym}: {e}")
-            prices[sym] = None
-    return prices
-
-# ------------------------------------------------------------------
-#  MASTER PRICE FETCHER (TradingView + Yahoo Fallback)
+#  MASTER PRICE FETCHER
 # ------------------------------------------------------------------
 def get_prices(symbols):
     symbols = list(set(symbols))
@@ -117,6 +100,116 @@ def get_prices(symbols):
         yf_prices = get_prices_yfinance(missing)
         tv_prices.update(yf_prices)
     return tv_prices
+
+# ------------------------------------------------------------------
+#  PREVIOUS CLOSE - DAY-LEVEL CACHE
+# ------------------------------------------------------------------
+def _invalidate_cache_if_new_day():
+    """Clear the cache if the date has changed."""
+    global _PREV_CLOSE_CACHE, _PREV_CLOSE_DATE
+    today = date.today()
+    if _PREV_CLOSE_DATE != today:
+        _PREV_CLOSE_CACHE = {}
+        _PREV_CLOSE_DATE = today
+        logger.info(f"Previous-close cache invalidated for new day: {today}")
+
+def batch_fetch_prev_closes(symbols):
+    """
+    Batch download previous closes for multiple symbols in ONE Yahoo Finance call.
+    Used at 8 AM to warm up the cache.
+    """
+    if not symbols:
+        return {}
+    symbols = [s.upper() for s in symbols]
+    tickers = [f"{s}.NS" for s in symbols]
+
+    logger.info(f"Batch fetching previous closes for {len(symbols)} symbols...")
+    result = {}
+
+    try:
+        data = yf.download(
+            tickers=" ".join(tickers),
+            period="5d",
+            interval="1d",
+            progress=False,
+            group_by='ticker',
+            threads=True,
+            auto_adjust=False
+        )
+
+        for sym, ticker in zip(symbols, tickers):
+            try:
+                if ticker in data.columns.levels[0]:
+                    df = data[ticker]
+                    closes = df['Close'].dropna()
+                    if len(closes) >= 2:
+                        result[sym] = float(closes.iloc[-2])
+                    elif len(closes) == 1:
+                        result[sym] = float(closes.iloc[-1])
+                    else:
+                        result[sym] = None
+                else:
+                    result[sym] = None
+            except Exception as e:
+                logger.warning(f"Failed to extract prev close for {sym}: {e}")
+                result[sym] = None
+    except Exception as e:
+        logger.error(f"Batch download failed: {e}")
+        return {}
+
+    return result
+
+def get_prev_closes(symbols):
+    """
+    Return previous close for each symbol.
+    - Uses day-level cache.
+    - Fetches missing symbols in a single batch call.
+    - Never re-fetches during the same trading day.
+    """
+    global _PREV_CLOSE_CACHE
+
+    _invalidate_cache_if_new_day()
+
+    if not symbols:
+        return {}
+
+    symbols = [s.upper() for s in symbols]
+    result = {}
+    missing = []
+
+    for sym in symbols:
+        if sym in _PREV_CLOSE_CACHE:
+            result[sym] = _PREV_CLOSE_CACHE[sym]
+        else:
+            missing.append(sym)
+
+    if missing:
+        fetched = batch_fetch_prev_closes(missing)
+        for sym in missing:
+            val = fetched.get(sym)
+            _PREV_CLOSE_CACHE[sym] = val
+            result[sym] = val
+        logger.info(f"Cached previous closes for {len(missing)} new symbols.")
+
+    return result
+
+def add_symbol_to_cache(symbol):
+    """
+    Fetch and cache a single symbol's previous close.
+    Called when a new alert is added during the trading day.
+    """
+    global _PREV_CLOSE_CACHE
+    _invalidate_cache_if_new_day()
+
+    sym = symbol.upper()
+    if sym in _PREV_CLOSE_CACHE:
+        return _PREV_CLOSE_CACHE[sym]
+
+    fetched = batch_fetch_prev_closes([sym])
+    val = fetched.get(sym)
+    _PREV_CLOSE_CACHE[sym] = val
+    logger.info(f"Added {sym} to prev-close cache: {val}")
+    return val
 
 # ------------------------------------------------------------------
 #  TELEGRAM
