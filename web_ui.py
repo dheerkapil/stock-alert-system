@@ -18,9 +18,10 @@ app = Flask(__name__)
 
 # ---------- GLOBAL CACHE FOR NSE SYMBOLS ----------
 NSE_SYMBOLS = []
+NSE_NAME_LOOKUP = {}
 
 def refresh_nse_symbols():
-    global NSE_SYMBOLS
+    global NSE_SYMBOLS, NSE_NAME_LOOKUP
     url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
     headers = {"User-Agent": config.USER_AGENT}
     try:
@@ -40,10 +41,12 @@ def refresh_nse_symbols():
             {"symbol": row[symbol_col].strip(), "name": row[name_col].strip()}
             for _, row in df.iterrows()
         ]
+        NSE_NAME_LOOKUP = {item['symbol'].upper(): item['name'] for item in NSE_SYMBOLS}
         logger.info(f"Cached {len(NSE_SYMBOLS)} symbols.")
     except Exception as e:
         logger.error(f"Failed to fetch NSE symbols: {e}")
         NSE_SYMBOLS = []
+        NSE_NAME_LOOKUP = {}
 
 refresh_nse_symbols()
 
@@ -113,7 +116,8 @@ def add_alert():
     symbol = data.get('symbol', '').upper()
     condition = data.get('condition')
     trigger_price = data.get('price')
-    force = data.get('force', False)
+    force_duplicate = data.get('force_duplicate', False)
+    force_trigger = data.get('force_trigger', False)
 
     if not symbol or condition not in ('>=', '<=') or not trigger_price:
         return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
@@ -123,6 +127,18 @@ def add_alert():
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
 
+    conn = get_db()
+
+    # ----- DUPLICATE SYMBOL CHECK (any state) -----
+    existing = conn.execute('SELECT id FROM watchlist WHERE symbol = ?', (symbol,)).fetchone()
+    if existing and not force_duplicate:
+        conn.close()
+        return jsonify({
+            'status': 'duplicate',
+            'message': f"{symbol} is already in your list."
+        }), 200
+
+    # ----- PRICE ALREADY MET WARNING -----
     current_price = None
     try:
         prices = stock_alert.get_prices([symbol])
@@ -137,30 +153,27 @@ def add_alert():
         elif condition == '<=' and current_price <= trigger_price:
             warning = f"Current price is {current_price}, which already meets the condition."
 
-    if warning and not force:
+    if warning and not force_trigger:
+        conn.close()
         return jsonify({
             'status': 'warning',
             'message': warning,
             'current_price': current_price
         }), 200
 
-    conn = get_db()
+    # ----- INSERT -----
     try:
         conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price) VALUES (?, ?, ?)',
                      (symbol, condition, trigger_price))
         conn.commit()
         conn.close()
 
-        # Pre-warm prev-close cache for the newly added symbol (once per day)
         try:
             stock_alert.add_symbol_to_cache(symbol)
         except Exception as e:
             logger.warning(f"Could not pre-cache prev close for {symbol}: {e}")
 
-        return jsonify({'status': 'ok'})
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({'status': 'error', 'message': 'Duplicate alert'}), 400
+        return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
         conn.close()
         logger.error(f"Add alert DB error: {e}")
@@ -174,6 +187,12 @@ def update_alert(alert_id):
         new_condition = data.get('condition')
 
         conn = get_db()
+        row = conn.execute('SELECT symbol FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
+        symbol = row['symbol']
+
         if new_price is not None:
             try:
                 new_price = float(new_price)
@@ -190,7 +209,15 @@ def update_alert(alert_id):
 
         conn.commit()
         conn.close()
-        return jsonify({'status': 'ok'})
+
+        # Return final state for the confirmation message
+        final_row = get_db().execute('SELECT condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        return jsonify({
+            'status': 'ok',
+            'symbol': symbol,
+            'condition': final_row['condition'],
+            'price': final_row['trigger_price']
+        })
     except Exception as e:
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -254,11 +281,15 @@ def get_alerts():
                         alert['pct_chg'] = ((cmp - prev_close) / prev_close) * 100
                     else:
                         alert['pct_chg'] = None
+
+                    # Attach company name for search
+                    alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
             except Exception as e:
                 logger.error(f"Failed to fetch prices: {e}")
                 for alert in alerts_list:
                     alert['cmp'] = None
                     alert['pct_chg'] = None
+                    alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
         return jsonify(alerts_list)
     except Exception as e:
         logger.error(f"Error in /api/alerts: {e}")
@@ -340,7 +371,6 @@ def import_alerts():
         conn.commit()
         conn.close()
 
-        # Pre-warm prev-close cache for all imported symbols
         try:
             all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
             if all_symbols:
@@ -355,10 +385,6 @@ def import_alerts():
 
 # ---------- 8 AM CACHE WARMER THREAD ----------
 def daily_cache_warmer():
-    """
-    Runs every day at 08:00 IST.
-    Fetches previous close for all watchlist symbols in one batch call.
-    """
     last_run_date = None
     while True:
         try:
@@ -394,7 +420,6 @@ def start_worker():
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
-# Start the daily 8 AM cache warmer
 cache_warmer_thread = threading.Thread(target=daily_cache_warmer, daemon=True)
 cache_warmer_thread.start()
 
