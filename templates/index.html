@@ -91,6 +91,7 @@
             justify-content: space-between;
             margin-bottom: 16px;
             padding: 0 4px;
+            gap: 8px;
         }
         .header-row h1 {
             font-size: 1.4rem;
@@ -117,9 +118,33 @@
             cursor: pointer;
             transition: background 0.2s, transform 0.15s;
             box-shadow: var(--shadow-1);
+            flex-shrink: 0;
         }
         .theme-toggle-btn:hover { background: var(--border); }
         .theme-toggle-btn:active { transform: scale(0.92); }
+
+        .logout-btn {
+            height: 44px;
+            padding: 0 18px;
+            border-radius: 22px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+            box-shadow: var(--shadow-1);
+            white-space: nowrap;
+        }
+        .logout-btn:hover {
+            background: var(--surface-2);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        .logout-btn:active { transform: scale(0.96); }
+
         .form-label {
             font-size: 0.75rem;
             margin-bottom: 4px;
@@ -441,8 +466,9 @@
             body { padding: 6px; }
             .card { padding: 12px; margin-bottom: 10px; border-radius: 14px; }
             .card h5 { font-size: 0.95rem; }
-            .header-row h1 { font-size: 1.2rem; }
+            .header-row h1 { font-size: 1.1rem; }
             .theme-toggle-btn { width: 40px; height: 40px; font-size: 1rem; }
+            .logout-btn { height: 40px; padding: 0 14px; font-size: 0.8rem; }
             .table-scroll table { min-width: 800px; }
             .table-scroll thead th { font-size: 0.55rem; padding: 8px 5px; }
             .table-scroll tbody td { font-size: 0.72rem; padding: 8px 5px; }
@@ -468,7 +494,7 @@
         <h1>📊 Alert Manager</h1>
         <div class="header-actions">
             <button id="themeToggle" class="theme-toggle-btn" title="Toggle theme">🌙</button>
-            <button id="logoutBtn" class="theme-toggle-btn" title="Logout">🚪</button>
+            <button id="logoutBtn" class="logout-btn" title="Log out">Logout</button>
         </div>
     </div>
 
@@ -612,7 +638,7 @@ document.getElementById('appModal').addEventListener('click', function(e) {
 
 logoutBtn.addEventListener('click', function() {
     showAppModal({
-        title: '🚪 Logout',
+        title: 'Logout',
         bodyHTML: '<div>Are you sure you want to log out?</div>',
         buttons: [
             { label: 'OK', class: 'btn-primary', onClick: () => {
