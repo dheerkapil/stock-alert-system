@@ -2,12 +2,14 @@ import sqlite3
 import threading
 import time
 import logging
+import secrets
+import random
 import requests
 import pandas as pd
 import json
 from io import StringIO
 from datetime import datetime, date
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, make_response
 import config
 import stock_alert
 
@@ -16,7 +18,19 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ---------- GLOBAL CACHE FOR NSE SYMBOLS ----------
+# ------------------------------------------------------------------
+#  AUTH STATE (in-memory)
+# ------------------------------------------------------------------
+SESSIONS = {}          # {session_id: expiry_unix_ts}
+PENDING_OTP = {}       # {ip: {'code': '1234', 'expiry': ts, 'sent_at': ts, 'attempts': int}}
+SESSION_DURATION = 30 * 24 * 3600   # 30 days
+OTP_VALIDITY = 300                  # 5 minutes
+OTP_THROTTLE = 60                   # 1 minute between OTP requests per IP
+MAX_OTP_ATTEMPTS = 5
+
+# ------------------------------------------------------------------
+#  GLOBAL CACHE FOR NSE SYMBOLS
+# ------------------------------------------------------------------
 NSE_SYMBOLS = []
 NSE_NAME_LOOKUP = {}
 
@@ -50,7 +64,165 @@ def refresh_nse_symbols():
 
 refresh_nse_symbols()
 
-# ---------- DATABASE ----------
+# ------------------------------------------------------------------
+#  AUTH HELPERS
+# ------------------------------------------------------------------
+def get_client_ip():
+    xff = request.headers.get('X-Forwarded-For', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+def is_authenticated():
+    sid = request.cookies.get('session_id')
+    if not sid:
+        return False
+    expiry = SESSIONS.get(sid)
+    if not expiry:
+        return False
+    if expiry < time.time():
+        SESSIONS.pop(sid, None)
+        return False
+    return True
+
+def is_valid_worker_key():
+    supplied = request.headers.get('X-API-Key', '')
+    return bool(config.WORKER_API_KEY) and supplied == config.WORKER_API_KEY
+
+@app.before_request
+def check_auth():
+    path = request.path
+
+    # Public routes
+    if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico'):
+        return None
+    if path.startswith('/static/'):
+        return None
+
+    # Worker routes: allow if API key matches
+    if path in ('/api/alerts',) or path.startswith('/api/mark_triggered'):
+        if is_valid_worker_key():
+            return None
+        # else fall through to session check
+
+    # Everything else requires a valid session
+    if not is_authenticated():
+        if path.startswith('/api/'):
+            return jsonify({'error': 'Unauthorized'}), 401
+        return redirect('/login')
+
+    return None
+
+# ------------------------------------------------------------------
+#  AUTH ROUTES
+# ------------------------------------------------------------------
+@app.route('/login')
+def login_page():
+    if is_authenticated():
+        return redirect('/')
+    return render_template('login.html')
+
+@app.route('/api/send_otp', methods=['POST'])
+def send_otp():
+    ip = get_client_ip()
+    now = time.time()
+
+    existing = PENDING_OTP.get(ip)
+    if existing and now - existing.get('sent_at', 0) < OTP_THROTTLE:
+        remaining = int(OTP_THROTTLE - (now - existing['sent_at']))
+        return jsonify({'status': 'error', 'message': f'Please wait {remaining}s before requesting again.'}), 429
+
+    code = f"{random.randint(0, 9999):04d}"
+    PENDING_OTP[ip] = {
+        'code': code,
+        'expiry': now + OTP_VALIDITY,
+        'sent_at': now,
+        'attempts': 0
+    }
+
+    msg = (f"🔐 <b>Login OTP Requested</b>\n"
+           f"Code: <b>{code}</b>\n"
+           f"IP: <code>{ip}</code>\n"
+           f"Valid for 5 minutes.")
+    stock_alert.send_telegram(msg)
+    logger.info(f"OTP sent to Telegram for IP {ip}")
+    return jsonify({'status': 'ok', 'message': 'OTP sent to Telegram'})
+
+@app.route('/api/verify_otp', methods=['POST'])
+def verify_otp():
+    data = request.json or {}
+    code = str(data.get('code', '')).strip()
+    ip = get_client_ip()
+    now = time.time()
+
+    entry = PENDING_OTP.get(ip)
+    if not entry or entry['expiry'] < now:
+        return jsonify({'status': 'error', 'message': 'No OTP requested or expired. Request a new one.'}), 401
+
+    entry['attempts'] = entry.get('attempts', 0) + 1
+
+    if entry['attempts'] > MAX_OTP_ATTEMPTS:
+        PENDING_OTP.pop(ip, None)
+        stock_alert.send_telegram(
+            f"🚨 <b>Too many failed login attempts</b>\n"
+            f"IP: <code>{ip}</code>\n"
+            f"OTP invalidated."
+        )
+        return jsonify({'status': 'error', 'message': 'Too many attempts. Request a new OTP.'}), 401
+
+    if entry['code'] != code:
+        stock_alert.send_telegram(
+            f"❌ <b>Failed login attempt</b>\n"
+            f"IP: <code>{ip}</code>\n"
+            f"Attempt: {entry['attempts']} of {MAX_OTP_ATTEMPTS}"
+        )
+        return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
+
+    # Success
+    PENDING_OTP.pop(ip, None)
+    session_id = secrets.token_urlsafe(32)
+    SESSIONS[session_id] = now + SESSION_DURATION
+
+    ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
+    stock_alert.send_telegram(
+        f"✅ <b>Login Success</b>\n"
+        f"IP: <code>{ip}</code>\n"
+        f"Time: {ist_time}"
+    )
+
+    resp = make_response(jsonify({'status': 'ok'}))
+    is_https = (request.headers.get('X-Forwarded-Proto', '') == 'https') or request.is_secure
+    resp.set_cookie(
+        'session_id',
+        session_id,
+        max_age=SESSION_DURATION,
+        httponly=True,
+        samesite='Lax',
+        secure=is_https,
+        path='/'
+    )
+    logger.info(f"Login success from {ip}")
+    return resp
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    sid = request.cookies.get('session_id')
+    if sid:
+        SESSIONS.pop(sid, None)
+    ip = get_client_ip()
+    ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
+    stock_alert.send_telegram(
+        f"👋 <b>Logout</b>\n"
+        f"IP: <code>{ip}</code>\n"
+        f"Time: {ist_time}"
+    )
+    resp = make_response(jsonify({'status': 'ok'}))
+    resp.set_cookie('session_id', '', max_age=0, path='/')
+    return resp
+
+# ------------------------------------------------------------------
+#  DATABASE
+# ------------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect(config.DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -79,24 +251,19 @@ def init_db():
         logger.error(f"Database init error: {e}")
 
 def migrate_conditions():
-    """Migrate >= → >, <= → < and rebuild table with new CHECK constraint."""
     try:
         conn = sqlite3.connect(config.DB_FILE)
         c = conn.cursor()
-
         c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='watchlist'")
         row = c.fetchone()
         if not row:
             conn.close()
             return
-
         schema = row[0]
         if "'>='" not in schema and "'<='" not in schema:
             conn.close()
             return
-
         logger.info("Migrating condition operators: >= → >, <= → < ...")
-
         c.execute('BEGIN TRANSACTION')
         c.execute('''
             CREATE TABLE watchlist_new (
@@ -109,35 +276,27 @@ def migrate_conditions():
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-
         c.execute('''
             INSERT INTO watchlist_new (id, symbol, condition, trigger_price, is_active, is_triggered, added_at)
-            SELECT 
-                id, 
-                symbol,
-                CASE 
-                    WHEN condition = '>=' THEN '>'
-                    WHEN condition = '<=' THEN '<'
-                    ELSE condition 
-                END,
-                trigger_price,
-                is_active,
-                is_triggered,
-                added_at
+            SELECT id, symbol,
+                CASE WHEN condition = '>=' THEN '>'
+                     WHEN condition = '<=' THEN '<'
+                     ELSE condition END,
+                trigger_price, is_active, is_triggered, added_at
             FROM watchlist
         ''')
-
         c.execute('DROP TABLE watchlist')
         c.execute('ALTER TABLE watchlist_new RENAME TO watchlist')
         c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
         c.execute('COMMIT')
-
         logger.info("✅ Migration completed.")
         conn.close()
     except Exception as e:
         logger.error(f"Migration error: {e}")
 
-# ---------- ROUTES ----------
+# ------------------------------------------------------------------
+#  API ROUTES
+# ------------------------------------------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -463,16 +622,17 @@ def import_alerts():
         logger.error(f"Import error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- 8 AM CACHE WARMER THREAD ----------
+# ------------------------------------------------------------------
+#  BACKGROUND THREADS
+# ------------------------------------------------------------------
 def daily_cache_warmer():
     last_run_date = None
     while True:
         try:
             now = datetime.now(config.TIMEZONE)
             today = now.date()
-
             if (now.hour == 8 and now.minute < 5 and last_run_date != today):
-                logger.info("🕗 8 AM: warming previous-close cache for all watchlist symbols...")
+                logger.info("🕗 8 AM: warming previous-close cache...")
                 try:
                     conn = sqlite3.connect(config.DB_FILE)
                     rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
@@ -481,31 +641,42 @@ def daily_cache_warmer():
                     if symbols:
                         stock_alert.get_prev_closes(symbols)
                         logger.info(f"✅ Cache warmed for {len(symbols)} symbols.")
-                    else:
-                        logger.info("No symbols in watchlist to warm.")
                     last_run_date = today
                 except Exception as e:
                     logger.error(f"Cache warmer failed: {e}")
-
             time.sleep(60)
         except Exception as e:
-            logger.error(f"Cache warmer thread error: {e}")
+            logger.error(f"Cache warmer error: {e}")
             time.sleep(60)
 
-# ---------- INIT DB + MIGRATION ----------
-init_db()
-migrate_conditions()
+def cleanup_sessions():
+    while True:
+        try:
+            now = time.time()
+            expired_sessions = [k for k, v in list(SESSIONS.items()) if v < now]
+            for k in expired_sessions:
+                SESSIONS.pop(k, None)
+            expired_otps = [k for k, v in list(PENDING_OTP.items()) if v.get('expiry', 0) < now]
+            for k in expired_otps:
+                PENDING_OTP.pop(k, None)
+            time.sleep(300)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+            time.sleep(300)
 
-# ---------- WORKER THREAD ----------
 def start_worker():
     time.sleep(5)
     stock_alert.main()
 
-worker_thread = threading.Thread(target=start_worker, daemon=True)
-worker_thread.start()
+threading.Thread(target=start_worker, daemon=True).start()
+threading.Thread(target=daily_cache_warmer, daemon=True).start()
+threading.Thread(target=cleanup_sessions, daemon=True).start()
 
-cache_warmer_thread = threading.Thread(target=daily_cache_warmer, daemon=True)
-cache_warmer_thread.start()
+# ------------------------------------------------------------------
+#  INIT
+# ------------------------------------------------------------------
+init_db()
+migrate_conditions()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

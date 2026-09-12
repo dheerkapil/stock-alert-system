@@ -18,6 +18,15 @@ _PREV_CLOSE_CACHE = {}
 _PREV_CLOSE_DATE = None
 
 # ------------------------------------------------------------------
+#  AUTH HEADER FOR WORKER ROUTES
+# ------------------------------------------------------------------
+def api_headers():
+    headers = {}
+    if config.WORKER_API_KEY:
+        headers['X-API-Key'] = config.WORKER_API_KEY
+    return headers
+
+# ------------------------------------------------------------------
 #  HELPERS
 # ------------------------------------------------------------------
 def is_market_open(now):
@@ -33,7 +42,7 @@ def is_weekday(now):
 # ------------------------------------------------------------------
 def get_active_alerts():
     try:
-        resp = requests.get(f"{WEBUI_URL}/api/alerts", timeout=10)
+        resp = requests.get(f"{WEBUI_URL}/api/alerts", headers=api_headers(), timeout=10)
         resp.raise_for_status()
         alerts = resp.json()
         return [a for a in alerts if a['is_active'] == 1 and a['is_triggered'] == 0]
@@ -251,7 +260,8 @@ def main():
                 msg = (f"🔔 ALERT\n{symbol} {cond} {trigger}\nCurrent: {current}\n{now.strftime('%H:%M:%S')} IST")
                 send_telegram(msg)
                 try:
-                    requests.post(f"{WEBUI_URL}/api/mark_triggered/{alert['id']}", timeout=10)
+                    requests.post(f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
+                                  headers=api_headers(), timeout=10)
                 except Exception as e:
                     logger.error(f"Failed to mark triggered: {e}")
                 logger.info(f"Alert {alert['id']} triggered.")

@@ -28,5 +28,8 @@ CONSECUTIVE_TV_FAILURES_THRESHOLD = 3
 # ---- Logging ----
 LOG_LEVEL = "INFO"
 
-# ---- User‑Agent ----
+# ---- User-Agent ----
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# ---- Worker API Key (for stock_alert.py to authenticate to web_ui.py) ----
+WORKER_API_KEY = os.environ.get("WORKER_API_KEY", "")
