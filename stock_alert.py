@@ -14,8 +14,8 @@ WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 # ------------------------------------------------------------------
 #  DAY-LEVEL CACHE FOR PREVIOUS CLOSES
 # ------------------------------------------------------------------
-_PREV_CLOSE_CACHE = {}          # {symbol: prev_close}
-_PREV_CLOSE_DATE = None         # date when cache was built
+_PREV_CLOSE_CACHE = {}
+_PREV_CLOSE_DATE = None
 
 # ------------------------------------------------------------------
 #  HELPERS
@@ -105,7 +105,6 @@ def get_prices(symbols):
 #  PREVIOUS CLOSE - DAY-LEVEL CACHE
 # ------------------------------------------------------------------
 def _invalidate_cache_if_new_day():
-    """Clear the cache if the date has changed."""
     global _PREV_CLOSE_CACHE, _PREV_CLOSE_DATE
     today = date.today()
     if _PREV_CLOSE_DATE != today:
@@ -114,10 +113,6 @@ def _invalidate_cache_if_new_day():
         logger.info(f"Previous-close cache invalidated for new day: {today}")
 
 def batch_fetch_prev_closes(symbols):
-    """
-    Batch download previous closes for multiple symbols in ONE Yahoo Finance call.
-    Used at 8 AM to warm up the cache.
-    """
     if not symbols:
         return {}
     symbols = [s.upper() for s in symbols]
@@ -160,14 +155,7 @@ def batch_fetch_prev_closes(symbols):
     return result
 
 def get_prev_closes(symbols):
-    """
-    Return previous close for each symbol.
-    - Uses day-level cache.
-    - Fetches missing symbols in a single batch call.
-    - Never re-fetches during the same trading day.
-    """
     global _PREV_CLOSE_CACHE
-
     _invalidate_cache_if_new_day()
 
     if not symbols:
@@ -194,10 +182,6 @@ def get_prev_closes(symbols):
     return result
 
 def add_symbol_to_cache(symbol):
-    """
-    Fetch and cache a single symbol's previous close.
-    Called when a new alert is added during the trading day.
-    """
     global _PREV_CLOSE_CACHE
     _invalidate_cache_if_new_day()
 
@@ -258,9 +242,9 @@ def main():
                 continue
 
             triggered = False
-            if cond == '>=' and current >= trigger:
+            if cond == '>' and current > trigger:
                 triggered = True
-            elif cond == '<=' and current <= trigger:
+            elif cond == '<' and current < trigger:
                 triggered = True
 
             if triggered:

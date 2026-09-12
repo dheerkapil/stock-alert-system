@@ -64,7 +64,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS watchlist (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 symbol TEXT NOT NULL,
-                condition TEXT NOT NULL CHECK(condition IN ('>=', '<=')),
+                condition TEXT NOT NULL CHECK(condition IN ('>', '<')),
                 trigger_price REAL NOT NULL,
                 is_active INTEGER DEFAULT 1,
                 is_triggered INTEGER DEFAULT 0,
@@ -77,6 +77,65 @@ def init_db():
         logger.info("Database initialized.")
     except Exception as e:
         logger.error(f"Database init error: {e}")
+
+def migrate_conditions():
+    """Migrate >= → >, <= → < and rebuild table with new CHECK constraint."""
+    try:
+        conn = sqlite3.connect(config.DB_FILE)
+        c = conn.cursor()
+
+        c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='watchlist'")
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return
+
+        schema = row[0]
+        if "'>='" not in schema and "'<='" not in schema:
+            conn.close()
+            return
+
+        logger.info("Migrating condition operators: >= → >, <= → < ...")
+
+        c.execute('BEGIN TRANSACTION')
+        c.execute('''
+            CREATE TABLE watchlist_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                condition TEXT NOT NULL CHECK(condition IN ('>', '<')),
+                trigger_price REAL NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                is_triggered INTEGER DEFAULT 0,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        c.execute('''
+            INSERT INTO watchlist_new (id, symbol, condition, trigger_price, is_active, is_triggered, added_at)
+            SELECT 
+                id, 
+                symbol,
+                CASE 
+                    WHEN condition = '>=' THEN '>'
+                    WHEN condition = '<=' THEN '<'
+                    ELSE condition 
+                END,
+                trigger_price,
+                is_active,
+                is_triggered,
+                added_at
+            FROM watchlist
+        ''')
+
+        c.execute('DROP TABLE watchlist')
+        c.execute('ALTER TABLE watchlist_new RENAME TO watchlist')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
+        c.execute('COMMIT')
+
+        logger.info("✅ Migration completed.")
+        conn.close()
+    except Exception as e:
+        logger.error(f"Migration error: {e}")
 
 # ---------- ROUTES ----------
 @app.route('/')
@@ -119,7 +178,7 @@ def add_alert():
     force_duplicate = data.get('force_duplicate', False)
     force_trigger = data.get('force_trigger', False)
 
-    if not symbol or condition not in ('>=', '<=') or not trigger_price:
+    if not symbol or condition not in ('>', '<') or not trigger_price:
         return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
 
     try:
@@ -146,9 +205,9 @@ def add_alert():
 
     warning = None
     if current_price is not None:
-        if condition == '>=' and current_price >= trigger_price:
+        if condition == '>' and current_price > trigger_price:
             warning = f"Current price is {current_price}, which already meets the condition."
-        elif condition == '<=' and current_price <= trigger_price:
+        elif condition == '<' and current_price < trigger_price:
             warning = f"Current price is {current_price}, which already meets the condition."
 
     if warning and not force_trigger:
@@ -199,7 +258,7 @@ def update_alert(alert_id):
                 return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
 
         if new_condition is not None:
-            if new_condition not in ('>=', '<='):
+            if new_condition not in ('>', '<'):
                 conn.close()
                 return jsonify({'status': 'error', 'message': 'Invalid condition'}), 400
             conn.execute('UPDATE watchlist SET condition = ? WHERE id = ?', (new_condition, alert_id))
@@ -218,7 +277,6 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATED REACTIVATE (supports dry_run) ----------
 @app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
 def reactivate_alert(alert_id):
     try:
@@ -234,18 +292,16 @@ def reactivate_alert(alert_id):
             conn.close()
             return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
 
-        # Fetch current price
         prices = stock_alert.get_prices([alert['symbol']])
         current_price = prices.get(alert['symbol'])
 
         would_trigger = False
         if current_price is not None:
-            if alert['condition'] == '>=' and current_price >= alert['trigger_price']:
+            if alert['condition'] == '>' and current_price > alert['trigger_price']:
                 would_trigger = True
-            elif alert['condition'] == '<=' and current_price <= alert['trigger_price']:
+            elif alert['condition'] == '<' and current_price < alert['trigger_price']:
                 would_trigger = True
 
-        # ---- DRY RUN: just report the preview, do not change anything ----
         if dry_run:
             conn.close()
             return jsonify({
@@ -258,7 +314,6 @@ def reactivate_alert(alert_id):
                 'current_price': current_price
             })
 
-        # ---- ACTUAL REACTIVATION ----
         conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
         conn.commit()
 
@@ -376,12 +431,19 @@ def import_alerts():
         conn = get_db()
         conn.execute('DELETE FROM watchlist')
         for item in data:
+            cond = item.get('condition', '>')
+            if cond == '>=':
+                cond = '>'
+            elif cond == '<=':
+                cond = '<'
+            if cond not in ('>', '<'):
+                cond = '>'
             conn.execute('''
                 INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
                 VALUES (?, ?, ?, ?, ?)
             ''', (
                 item.get('symbol', '').upper(),
-                item.get('condition', '>='),
+                cond,
                 float(item.get('trigger_price', 0)),
                 int(item.get('is_active', 1)),
                 int(item.get('is_triggered', 0))
@@ -430,6 +492,10 @@ def daily_cache_warmer():
             logger.error(f"Cache warmer thread error: {e}")
             time.sleep(60)
 
+# ---------- INIT DB + MIGRATION ----------
+init_db()
+migrate_conditions()
+
 # ---------- WORKER THREAD ----------
 def start_worker():
     time.sleep(5)
@@ -440,9 +506,6 @@ worker_thread.start()
 
 cache_warmer_thread = threading.Thread(target=daily_cache_warmer, daemon=True)
 cache_warmer_thread.start()
-
-# ---------- INIT DB ----------
-init_db()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
