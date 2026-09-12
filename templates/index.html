@@ -28,7 +28,6 @@
             --header-bg: #f1f3f4;
             --row-hover: #f8f9fa;
         }
-
         body.dark {
             --bg: #000000;
             --surface: #121212;
@@ -50,16 +49,13 @@
             --header-bg: #1e1e1e;
             --row-hover: #1a1a1a;
         }
-
         * { box-sizing: border-box; }
-
         html {
             background-color: var(--bg) !important;
             min-height: 100vh;
             margin: 0;
             padding: 0;
         }
-
         body {
             font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
             background-color: var(--bg) !important;
@@ -70,9 +66,7 @@
             overflow-x: hidden;
             transition: background 0.2s ease, color 0.2s ease;
         }
-
         .container { max-width: 100%; padding: 0; background-color: transparent; }
-
         .card {
             border-radius: 16px;
             background: var(--surface);
@@ -90,9 +84,7 @@
             color: var(--text);
             letter-spacing: 0.1px;
         }
-
         .text-muted { color: var(--text-muted) !important; }
-
         .header-row {
             display: flex;
             align-items: center;
@@ -128,7 +120,6 @@
         }
         .theme-toggle-btn:hover { background: var(--border); }
         .theme-toggle-btn:active { transform: scale(0.92); }
-
         .form-label {
             font-size: 0.75rem;
             margin-bottom: 4px;
@@ -157,12 +148,10 @@
             box-shadow: 0 0 0 3px rgba(138,180,248,0.25);
         }
         .form-control-sm::placeholder { color: var(--text-muted); opacity: 0.7; }
-
         input[readonly], input:disabled {
             opacity: 0.75;
             cursor: not-allowed;
         }
-
         input[type=number]::-webkit-outer-spin-button,
         input[type=number]::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -172,7 +161,6 @@
             -moz-appearance: textfield;
             appearance: textfield;
         }
-
         #addBtn {
             font-size: 0.9rem;
             padding: 0.5rem 1rem;
@@ -187,7 +175,6 @@
         }
         #addBtn:hover { box-shadow: var(--shadow-2); filter: brightness(1.05); }
         #addBtn:active { transform: scale(0.97); }
-
         .btn-tool {
             font-size: 0.75rem;
             padding: 0.4rem 0.9rem;
@@ -228,7 +215,6 @@
             border-color: var(--primary-fill) !important;
             box-shadow: var(--shadow-1);
         }
-
         .table-scroll {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -263,7 +249,6 @@
         .table-scroll thead th .sort-icon { margin-left: 4px; font-size: 0.6rem; opacity: 0.4; }
         .table-scroll thead th.active .sort-icon { opacity: 1; color: var(--primary); }
         .table-scroll thead th.active { color: var(--primary); }
-
         .table-scroll tbody td {
             padding: 10px 8px;
             vertical-align: middle;
@@ -274,13 +259,10 @@
             background: var(--surface);
         }
         .table-scroll tbody tr:hover td { background: var(--row-hover); }
-
         .col-actions { min-width: 120px; width: 1%; text-align: center; }
-
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
-
         .status-btn {
             width: 26px; height: 26px;
             border-radius: 50%;
@@ -297,11 +279,9 @@
         .status-btn.active { background: #28a745; border-color: #28a745; }
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.85; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
-
         .cmp-green, .gap-green, .pct-green { color: var(--success); font-weight: 600; }
         .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
         .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
-
         .table .btn-sm {
             padding: 6px 10px;
             font-size: 0.75rem;
@@ -316,7 +296,6 @@
         .table .btn-outline-primary { color: var(--primary) !important; }
         .table .btn-outline-danger { color: var(--danger) !important; }
         .table .btn-outline-warning { color: var(--warning) !important; }
-
         .input-group { position: relative; }
         #symbolInput { position: relative; z-index: 1000; }
         .autocomplete-items {
@@ -343,10 +322,8 @@
         .autocomplete-item:hover { background: var(--surface-2); }
         .autocomplete-item .symbol { font-weight: 500; margin-right: 8px; color: var(--primary); }
         .autocomplete-item .name { color: var(--text-muted); font-size: 0.75rem; }
-
         #searchBox { flex: 1; min-width: 180px; max-width: 320px; }
         #clearSearchBtn, #duplicateBtn { padding: 0.4rem 0.8rem; }
-
         .data-tools {
             display: flex;
             flex-wrap: wrap;
@@ -366,7 +343,6 @@
             flex: 1;
             min-width: 220px;
         }
-
         #importStatus {
             font-size: 0.8rem;
             font-weight: 500;
@@ -374,7 +350,6 @@
             letter-spacing: 0.2px;
             white-space: nowrap;
         }
-
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -462,7 +437,6 @@
             border: none;
         }
         .modal-actions .btn-danger:hover { filter: brightness(1.1); }
-
         @media (max-width: 576px) {
             body { padding: 6px; }
             .card { padding: 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -484,14 +458,12 @@
             .modal-box { padding: 18px; border-radius: 16px; }
             .modal-actions .btn { min-width: 70px; font-size: 0.8rem; }
         }
-
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
         body.dark .badge { background: var(--surface-2); }
     </style>
 </head>
 <body>
 <div class="container">
-
     <div class="header-row">
         <h1>📊 Alert Manager</h1>
         <div class="header-actions">
@@ -500,7 +472,6 @@
         </div>
     </div>
 
-    <!-- ADD NEW ALERT -->
     <div class="card">
         <h5>➕ Add New Alert</h5>
         <div class="row g-2 align-items-end">
@@ -529,7 +500,6 @@
         <div id="addMessage" class="mt-2 small" style="font-size:0.85rem;"></div>
     </div>
 
-    <!-- DATA TOOLS -->
     <div class="card" style="padding: 12px 16px;">
         <div class="data-tools">
             <div class="tool-group">
@@ -547,7 +517,6 @@
         </div>
     </div>
 
-    <!-- ALERTS TABLE -->
     <div class="card" style="padding: 12px 6px;">
         <h5 style="padding-left:10px;">📋 Your Alerts</h5>
         <div class="table-scroll">
@@ -574,7 +543,6 @@
     </div>
 </div>
 
-<!-- ============ GENERIC MODAL ============ -->
 <div id="appModal" class="modal-overlay">
     <div class="modal-box">
         <h6 id="appModalTitle"></h6>
@@ -584,7 +552,6 @@
 </div>
 
 <script>
-// ============ GLOBAL 401 HANDLER ============
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
     return originalFetch.apply(this, args).then(response => {
@@ -596,7 +563,6 @@ window.fetch = function(...args) {
     });
 };
 
-// ============ THEME TOGGLE ============
 const themeToggle = document.getElementById('themeToggle');
 const logoutBtn = document.getElementById('logoutBtn');
 
@@ -611,10 +577,8 @@ function applyTheme(theme) {
         document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a73e8');
     }
 }
-
 const savedTheme = localStorage.getItem('alertManagerTheme') || 'light';
 applyTheme(savedTheme);
-
 themeToggle.addEventListener('click', function() {
     const isDark = document.body.classList.contains('dark');
     const newTheme = isDark ? 'light' : 'dark';
@@ -622,7 +586,6 @@ themeToggle.addEventListener('click', function() {
     localStorage.setItem('alertManagerTheme', newTheme);
 });
 
-// ============ GENERIC MODAL ============
 function showAppModal({ title, bodyHTML, buttons }) {
     document.getElementById('appModalTitle').innerHTML = title;
     document.getElementById('appModalBody').innerHTML = bodyHTML;
@@ -640,16 +603,13 @@ function showAppModal({ title, bodyHTML, buttons }) {
     });
     document.getElementById('appModal').classList.add('show');
 }
-
 function hideAppModal() {
     document.getElementById('appModal').classList.remove('show');
 }
-
 document.getElementById('appModal').addEventListener('click', function(e) {
     if (e.target.id === 'appModal') hideAppModal();
 });
 
-// ============ LOGOUT ============
 logoutBtn.addEventListener('click', function() {
     showAppModal({
         title: '🚪 Logout',
@@ -665,7 +625,6 @@ logoutBtn.addEventListener('click', function() {
     });
 });
 
-// ============ EDIT DIALOG ============
 function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
     const cmpVal = (cmp !== null && cmp !== undefined && cmp !== '') ? cmp : '-';
     const bodyHTML = `
@@ -730,7 +689,6 @@ function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
     }, 100);
 }
 
-// ============ AUTOCOMPLETE ============
 const symbolInput = document.getElementById('symbolInput');
 const autocompleteList = document.getElementById('autocompleteList');
 const searchBox = document.getElementById('searchBox');
@@ -769,16 +727,13 @@ document.addEventListener('click', function(e) {
     if (e.target !== symbolInput) autocompleteList.style.display = 'none';
 });
 
-// ============ SEARCH & DUPLICATE FILTER ============
 searchBox.addEventListener('input', filterTable);
-
 clearSearchBtn.addEventListener('click', function() {
     searchBox.value = '';
     showDuplicatesOnly = false;
     duplicateBtn.classList.remove('active');
     filterTable();
 });
-
 duplicateBtn.addEventListener('click', function() {
     showDuplicatesOnly = !showDuplicatesOnly;
     if (showDuplicatesOnly) duplicateBtn.classList.add('active');
@@ -811,7 +766,6 @@ function filterTable() {
     });
 }
 
-// ============ SORTING ============
 let currentSort = { column: null, direction: 1 };
 let alertsData = [];
 
@@ -877,14 +831,12 @@ function showMessage(type, html) {
         `<span style="color: ${map[type] || 'var(--text)'}; font-weight:500;">${html}</span>`;
 }
 
-// ============ RENDER ============
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         return;
     }
-
     let html = '';
     data.forEach(a => {
         let cmpDisplay = '-';
@@ -895,7 +847,6 @@ function renderAlerts(data) {
             else if (a.condition === '<' && a.cmp < a.trigger_price) cmpClass = 'cmp-green';
             else cmpClass = 'cmp-red';
         }
-
         let gapDisplay = '-';
         let gapClass = 'gap-neutral';
         const gap = calculateGap(a);
@@ -915,10 +866,8 @@ function renderAlerts(data) {
                 }
             }
         }
-
         let mgapDisplay = '-';
         if (isFinite(gap)) mgapDisplay = Math.abs(gap).toFixed(1) + '%';
-
         let pctChgDisplay = '-';
         let pctChgClass = 'pct-neutral';
         if (a.pct_chg !== null && a.pct_chg !== undefined && isFinite(a.pct_chg)) {
@@ -927,7 +876,6 @@ function renderAlerts(data) {
             else if (a.pct_chg < 0) pctChgClass = 'pct-red';
             else pctChgClass = 'pct-neutral';
         }
-
         let statusClass = 'inactive';
         let statusText = '⚪';
         let disabled = '';
@@ -938,7 +886,6 @@ function renderAlerts(data) {
         } else {
             statusClass = 'inactive'; statusText = '⚪';
         }
-
         const dateDisplay = formatDate(a.added_at);
         const companyName = (a.company_name || '').replace(/"/g, '&quot;');
         const cmpForButton = (a.cmp !== null && a.cmp !== undefined) ? a.cmp : '';
@@ -959,11 +906,8 @@ function renderAlerts(data) {
             <td class="text-left">${dateDisplay}</td>
             <td class="text-center" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-outline-primary edit-btn" 
-                        data-id="${a.id}" 
-                        data-symbol="${a.symbol}" 
-                        data-cmp="${cmpForButton}" 
-                        data-price="${a.trigger_price}" 
-                        data-condition="${a.condition}" 
+                        data-id="${a.id}" data-symbol="${a.symbol}" data-cmp="${cmpForButton}" 
+                        data-price="${a.trigger_price}" data-condition="${a.condition}" 
                         title="Edit">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}" data-symbol="${a.symbol}" title="Delete">🗑️</button>
@@ -971,30 +915,16 @@ function renderAlerts(data) {
         </tr>`;
     });
     tbody.innerHTML = html;
-
     filterTable();
 
-    // EDIT
     document.querySelectorAll('.edit-btn').forEach(b => {
         b.addEventListener('click', function() {
-            showEditDialog(
-                this.dataset.id,
-                this.dataset.symbol,
-                this.dataset.cmp,
-                this.dataset.condition,
-                this.dataset.price
-            );
+            showEditDialog(this.dataset.id, this.dataset.symbol, this.dataset.cmp, this.dataset.condition, this.dataset.price);
         });
     });
-
-    // REACTIVATE
     document.querySelectorAll('.reactivate-btn').forEach(b => {
-        b.addEventListener('click', function() {
-            triggerReactivate(this.dataset.id);
-        });
+        b.addEventListener('click', function() { triggerReactivate(this.dataset.id); });
     });
-
-    // TOGGLE
     document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -1003,8 +933,6 @@ function renderAlerts(data) {
                 .then(data => { if (data.status === 'ok') fetchAlerts(); });
         });
     });
-
-    // DELETE
     document.querySelectorAll('.delete-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -1025,23 +953,15 @@ function renderAlerts(data) {
     });
 }
 
-// ============ REACTIVATE FLOW ============
 function triggerReactivate(id) {
     fetch(`/api/reactivate/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dry_run: true })
     })
     .then(res => res.json())
     .then(preview => {
-        if (preview.status !== 'ok') {
-            showMessage('danger', `❌ ${preview.message || 'Preview failed'}`);
-            return;
-        }
-        if (!preview.would_trigger) {
-            doReactivate(id);
-            return;
-        }
+        if (preview.status !== 'ok') { showMessage('danger', `❌ ${preview.message || 'Preview failed'}`); return; }
+        if (!preview.would_trigger) { doReactivate(id); return; }
         const cmpVal = (preview.current_price !== null && preview.current_price !== undefined) ? preview.current_price : '-';
         const bodyHTML = `
             <div class="row g-2 mb-3">
@@ -1083,8 +1003,7 @@ function triggerReactivate(id) {
 
 function doReactivate(id) {
     fetch(`/api/reactivate/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dry_run: false })
     })
     .then(res => res.json())
@@ -1099,7 +1018,6 @@ function doReactivate(id) {
     });
 }
 
-// ============ FETCH ============
 function fetchAlerts() {
     fetch('/api/alerts')
         .then(res => res.json())
@@ -1119,7 +1037,6 @@ function fetchAlerts() {
         });
 }
 
-// ============ SORT CLICK ============
 document.querySelectorAll('.sortable').forEach(header => {
     header.addEventListener('click', function() {
         const column = this.dataset.sort;
@@ -1132,22 +1049,14 @@ document.querySelectorAll('.sortable').forEach(header => {
     });
 });
 
-// ============ ADD ALERT ============
 document.getElementById('addBtn').addEventListener('click', function() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const condition = document.getElementById('condSelect').value;
     const price = document.getElementById('priceInput').value.trim();
-
-    if (!symbol || !price) {
-        showMessage('danger', 'Fill all fields.');
-        return;
-    }
-
+    if (!symbol || !price) { showMessage('danger', 'Fill all fields.'); return; }
     const payload = { symbol, condition, price: parseFloat(price) };
-
     fetch('/api/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
     .then(res => res.json())
@@ -1168,17 +1077,10 @@ function handleAddResponse(data, payload) {
             buttons: [
                 { label: 'OK', class: 'btn-primary', onClick: () => {
                     payload.force_duplicate = true;
-                    fetch('/api/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(d => handleAddResponse(d, payload));
+                    fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                        .then(res => res.json()).then(d => handleAddResponse(d, payload));
                 }},
-                { label: 'Cancel', class: 'btn-secondary', onClick: () => {
-                    showMessage('warning', '⏸️ Add cancelled.');
-                }}
+                { label: 'Cancel', class: 'btn-secondary', onClick: () => showMessage('warning', '⏸️ Add cancelled.') }
             ]
         });
     } else if (data.status === 'warning') {
@@ -1188,17 +1090,10 @@ function handleAddResponse(data, payload) {
             buttons: [
                 { label: 'OK', class: 'btn-primary', onClick: () => {
                     payload.force_trigger = true;
-                    fetch('/api/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(d => handleAddResponse(d, payload));
+                    fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                        .then(res => res.json()).then(d => handleAddResponse(d, payload));
                 }},
-                { label: 'Cancel', class: 'btn-secondary', onClick: () => {
-                    showMessage('warning', '⏸️ Add cancelled.');
-                }}
+                { label: 'Cancel', class: 'btn-secondary', onClick: () => showMessage('warning', '⏸️ Add cancelled.') }
             ]
         });
     } else {
@@ -1206,22 +1101,18 @@ function handleAddResponse(data, payload) {
     }
 }
 
-// ============ EXPORT / IMPORT ============
 document.getElementById('exportBtn').addEventListener('click', function() {
-    fetch('/api/export')
-        .then(res => res.json())
-        .then(data => {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        })
-        .catch(() => alert('Export failed.'));
+    fetch('/api/export').then(res => res.json()).then(data => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }).catch(() => alert('Export failed.'));
 });
 
 document.getElementById('importBtn').addEventListener('click', function() {
@@ -1241,20 +1132,14 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
                 bodyHTML: `<div>Replace all alerts with <b>${data.length}</b> alerts from this file?</div>`,
                 buttons: [
                     { label: 'OK', class: 'btn-primary', onClick: () => {
-                        fetch('/api/import', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        })
-                        .then(res => res.json())
-                        .then(result => {
-                            if (result.status === 'ok') {
-                                document.getElementById('importStatus').textContent = `✅ ${result.count} imported`;
-                                fetchAlerts();
-                            } else {
-                                alert('Import failed: ' + result.message);
-                            }
-                        });
+                        fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.status === 'ok') {
+                                    document.getElementById('importStatus').textContent = `✅ ${result.count} imported`;
+                                    fetchAlerts();
+                                } else { alert('Import failed: ' + result.message); }
+                            });
                     }},
                     { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
                 ]
@@ -1265,7 +1150,6 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     this.value = '';
 });
 
-// ============ INIT ============
 fetchAlerts();
 setInterval(fetchAlerts, 60000);
 </script>
