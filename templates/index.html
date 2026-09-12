@@ -115,12 +115,9 @@
         .autocomplete-item .symbol { font-weight: bold; margin-right: 6px; }
         .autocomplete-item .name { color: #555; font-size: 0.75rem; }
 
-        /* Search box */
-        #searchBox {
-            max-width: 220px;
-            font-size: 0.8rem;
-            padding: 0.25rem 0.5rem;
-        }
+        #searchBox { max-width: 200px; font-size: 0.8rem; padding: 0.25rem 0.5rem; }
+        #clearSearchBtn { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+        #duplicateBtn.active { background: #ffc107; color: #000; border-color: #ffc107; }
 
         @media (max-width: 576px) {
             body { padding: 5px; }
@@ -180,6 +177,8 @@
             <button id="exportBtn" class="btn btn-outline-success btn-tool">📥 Export</button>
             <button id="importBtn" class="btn btn-outline-primary btn-tool">📤 Import</button>
             <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="🔍 Search symbol or company">
+            <button id="clearSearchBtn" class="btn btn-outline-secondary btn-tool" title="Clear search">✕</button>
+            <button id="duplicateBtn" class="btn btn-outline-warning btn-tool" title="Show only duplicate symbols">🔁 Duplicates</button>
             <input type="file" id="fileInput" accept=".json" style="display: none;">
             <span id="importStatus" class="text-muted" style="font-size:0.7rem;"></span>
         </div>
@@ -216,6 +215,10 @@
 const symbolInput = document.getElementById('symbolInput');
 const autocompleteList = document.getElementById('autocompleteList');
 const searchBox = document.getElementById('searchBox');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
+const duplicateBtn = document.getElementById('duplicateBtn');
+
+let showDuplicatesOnly = false;
 
 symbolInput.addEventListener('input', function() {
     const query = this.value.trim();
@@ -247,23 +250,54 @@ document.addEventListener('click', function(e) {
     if (e.target !== symbolInput) autocompleteList.style.display = 'none';
 });
 
-// ---------- SEARCH FILTER ----------
-searchBox.addEventListener('input', function() {
+// ---------- SEARCH & DUPLICATE FILTER ----------
+searchBox.addEventListener('input', filterTable);
+
+clearSearchBtn.addEventListener('click', function() {
+    searchBox.value = '';
+    showDuplicatesOnly = false;
+    duplicateBtn.classList.remove('active');
     filterTable();
 });
 
+duplicateBtn.addEventListener('click', function() {
+    showDuplicatesOnly = !showDuplicatesOnly;
+    if (showDuplicatesOnly) {
+        duplicateBtn.classList.add('active');
+    } else {
+        duplicateBtn.classList.remove('active');
+    }
+    filterTable();
+});
+
+function getDuplicateSymbols() {
+    const counts = {};
+    alertsData.forEach(a => {
+        const s = (a.symbol || '').toUpperCase();
+        counts[s] = (counts[s] || 0) + 1;
+    });
+    const dupes = new Set();
+    Object.keys(counts).forEach(s => {
+        if (counts[s] > 1) dupes.add(s);
+    });
+    return dupes;
+}
+
 function filterTable() {
     const query = searchBox.value.trim().toUpperCase();
+    const dupes = showDuplicatesOnly ? getDuplicateSymbols() : null;
+
     const rows = document.querySelectorAll('#alertTableBody tr');
     rows.forEach(row => {
-        if (!row.dataset.symbol) return; // skip "No alerts" row
+        if (!row.dataset.symbol) return;
+
         const symbol = (row.dataset.symbol || '').toUpperCase();
         const company = (row.dataset.company || '').toUpperCase();
-        if (!query || symbol.includes(query) || company.includes(query)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+
+        const matchesSearch = !query || symbol.includes(query) || company.includes(query);
+        const matchesDup = !dupes || dupes.has(symbol);
+
+        row.style.display = (matchesSearch && matchesDup) ? '' : 'none';
     });
 }
 
@@ -426,10 +460,9 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
-    // Re-apply search filter after render
     filterTable();
 
-    // ---- EDIT BUTTON (no popup, message stays in addMessage) ----
+    // ---- EDIT ----
     document.querySelectorAll('.edit-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -471,27 +504,44 @@ function renderAlerts(data) {
         });
     });
 
-    // ---- REACTIVATE ----
+    // ---- REACTIVATE (with dry-run confirmation) ----
     document.querySelectorAll('.reactivate-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
-            fetch(`/api/reactivate/${id}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        if (data.triggered) {
-                            document.getElementById('addMessage').innerHTML =
-                                `<span class="text-success">✅ Alert re-triggered immediately (condition already met).</span>`;
-                        } else {
-                            document.getElementById('addMessage').innerHTML =
-                                `<span class="text-success">✅ Alert reactivated. Will check on next poll.</span>`;
-                        }
-                        fetchAlerts();
+
+            // Step 1: Dry run - ask backend what would happen
+            fetch(`/api/reactivate/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dry_run: true })
+            })
+            .then(res => res.json())
+            .then(preview => {
+                if (preview.status !== 'ok') {
+                    document.getElementById('addMessage').innerHTML =
+                        `<span class="text-danger">❌ ${preview.message || 'Preview failed'}</span>`;
+                    return;
+                }
+
+                if (preview.would_trigger) {
+                    // Ask user before re-triggering
+                    const msg = `⚠️ Condition is still met.\n\nSymbol: ${preview.symbol}\nCondition: ${preview.condition} ${preview.trigger_price}\nCurrent: ${preview.current_price}\n\nRe-trigger immediately?`;
+                    if (confirm(msg)) {
+                        doReactivate(id);
                     } else {
+                        // Keep the alert deactivated (as it is now)
                         document.getElementById('addMessage').innerHTML =
-                            `<span class="text-danger">❌ Reactivation failed: ${data.message}</span>`;
+                            `<span class="text-warning">⏸️ Alert kept deactivated.</span>`;
                     }
-                });
+                } else {
+                    // Condition not met - just reactivate silently
+                    doReactivate(id);
+                }
+            })
+            .catch(err => {
+                document.getElementById('addMessage').innerHTML =
+                    `<span class="text-danger">❌ Preview error</span>`;
+            });
         });
     });
 
@@ -515,6 +565,30 @@ function renderAlerts(data) {
                     .then(data => { if (data.status === 'ok') fetchAlerts(); });
             }
         });
+    });
+}
+
+function doReactivate(id) {
+    fetch(`/api/reactivate/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dry_run: false })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            if (data.triggered) {
+                document.getElementById('addMessage').innerHTML =
+                    `<span class="text-success">✅ Alert re-triggered immediately.</span>`;
+            } else {
+                document.getElementById('addMessage').innerHTML =
+                    `<span class="text-success">✅ Alert reactivated.</span>`;
+            }
+            fetchAlerts();
+        } else {
+            document.getElementById('addMessage').innerHTML =
+                `<span class="text-danger">❌ Reactivation failed: ${data.message}</span>`;
+        }
     });
 }
 
@@ -570,45 +644,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
         body: JSON.stringify(payload)
     })
     .then(res => res.json())
-    .then(data => {
-        if (data.status === 'ok') {
-            document.getElementById('addMessage').innerHTML =
-                `<span class="text-success">✅ ${data.symbol} ${data.condition} ${data.price} added</span>`;
-            document.getElementById('symbolInput').value = '';
-            document.getElementById('priceInput').value = '';
-            fetchAlerts();
-        } else if (data.status === 'duplicate') {
-            if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
-                payload.force_duplicate = true;
-                fetch('/api/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(res2 => res2.json())
-                .then(data2 => handleAddResponse(data2, payload));
-            } else {
-                document.getElementById('addMessage').innerHTML =
-                    `<span class="text-warning">⏸️ Add cancelled.</span>`;
-            }
-        } else if (data.status === 'warning') {
-            if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
-                payload.force_trigger = true;
-                fetch('/api/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(res2 => res2.json())
-                .then(data2 => handleAddResponse(data2, payload));
-            } else {
-                document.getElementById('addMessage').innerHTML =
-                    `<span class="text-warning">⏸️ Add cancelled.</span>`;
-            }
-        } else {
-            document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
-        }
-    })
+    .then(data => handleAddResponse(data, payload))
     .catch(err => {
         document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ Server error</span>`;
     });
@@ -632,7 +668,8 @@ function handleAddResponse(data, payload) {
             .then(res => res.json())
             .then(d => handleAddResponse(d, payload));
         } else {
-            document.getElementById('addMessage').innerHTML = `<span class="text-warning">⏸️ Add cancelled.</span>`;
+            document.getElementById('addMessage').innerHTML =
+                `<span class="text-warning">⏸️ Add cancelled.</span>`;
         }
     } else if (data.status === 'warning') {
         if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
@@ -645,7 +682,8 @@ function handleAddResponse(data, payload) {
             .then(res => res.json())
             .then(d => handleAddResponse(d, payload));
         } else {
-            document.getElementById('addMessage').innerHTML = `<span class="text-warning">⏸️ Add cancelled.</span>`;
+            document.getElementById('addMessage').innerHTML =
+                `<span class="text-warning">⏸️ Add cancelled.</span>`;
         }
     } else {
         document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;

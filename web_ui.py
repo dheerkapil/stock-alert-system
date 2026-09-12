@@ -129,7 +129,6 @@ def add_alert():
 
     conn = get_db()
 
-    # ----- DUPLICATE SYMBOL CHECK (any state) -----
     existing = conn.execute('SELECT id FROM watchlist WHERE symbol = ?', (symbol,)).fetchone()
     if existing and not force_duplicate:
         conn.close()
@@ -138,7 +137,6 @@ def add_alert():
             'message': f"{symbol} is already in your list."
         }), 200
 
-    # ----- PRICE ALREADY MET WARNING -----
     current_price = None
     try:
         prices = stock_alert.get_prices([symbol])
@@ -161,7 +159,6 @@ def add_alert():
             'current_price': current_price
         }), 200
 
-    # ----- INSERT -----
     try:
         conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price) VALUES (?, ?, ?)',
                      (symbol, condition, trigger_price))
@@ -210,7 +207,6 @@ def update_alert(alert_id):
         conn.commit()
         conn.close()
 
-        # Return final state for the confirmation message
         final_row = get_db().execute('SELECT condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
         return jsonify({
             'status': 'ok',
@@ -222,28 +218,51 @@ def update_alert(alert_id):
         logger.error(f"Error in /api/update: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ---------- UPDATED REACTIVATE (supports dry_run) ----------
 @app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
 def reactivate_alert(alert_id):
     try:
+        data = request.json or {}
+        dry_run = data.get('dry_run', False)
+
         conn = get_db()
-        alert = conn.execute('SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        alert = conn.execute(
+            'SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?',
+            (alert_id,)
+        ).fetchone()
         if not alert:
             conn.close()
             return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
 
+        # Fetch current price
+        prices = stock_alert.get_prices([alert['symbol']])
+        current_price = prices.get(alert['symbol'])
+
+        would_trigger = False
+        if current_price is not None:
+            if alert['condition'] == '>=' and current_price >= alert['trigger_price']:
+                would_trigger = True
+            elif alert['condition'] == '<=' and current_price <= alert['trigger_price']:
+                would_trigger = True
+
+        # ---- DRY RUN: just report the preview, do not change anything ----
+        if dry_run:
+            conn.close()
+            return jsonify({
+                'status': 'ok',
+                'dry_run': True,
+                'would_trigger': would_trigger,
+                'symbol': alert['symbol'],
+                'condition': alert['condition'],
+                'trigger_price': alert['trigger_price'],
+                'current_price': current_price
+            })
+
+        # ---- ACTUAL REACTIVATION ----
         conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
         conn.commit()
 
-        prices = stock_alert.get_prices([alert['symbol']])
-        current_price = prices.get(alert['symbol'])
-        triggered = False
-        if current_price is not None:
-            if alert['condition'] == '>=' and current_price >= alert['trigger_price']:
-                triggered = True
-            elif alert['condition'] == '<=' and current_price <= alert['trigger_price']:
-                triggered = True
-
-        if triggered:
+        if would_trigger:
             conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
             conn.commit()
             conn.close()
@@ -282,7 +301,6 @@ def get_alerts():
                     else:
                         alert['pct_chg'] = None
 
-                    # Attach company name for search
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
             except Exception as e:
                 logger.error(f"Failed to fetch prices: {e}")
