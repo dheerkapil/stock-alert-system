@@ -36,7 +36,7 @@
             --surface: #121212;
             --surface-2: #1e1e1e;
             --text: #e8eaed;
-            --text-muted: #9aa0a6;
+            --text-muted: #b0b4b8;
             --border: #3c4043;
             --border-light: #2a2a2a;
             --primary: #8ab4f8;
@@ -57,7 +57,6 @@
         /* ============ GLOBAL RESET & FIX WHITE BOUNDARY ============ */
         * { box-sizing: border-box; }
         
-        /* 🔥 FIX: Apply dark background to the outermost HTML element */
         html {
             background-color: var(--bg) !important;
             min-height: 100vh;
@@ -98,6 +97,11 @@
             margin-bottom: 12px;
             color: var(--text);
             letter-spacing: 0.1px;
+        }
+
+        /* ============ GLOBAL FIX: muted text uses theme variable ============ */
+        .text-muted {
+            color: var(--text-muted) !important;
         }
 
         /* ============ HEADER ============ */
@@ -344,6 +348,14 @@
         #searchBox { max-width: 220px; }
         #clearSearchBtn, #duplicateBtn { padding: 0.4rem 0.8rem; }
 
+        /* ============ IMPORT STATUS (READABLE IN BOTH THEMES) ============ */
+        #importStatus {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--success);
+            letter-spacing: 0.2px;
+        }
+
         /* ============ RESPONSIVE ============ */
         @media (max-width: 576px) {
             body { padding: 6px; }
@@ -417,7 +429,7 @@
             <button id="clearSearchBtn" class="btn btn-outline-secondary btn-tool" title="Clear search">✕ Clear</button>
             <button id="duplicateBtn" class="btn btn-outline-primary btn-tool" title="Show only duplicate symbols">🔁 Duplicates</button>
             <input type="file" id="fileInput" accept=".json" style="display: none;">
-            <span id="importStatus" class="text-muted" style="font-size:0.75rem;"></span>
+            <span id="importStatus"></span>
         </div>
     </div>
 
@@ -464,7 +476,6 @@ function applyTheme(theme) {
     }
 }
 
-// Load saved theme on page load
 const savedTheme = localStorage.getItem('alertManagerTheme') || 'light';
 applyTheme(savedTheme);
 
@@ -746,20 +757,20 @@ function renderAlerts(data) {
                         .then(data => {
                             if (data.status === 'ok') {
                                 document.getElementById('addMessage').innerHTML =
-                                    `<span class="text-success">✅ ${symbol} ${newCond} ${newPrice} updated</span>`;
+                                    `<span style="color: var(--success); font-weight:500;">✅ ${symbol} ${newCond} ${newPrice} updated</span>`;
                                 fetchAlerts();
                             } else {
                                 document.getElementById('addMessage').innerHTML =
-                                    `<span class="text-danger">❌ ${data.message}</span>`;
+                                    `<span style="color: var(--danger); font-weight:500;">❌ ${data.message}</span>`;
                             }
                         });
                     } else {
                         document.getElementById('addMessage').innerHTML =
-                            `<span class="text-danger">❌ Invalid price.</span>`;
+                            `<span style="color: var(--danger); font-weight:500;">❌ Invalid price.</span>`;
                     }
                 } else {
                     document.getElementById('addMessage').innerHTML =
-                        `<span class="text-danger">❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"</span>`;
+                        `<span style="color: var(--danger); font-weight:500;">❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"</span>`;
                 }
             }
         });
@@ -778,7 +789,7 @@ function renderAlerts(data) {
             .then(preview => {
                 if (preview.status !== 'ok') {
                     document.getElementById('addMessage').innerHTML =
-                        `<span class="text-danger">❌ ${preview.message || 'Preview failed'}</span>`;
+                        `<span style="color: var(--danger); font-weight:500;">❌ ${preview.message || 'Preview failed'}</span>`;
                     return;
                 }
                 if (preview.would_trigger) {
@@ -787,7 +798,7 @@ function renderAlerts(data) {
                         doReactivate(id);
                     } else {
                         document.getElementById('addMessage').innerHTML =
-                            `<span class="text-warning">⏸️ Alert kept deactivated.</span>`;
+                            `<span style="color: var(--warning); font-weight:500;">⏸️ Alert kept deactivated.</span>`;
                     }
                 } else {
                     doReactivate(id);
@@ -795,7 +806,7 @@ function renderAlerts(data) {
             })
             .catch(() => {
                 document.getElementById('addMessage').innerHTML =
-                    `<span class="text-danger">❌ Preview error</span>`;
+                    `<span style="color: var(--danger); font-weight:500;">❌ Preview error</span>`;
             });
         });
     });
@@ -834,15 +845,15 @@ function doReactivate(id) {
         if (data.status === 'ok') {
             if (data.triggered) {
                 document.getElementById('addMessage').innerHTML =
-                    `<span class="text-success">✅ Alert re-triggered immediately.</span>`;
+                    `<span style="color: var(--success); font-weight:500;">✅ Alert re-triggered immediately.</span>`;
             } else {
                 document.getElementById('addMessage').innerHTML =
-                    `<span class="text-success">✅ Alert reactivated.</span>`;
+                    `<span style="color: var(--success); font-weight:500;">✅ Alert reactivated.</span>`;
             }
             fetchAlerts();
         } else {
             document.getElementById('addMessage').innerHTML =
-                `<span class="text-danger">❌ Reactivation failed: ${data.message}</span>`;
+                `<span style="color: var(--danger); font-weight:500;">❌ Reactivation failed: ${data.message}</span>`;
         }
     });
 }
@@ -887,7 +898,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
     const price = document.getElementById('priceInput').value.trim();
 
     if (!symbol || !price) {
-        document.getElementById('addMessage').innerHTML = '<span class="text-danger">Fill all fields.</span>';
+        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">Fill all fields.</span>`;
         return;
     }
 
@@ -901,14 +912,14 @@ document.getElementById('addBtn').addEventListener('click', function() {
     .then(res => res.json())
     .then(data => handleAddResponse(data, payload))
     .catch(() => {
-        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ Server error</span>`;
+        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">❌ Server error</span>`;
     });
 });
 
 function handleAddResponse(data, payload) {
     if (data.status === 'ok') {
         document.getElementById('addMessage').innerHTML =
-            `<span class="text-success">✅ ${data.symbol} ${data.condition} ${data.price} added</span>`;
+            `<span style="color: var(--success); font-weight:500;">✅ ${data.symbol} ${data.condition} ${data.price} added</span>`;
         document.getElementById('symbolInput').value = '';
         document.getElementById('priceInput').value = '';
         fetchAlerts();
@@ -924,7 +935,7 @@ function handleAddResponse(data, payload) {
             .then(d => handleAddResponse(d, payload));
         } else {
             document.getElementById('addMessage').innerHTML =
-                `<span class="text-warning">⏸️ Add cancelled.</span>`;
+                `<span style="color: var(--warning); font-weight:500;">⏸️ Add cancelled.</span>`;
         }
     } else if (data.status === 'warning') {
         if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
@@ -938,10 +949,10 @@ function handleAddResponse(data, payload) {
             .then(d => handleAddResponse(d, payload));
         } else {
             document.getElementById('addMessage').innerHTML =
-                `<span class="text-warning">⏸️ Add cancelled.</span>`;
+                `<span style="color: var(--warning); font-weight:500;">⏸️ Add cancelled.</span>`;
         }
     } else {
-        document.getElementById('addMessage').innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
+        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">❌ ${data.message}</span>`;
     }
 }
 
@@ -984,7 +995,7 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
                 .then(res => res.json())
                 .then(result => {
                     if (result.status === 'ok') {
-                        document.getElementById('importStatus').innerHTML = `✅ ${result.count} imported!`;
+                        document.getElementById('importStatus').textContent = `✅ ${result.count} imported`;
                         fetchAlerts();
                     } else {
                         alert('Import failed: ' + result.message);
