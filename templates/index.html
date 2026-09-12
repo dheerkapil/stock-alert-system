@@ -158,6 +158,17 @@
             cursor: not-allowed;
         }
 
+        /* ============ REMOVE NUMBER SPINNER ============ */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
         #addBtn {
             font-size: 0.9rem;
             padding: 0.5rem 1rem;
