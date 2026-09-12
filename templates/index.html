@@ -28,7 +28,6 @@
             --input-bg: #ffffff;
             --header-bg: #f1f3f4;
             --row-hover: #f8f9fa;
-            --code-bg: #f1f3f4;
         }
 
         body.dark {
@@ -51,7 +50,6 @@
             --input-bg: #1e1e1e;
             --header-bg: #1e1e1e;
             --row-hover: #1a1a1a;
-            --code-bg: #1e1e1e;
         }
 
         /* ============ GLOBAL RESET ============ */
@@ -99,9 +97,7 @@
             letter-spacing: 0.1px;
         }
 
-        .text-muted {
-            color: var(--text-muted) !important;
-        }
+        .text-muted { color: var(--text-muted) !important; }
 
         /* ============ HEADER ============ */
         .header-row {
@@ -136,7 +132,7 @@
         .theme-toggle-btn:hover { background: var(--border); }
         .theme-toggle-btn:active { transform: scale(0.92); }
 
-        /* ============ INPUTS (MATERIAL 3) ============ */
+        /* ============ INPUTS ============ */
         .form-label {
             font-size: 0.75rem;
             margin-bottom: 4px;
@@ -159,10 +155,6 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
             outline: none;
-        }
-        body.dark .form-control-sm:focus,
-        body.dark .form-select-sm:focus {
-            box-shadow: 0 0 0 3px rgba(138,180,248,0.25);
         }
         .form-control-sm::placeholder { color: var(--text-muted); opacity: 0.7; }
 
@@ -215,9 +207,7 @@
             border-color: var(--border) !important;
             background: var(--surface) !important;
         }
-        .btn-outline-secondary:hover {
-            background: var(--surface-2) !important;
-        }
+        .btn-outline-secondary:hover { background: var(--surface-2) !important; }
         #duplicateBtn.active {
             background: var(--primary-fill) !important;
             color: var(--primary-text) !important;
@@ -369,7 +359,6 @@
             min-width: 220px;
         }
 
-        /* ============ IMPORT STATUS ============ */
         #importStatus {
             font-size: 0.8rem;
             font-weight: 500;
@@ -377,6 +366,94 @@
             letter-spacing: 0.2px;
             white-space: nowrap;
         }
+
+        /* ============ MODAL ============ */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            color: var(--text);
+            border-radius: 20px;
+            padding: 22px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: var(--shadow-2);
+            border: 1px solid var(--border);
+            animation: modalIn 0.15s ease-out;
+        }
+        @keyframes modalIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-box h6 {
+            font-size: 1.05rem;
+            font-weight: 500;
+            margin: 0 0 14px 0;
+            color: var(--text);
+            letter-spacing: 0.2px;
+        }
+        .modal-body-content {
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: var(--text);
+        }
+        .modal-body-content .label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .modal-body-content .value {
+            font-weight: 500;
+        }
+        .modal-warning {
+            margin-top: 14px;
+            padding: 10px 12px;
+            background: var(--warning-bg);
+            color: var(--warning);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .modal-actions .btn {
+            min-width: 80px;
+            font-size: 0.85rem;
+            padding: 0.45rem 1rem;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        #modalOkBtn {
+            background: var(--primary-fill);
+            color: var(--primary-text);
+            border: none;
+        }
+        #modalOkBtn:hover { filter: brightness(1.05); }
+        #modalEditBtn {
+            background: var(--surface);
+            color: var(--primary);
+            border: 1px solid var(--border);
+        }
+        #modalEditBtn:hover { background: var(--surface-2); }
+        #modalCancelBtn {
+            background: var(--surface);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        #modalCancelBtn:hover { background: var(--surface-2); }
 
         /* ============ RESPONSIVE ============ */
         @media (max-width: 576px) {
@@ -397,6 +474,8 @@
             .autocomplete-item .name { font-size: 0.7rem; }
             .col-actions { min-width: 110px; }
             #searchBox { min-width: 0; max-width: none; }
+            .modal-box { padding: 18px; border-radius: 16px; }
+            .modal-actions .btn { min-width: 70px; font-size: 0.8rem; }
         }
 
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
@@ -406,7 +485,6 @@
 <body>
 <div class="container">
 
-    <!-- HEADER with theme toggle -->
     <div class="header-row">
         <h1>📊 Alert Manager</h1>
         <button id="themeToggle" class="theme-toggle-btn" title="Toggle theme">🌙</button>
@@ -441,7 +519,7 @@
         <div id="addMessage" class="mt-2 small" style="font-size:0.85rem;"></div>
     </div>
 
-    <!-- DATA TOOLS (Duplicates moved next to Import) -->
+    <!-- DATA TOOLS -->
     <div class="card" style="padding: 12px 16px;">
         <div class="data-tools">
             <div class="tool-group">
@@ -482,6 +560,19 @@
                     <tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============ REACTIVATE MODAL ============ -->
+<div id="reactivateModal" class="modal-overlay">
+    <div class="modal-box">
+        <h6>🔄 Reactivate Alert</h6>
+        <div id="reactivateModalBody" class="modal-body-content"></div>
+        <div class="modal-actions">
+            <button id="modalOkBtn" class="btn">OK</button>
+            <button id="modalEditBtn" class="btn">Edit</button>
+            <button id="modalCancelBtn" class="btn">Cancel</button>
         </div>
     </div>
 </div>
@@ -563,11 +654,8 @@ clearSearchBtn.addEventListener('click', function() {
 
 duplicateBtn.addEventListener('click', function() {
     showDuplicatesOnly = !showDuplicatesOnly;
-    if (showDuplicatesOnly) {
-        duplicateBtn.classList.add('active');
-    } else {
-        duplicateBtn.classList.remove('active');
-    }
+    if (showDuplicatesOnly) duplicateBtn.classList.add('active');
+    else duplicateBtn.classList.remove('active');
     filterTable();
 });
 
@@ -578,16 +666,13 @@ function getDuplicateSymbols() {
         counts[s] = (counts[s] || 0) + 1;
     });
     const dupes = new Set();
-    Object.keys(counts).forEach(s => {
-        if (counts[s] > 1) dupes.add(s);
-    });
+    Object.keys(counts).forEach(s => { if (counts[s] > 1) dupes.add(s); });
     return dupes;
 }
 
 function filterTable() {
     const query = searchBox.value.trim().toUpperCase();
     const dupes = showDuplicatesOnly ? getDuplicateSymbols() : null;
-
     const rows = document.querySelectorAll('#alertTableBody tr');
     rows.forEach(row => {
         if (!row.dataset.symbol) return;
@@ -608,28 +693,17 @@ function sortAlerts(data, column, direction) {
     sorted.sort((a, b) => {
         let valA, valB;
         switch (column) {
-            case 'symbol':
-                valA = a.symbol || ''; valB = b.symbol || '';
-                return direction * valA.localeCompare(valB);
-            case 'trigger':
-                valA = parseFloat(a.trigger_price) || 0; valB = parseFloat(b.trigger_price) || 0;
-                return direction * (valA - valB);
-            case 'cmp':
-                valA = parseFloat(a.cmp) || 0; valB = parseFloat(b.cmp) || 0;
-                return direction * (valA - valB);
-            case 'gap': {
-                const gapA = calculateGap(a), gapB = calculateGap(b);
-                return direction * (gapA - gapB);
-            }
+            case 'symbol': valA = a.symbol || ''; valB = b.symbol || ''; return direction * valA.localeCompare(valB);
+            case 'trigger': valA = parseFloat(a.trigger_price) || 0; valB = parseFloat(b.trigger_price) || 0; return direction * (valA - valB);
+            case 'cmp': valA = parseFloat(a.cmp) || 0; valB = parseFloat(b.cmp) || 0; return direction * (valA - valB);
+            case 'gap': { const gapA = calculateGap(a), gapB = calculateGap(b); return direction * (gapA - gapB); }
             case 'mgap': {
                 const gapA = calculateGap(a), gapB = calculateGap(b);
                 const absA = isFinite(gapA) ? Math.abs(gapA) : Infinity;
                 const absB = isFinite(gapB) ? Math.abs(gapB) : Infinity;
                 return direction * (absA - absB);
             }
-            case 'pct_chg':
-                valA = parseFloat(a.pct_chg) || 0; valB = parseFloat(b.pct_chg) || 0;
-                return direction * (valA - valB);
+            case 'pct_chg': valA = parseFloat(a.pct_chg) || 0; valB = parseFloat(b.pct_chg) || 0; return direction * (valA - valB);
             case 'status': {
                 const getStatusVal = (item) => {
                     if (item.is_triggered === 1) return 2;
@@ -782,21 +856,17 @@ function renderAlerts(data) {
                         .then(res => res.json())
                         .then(data => {
                             if (data.status === 'ok') {
-                                document.getElementById('addMessage').innerHTML =
-                                    `<span style="color: var(--success); font-weight:500;">✅ ${symbol} ${newCond} ${newPrice} updated</span>`;
+                                showMessage('success', `✅ ${symbol} ${newCond} ${newPrice} updated`);
                                 fetchAlerts();
                             } else {
-                                document.getElementById('addMessage').innerHTML =
-                                    `<span style="color: var(--danger); font-weight:500;">❌ ${data.message}</span>`;
+                                showMessage('danger', `❌ ${data.message}`);
                             }
                         });
                     } else {
-                        document.getElementById('addMessage').innerHTML =
-                            `<span style="color: var(--danger); font-weight:500;">❌ Invalid price.</span>`;
+                        showMessage('danger', '❌ Invalid price.');
                     }
                 } else {
-                    document.getElementById('addMessage').innerHTML =
-                        `<span style="color: var(--danger); font-weight:500;">❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"</span>`;
+                    showMessage('danger', '❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"');
                 }
             }
         });
@@ -806,34 +876,7 @@ function renderAlerts(data) {
     document.querySelectorAll('.reactivate-btn').forEach(b => {
         b.addEventListener('click', function() {
             const id = this.dataset.id;
-            fetch(`/api/reactivate/${id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dry_run: true })
-            })
-            .then(res => res.json())
-            .then(preview => {
-                if (preview.status !== 'ok') {
-                    document.getElementById('addMessage').innerHTML =
-                        `<span style="color: var(--danger); font-weight:500;">❌ ${preview.message || 'Preview failed'}</span>`;
-                    return;
-                }
-                if (preview.would_trigger) {
-                    const msg = `⚠️ Condition is still met.\n\nSymbol: ${preview.symbol}\nCondition: ${preview.condition} ${preview.trigger_price}\nCurrent: ${preview.current_price}\n\nRe-trigger immediately?`;
-                    if (confirm(msg)) {
-                        doReactivate(id);
-                    } else {
-                        document.getElementById('addMessage').innerHTML =
-                            `<span style="color: var(--warning); font-weight:500;">⏸️ Alert kept deactivated.</span>`;
-                    }
-                } else {
-                    doReactivate(id);
-                }
-            })
-            .catch(() => {
-                document.getElementById('addMessage').innerHTML =
-                    `<span style="color: var(--danger); font-weight:500;">❌ Preview error</span>`;
-            });
+            triggerReactivate(id);
         });
     });
 
@@ -860,6 +903,34 @@ function renderAlerts(data) {
     });
 }
 
+function showMessage(type, html) {
+    const map = { success: 'var(--success)', danger: 'var(--danger)', warning: 'var(--warning)' };
+    document.getElementById('addMessage').innerHTML =
+        `<span style="color: ${map[type] || 'var(--text)'}; font-weight:500;">${html}</span>`;
+}
+
+// ---------- REACTIVATE FLOW ----------
+function triggerReactivate(id) {
+    fetch(`/api/reactivate/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dry_run: true })
+    })
+    .then(res => res.json())
+    .then(preview => {
+        if (preview.status !== 'ok') {
+            showMessage('danger', `❌ ${preview.message || 'Preview failed'}`);
+            return;
+        }
+        if (preview.would_trigger) {
+            showReactivateModal(id, preview);
+        } else {
+            doReactivate(id);
+        }
+    })
+    .catch(() => showMessage('danger', '❌ Preview error'));
+}
+
 function doReactivate(id) {
     fetch(`/api/reactivate/${id}`, {
         method: 'POST',
@@ -869,20 +940,96 @@ function doReactivate(id) {
     .then(res => res.json())
     .then(data => {
         if (data.status === 'ok') {
-            if (data.triggered) {
-                document.getElementById('addMessage').innerHTML =
-                    `<span style="color: var(--success); font-weight:500;">✅ Alert re-triggered immediately.</span>`;
-            } else {
-                document.getElementById('addMessage').innerHTML =
-                    `<span style="color: var(--success); font-weight:500;">✅ Alert reactivated.</span>`;
-            }
+            if (data.triggered) showMessage('success', '✅ Alert re-triggered immediately.');
+            else showMessage('success', '✅ Alert reactivated.');
             fetchAlerts();
         } else {
-            document.getElementById('addMessage').innerHTML =
-                `<span style="color: var(--danger); font-weight:500;">❌ Reactivation failed: ${data.message}</span>`;
+            showMessage('danger', `❌ Reactivation failed: ${data.message}`);
         }
     });
 }
+
+// ---------- MODAL ----------
+let pendingReactivateId = null;
+let pendingPreview = null;
+
+function showReactivateModal(id, preview) {
+    pendingReactivateId = id;
+    pendingPreview = preview;
+
+    const body = document.getElementById('reactivateModalBody');
+    body.innerHTML = `
+        <div>
+            <div><span class="label">Symbol:</span> <span class="value">${preview.symbol}</span></div>
+            <div><span class="label">Condition:</span> <span class="value">${preview.condition} ${preview.trigger_price}</span></div>
+            <div><span class="label">Current price:</span> <span class="value">${preview.current_price}</span></div>
+        </div>
+        <div class="modal-warning">⚠️ Condition is still met. Re-trigger this alert?</div>
+    `;
+    document.getElementById('reactivateModal').classList.add('show');
+}
+
+function hideReactivateModal() {
+    document.getElementById('reactivateModal').classList.remove('show');
+    pendingReactivateId = null;
+    pendingPreview = null;
+}
+
+document.getElementById('modalOkBtn').addEventListener('click', function() {
+    const id = pendingReactivateId;
+    hideReactivateModal();
+    if (id) doReactivate(id);
+});
+
+document.getElementById('modalCancelBtn').addEventListener('click', function() {
+    hideReactivateModal();
+    showMessage('warning', '⏸️ Alert kept deactivated.');
+});
+
+document.getElementById('modalEditBtn').addEventListener('click', function() {
+    const id = pendingReactivateId;
+    const preview = pendingPreview;
+    hideReactivateModal();
+    if (!id || !preview) return;
+
+    const input = prompt(
+        `Edit condition & price (e.g., ">= 4000" or "<= 5000"):`,
+        `${preview.condition} ${preview.trigger_price}`
+    );
+    if (!input) return;
+
+    const parts = input.trim().split(' ');
+    if (parts.length === 2 && ['>=', '<='].includes(parts[0])) {
+        const newCond = parts[0];
+        const newPrice = parseFloat(parts[1]);
+        if (!isNaN(newPrice) && newPrice > 0) {
+            fetch(`/api/update/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ condition: newCond, price: newPrice })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showMessage('success', `✅ ${preview.symbol} ${newCond} ${newPrice} updated`);
+                    // Re-run the reactivate flow with the new values
+                    triggerReactivate(id);
+                } else {
+                    showMessage('danger', `❌ ${data.message}`);
+                }
+            });
+        } else {
+            showMessage('danger', '❌ Invalid price.');
+        }
+    } else {
+        showMessage('danger', '❌ Invalid format. Use e.g. ">= 5000" or "<= 4000"');
+    }
+});
+
+// Close modal if user clicks outside the box
+document.getElementById('reactivateModal').addEventListener('click', function(e) {
+    if (e.target.id === 'reactivateModal') hideReactivateModal();
+});
 
 // ---------- FETCH ----------
 function fetchAlerts() {
@@ -924,7 +1071,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
     const price = document.getElementById('priceInput').value.trim();
 
     if (!symbol || !price) {
-        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">Fill all fields.</span>`;
+        showMessage('danger', 'Fill all fields.');
         return;
     }
 
@@ -937,15 +1084,12 @@ document.getElementById('addBtn').addEventListener('click', function() {
     })
     .then(res => res.json())
     .then(data => handleAddResponse(data, payload))
-    .catch(() => {
-        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">❌ Server error</span>`;
-    });
+    .catch(() => showMessage('danger', '❌ Server error'));
 });
 
 function handleAddResponse(data, payload) {
     if (data.status === 'ok') {
-        document.getElementById('addMessage').innerHTML =
-            `<span style="color: var(--success); font-weight:500;">✅ ${data.symbol} ${data.condition} ${data.price} added</span>`;
+        showMessage('success', `✅ ${data.symbol} ${data.condition} ${data.price} added`);
         document.getElementById('symbolInput').value = '';
         document.getElementById('priceInput').value = '';
         fetchAlerts();
@@ -960,8 +1104,7 @@ function handleAddResponse(data, payload) {
             .then(res => res.json())
             .then(d => handleAddResponse(d, payload));
         } else {
-            document.getElementById('addMessage').innerHTML =
-                `<span style="color: var(--warning); font-weight:500;">⏸️ Add cancelled.</span>`;
+            showMessage('warning', '⏸️ Add cancelled.');
         }
     } else if (data.status === 'warning') {
         if (confirm(`⚠️ ${data.message}\n\nAdd anyway?`)) {
@@ -974,11 +1117,10 @@ function handleAddResponse(data, payload) {
             .then(res => res.json())
             .then(d => handleAddResponse(d, payload));
         } else {
-            document.getElementById('addMessage').innerHTML =
-                `<span style="color: var(--warning); font-weight:500;">⏸️ Add cancelled.</span>`;
+            showMessage('warning', '⏸️ Add cancelled.');
         }
     } else {
-        document.getElementById('addMessage').innerHTML = `<span style="color: var(--danger); font-weight:500;">❌ ${data.message}</span>`;
+        showMessage('danger', `❌ ${data.message}`);
     }
 }
 
