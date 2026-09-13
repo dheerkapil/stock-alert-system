@@ -147,7 +147,6 @@
         input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         textarea.form-control-sm { resize: vertical; min-height: 60px; }
 
-        /* ===== ADD BUTTON — shared style, works on desktop AND mobile ===== */
         .add-alert-btn {
             font-size: 0.9rem;
             padding: 0.55rem 1rem;
@@ -187,7 +186,7 @@
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
         .table-scroll table {
             width: 100%;
-            min-width: 950px;
+            min-width: 1000px;
             margin-bottom: 0;
             border-collapse: collapse;
             background: var(--surface);
@@ -232,17 +231,17 @@
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
 
-        /* Column widths (sums to 100%) */
-        .col-symbol  { width: 10%; }
-        .col-cond    { width: 5%; }
+        /* Column widths (sums to 100%) — rebalanced for readable Symbol & Added */
+        .col-symbol  { width: 13%; }
+        .col-cond    { width: 4%; }
         .col-trigger { width: 8%; }
         .col-cmp     { width: 8%; }
         .col-gap     { width: 8%; }
-        .col-mgap    { width: 7%; }
+        .col-mgap    { width: 6%; }
         .col-chg     { width: 8%; }
-        .col-status  { width: 6%; }
-        .col-added   { width: 11%; }
-        .col-notes   { width: 18%; }
+        .col-status  { width: 5%; }
+        .col-added   { width: 14%; }
+        .col-notes   { width: 15%; }
         .col-actions { width: 11%; }
 
         .text-left { text-align: left; }
@@ -457,8 +456,7 @@
             }
             .btn-tool { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
 
-            /* Table on mobile: larger headers/body than before, tighter rows */
-            .table-scroll table { min-width: 900px; }
+            .table-scroll table { min-width: 1000px; }
             .table-scroll thead th {
                 font-size: 0.68rem;
                 padding: 8px 5px;
@@ -498,8 +496,6 @@
 
     <div class="card">
         <h5>➕ Add New Alert</h5>
-
-        <!-- Row 1: Symbol | Cond | Price (3-in-a-row on both mobile and desktop) -->
         <div class="row g-2 mb-2">
             <div class="col-5 col-md-4">
                 <label class="form-label" for="symbolInput">SYMBOL</label>
@@ -519,28 +515,22 @@
                 <label class="form-label" for="priceInput">ALERT PRICE</label>
                 <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="1">
             </div>
-            <!-- Desktop Add button: inline on same row -->
             <div class="col-md-3 d-none d-md-block">
                 <label class="form-label">&nbsp;</label>
                 <button id="addBtn" class="add-alert-btn" title="Add (Enter)">Add</button>
             </div>
         </div>
-
-        <!-- Row 2: Notes -->
         <div class="row g-2 mb-2">
             <div class="col-12">
                 <label class="form-label" for="notesInput">NOTES (OPTIONAL)</label>
                 <input type="text" id="notesInput" class="form-control form-control-sm" placeholder="Your personalised action (optional)" maxlength="500">
             </div>
         </div>
-
-        <!-- Row 3: Mobile Add button: full-width, blue, prominent -->
         <div class="row g-2 d-md-none">
             <div class="col-12">
                 <button id="addBtnMobile" class="add-alert-btn" title="Add (Enter)">Add</button>
             </div>
         </div>
-
         <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.85rem;"></div>
     </div>
 
