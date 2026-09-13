@@ -146,19 +146,25 @@
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         textarea.form-control-sm { resize: vertical; min-height: 60px; }
-        #addBtn {
-            font-size: 0.85rem;
-            padding: 0.45rem 1rem;
-            border-radius: 20px;
-            font-weight: 500;
+
+        /* ===== ADD BUTTON — shared style, works on desktop AND mobile ===== */
+        .add-alert-btn {
+            font-size: 0.9rem;
+            padding: 0.55rem 1rem;
+            border-radius: 22px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
             background: var(--primary-fill);
             color: var(--primary-text);
             border: none;
             box-shadow: var(--shadow-1);
             width: 100%;
+            transition: box-shadow 0.15s, filter 0.15s, transform 0.1s;
         }
-        #addBtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-        #addBtn:hover { box-shadow: var(--shadow-2); filter: brightness(1.05); }
+        .add-alert-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .add-alert-btn:hover { box-shadow: var(--shadow-2); filter: brightness(1.05); }
+        .add-alert-btn:active { transform: scale(0.98); }
+
         .btn-tool {
             font-size: 0.75rem;
             padding: 0.4rem 0.9rem;
@@ -177,7 +183,7 @@
             border-color: var(--primary-fill) !important;
         }
 
-        /* ============ TABLE (fixed layout, real widths) ============ */
+        /* ============ TABLE ============ */
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
         .table-scroll table {
             width: 100%;
@@ -191,8 +197,8 @@
         .table-scroll thead th {
             background: var(--header-bg);
             border-bottom: 1px solid var(--border);
-            padding: 8px 5px;
-            font-size: 0.62rem;
+            padding: 10px 6px;
+            font-size: 0.72rem;
             text-transform: uppercase;
             color: var(--text-muted);
             font-weight: 600;
@@ -204,14 +210,14 @@
         }
         .table-scroll thead th.sortable { cursor: pointer; }
         .table-scroll thead th.sortable:hover { background: var(--surface-2); }
-        .table-scroll thead th .sort-icon { margin-left: 3px; font-size: 0.55rem; opacity: 0.4; }
+        .table-scroll thead th .sort-icon { margin-left: 3px; font-size: 0.6rem; opacity: 0.4; }
         .table-scroll thead th.active .sort-icon { opacity: 1; color: var(--primary); }
         .table-scroll thead th.active { color: var(--primary); }
         .table-scroll tbody td {
-            padding: 8px 5px;
+            padding: 8px 6px;
             vertical-align: middle;
             border-bottom: 1px solid var(--border-light);
-            font-size: 0.78rem;
+            font-size: 0.82rem;
             color: var(--text);
             background: var(--surface);
             overflow: hidden;
@@ -226,8 +232,8 @@
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
 
-        /* Column width assignment (sums to 100%) */
-        .col-symbol  { width: 9%; }
+        /* Column widths (sums to 100%) */
+        .col-symbol  { width: 10%; }
         .col-cond    { width: 5%; }
         .col-trigger { width: 8%; }
         .col-cmp     { width: 8%; }
@@ -235,7 +241,7 @@
         .col-mgap    { width: 7%; }
         .col-chg     { width: 8%; }
         .col-status  { width: 6%; }
-        .col-added   { width: 12%; }
+        .col-added   { width: 11%; }
         .col-notes   { width: 18%; }
         .col-actions { width: 11%; }
 
@@ -251,7 +257,7 @@
             white-space: nowrap;
             color: var(--text);
             cursor: pointer;
-            font-size: 0.78rem;
+            font-size: 0.82rem;
         }
         .notes-cell:hover { color: var(--primary); text-decoration: underline; }
         .notes-empty { color: var(--text-muted); opacity: 0.35; }
@@ -428,33 +434,53 @@
             * { animation: none !important; transition: none !important; }
         }
 
-        /* ============ MOBILE (unchanged behavior) ============ */
+        /* ============ MOBILE ============ */
         @media (max-width: 576px) {
             body { padding: 6px; }
             .card { padding: 10px; margin-bottom: 8px; border-radius: 12px; }
-            .card h5 { font-size: 0.88rem; margin-bottom: 8px; }
+            .card h5 { font-size: 0.95rem; margin-bottom: 10px; }
             .header-row h1 { font-size: 1.05rem; }
             .theme-toggle-btn { width: 38px; height: 38px; font-size: 0.95rem; }
             .logout-btn { height: 38px; padding: 0 12px; font-size: 0.75rem; }
-            .form-label { font-size: 0.62rem; margin-bottom: 2px; }
-            .form-control-sm, .form-select-sm { font-size: 0.78rem; padding: 0.35rem 0.45rem; border-radius: 7px; }
-            #addBtn { font-size: 0.8rem; padding: 0.45rem 0.6rem; }
-            .btn-tool { font-size: 0.65rem; padding: 0.3rem 0.55rem; }
+
+            .form-label { font-size: 0.65rem; margin-bottom: 3px; }
+            .form-control-sm, .form-select-sm {
+                font-size: 0.82rem;
+                padding: 0.4rem 0.5rem;
+                border-radius: 8px;
+            }
+            .add-alert-btn {
+                font-size: 0.88rem;
+                padding: 0.55rem 0.7rem;
+                border-radius: 20px;
+                margin-top: 6px;
+            }
+            .btn-tool { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
+
+            /* Table on mobile: larger headers/body than before, tighter rows */
             .table-scroll table { min-width: 900px; }
-            .table-scroll thead th { font-size: 0.5rem; padding: 6px 3px; letter-spacing: 0.2px; }
-            .table-scroll tbody td { font-size: 0.68rem; padding: 6px 3px; }
-            .table .btn-sm { padding: 4px 6px; font-size: 0.6rem; margin: 0; }
-            .status-btn { width: 20px; height: 20px; font-size: 0.5rem; }
-            .notes-cell { font-size: 0.68rem; }
-            .autocomplete-item { padding: 8px 10px; font-size: 0.78rem; }
-            .autocomplete-item .name { font-size: 0.68rem; }
-            #searchBox { min-width: 0; max-width: none; font-size: 0.78rem; }
+            .table-scroll thead th {
+                font-size: 0.68rem;
+                padding: 8px 5px;
+                letter-spacing: 0.3px;
+            }
+            .table-scroll tbody td {
+                font-size: 0.78rem;
+                padding: 7px 5px;
+            }
+            .table .btn-sm { padding: 5px 7px; font-size: 0.68rem; margin: 0; }
+            .status-btn { width: 22px; height: 22px; font-size: 0.55rem; }
+            .notes-cell { font-size: 0.78rem; }
+
+            .autocomplete-item { padding: 9px 11px; font-size: 0.82rem; }
+            .autocomplete-item .name { font-size: 0.7rem; }
+            #searchBox { min-width: 0; max-width: none; font-size: 0.8rem; }
             .modal-box { padding: 16px; border-radius: 14px; }
-            .modal-actions .btn { min-width: 66px; font-size: 0.78rem; padding: 0.4rem 0.8rem; }
+            .modal-actions .btn { min-width: 66px; font-size: 0.8rem; padding: 0.45rem 0.85rem; }
             .data-tools { gap: 6px; }
-            .data-tools .tool-group { gap: 4px; }
+            .data-tools .tool-group { gap: 4px; flex-wrap: wrap; }
             .data-tools .search-group { min-width: 100%; order: 99; }
-            #importStatus { font-size: 0.7rem; }
+            #importStatus { font-size: 0.72rem; }
         }
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
     </style>
@@ -472,7 +498,9 @@
 
     <div class="card">
         <h5>➕ Add New Alert</h5>
-        <div class="row g-2 align-items-end mb-2">
+
+        <!-- Row 1: Symbol | Cond | Price (3-in-a-row on both mobile and desktop) -->
+        <div class="row g-2 mb-2">
             <div class="col-5 col-md-4">
                 <label class="form-label" for="symbolInput">SYMBOL</label>
                 <div class="input-group">
@@ -491,22 +519,29 @@
                 <label class="form-label" for="priceInput">ALERT PRICE</label>
                 <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="1">
             </div>
-            <div class="col-12 col-md-3 d-none d-md-block">
-                <button id="addBtn" class="btn" title="Add (Enter)">Add</button>
+            <!-- Desktop Add button: inline on same row -->
+            <div class="col-md-3 d-none d-md-block">
+                <label class="form-label">&nbsp;</label>
+                <button id="addBtn" class="add-alert-btn" title="Add (Enter)">Add</button>
             </div>
         </div>
+
+        <!-- Row 2: Notes -->
         <div class="row g-2 mb-2">
             <div class="col-12">
                 <label class="form-label" for="notesInput">NOTES (OPTIONAL)</label>
                 <input type="text" id="notesInput" class="form-control form-control-sm" placeholder="Your personalised action (optional)" maxlength="500">
             </div>
         </div>
+
+        <!-- Row 3: Mobile Add button: full-width, blue, prominent -->
         <div class="row g-2 d-md-none">
             <div class="col-12">
-                <button id="addBtnMobile" class="btn" title="Add (Enter)" onclick="document.getElementById('addBtn').click()">Add</button>
+                <button id="addBtnMobile" class="add-alert-btn" title="Add (Enter)">Add</button>
             </div>
         </div>
-        <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.82rem;"></div>
+
+        <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.85rem;"></div>
     </div>
 
     <div class="card" style="padding: 10px 14px;">
@@ -720,6 +755,7 @@ const condSelect = document.getElementById('condSelect');
 const priceInput = document.getElementById('priceInput');
 const notesInput = document.getElementById('notesInput');
 const addBtn = document.getElementById('addBtn');
+const addBtnMobile = document.getElementById('addBtnMobile');
 
 let acResults = [];
 let acSelected = -1;
@@ -874,6 +910,7 @@ function submitForm(force) {
 });
 
 addBtn.addEventListener('click', () => submitForm(false));
+addBtnMobile.addEventListener('click', () => submitForm(false));
 
 let currentSort = { column: null, direction: 1 };
 let alertsData = [];
