@@ -52,12 +52,7 @@
             --focus-ring: 0 0 0 3px rgba(138,180,248,0.45);
         }
         * { box-sizing: border-box; }
-        html {
-            background-color: var(--bg) !important;
-            min-height: 100vh;
-            margin: 0;
-            padding: 0;
-        }
+        html { background-color: var(--bg) !important; min-height: 100vh; margin: 0; padding: 0; }
         body {
             font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
             background-color: var(--bg) !important;
@@ -78,12 +73,7 @@
             border: none;
             color: var(--text);
         }
-        .card h5 {
-            font-size: 1rem;
-            font-weight: 500;
-            margin-bottom: 12px;
-            color: var(--text);
-        }
+        .card h5 { font-size: 1rem; font-weight: 500; margin-bottom: 12px; color: var(--text); }
         .text-muted { color: var(--text-muted) !important; }
         .header-row {
             display: flex;
@@ -93,12 +83,7 @@
             padding: 0 4px;
             gap: 8px;
         }
-        .header-row h1 {
-            font-size: 1.4rem;
-            font-weight: 500;
-            margin: 0;
-            color: var(--text);
-        }
+        .header-row h1 { font-size: 1.4rem; font-weight: 500; margin: 0; color: var(--text); }
         .header-actions { display: flex; gap: 8px; align-items: center; }
         .theme-toggle-btn {
             width: 44px; height: 44px;
@@ -132,20 +117,21 @@
         .logout-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         .logout-btn:hover { background: var(--surface-2); border-color: var(--danger); color: var(--danger); }
         .form-label {
-            font-size: 0.75rem;
-            margin-bottom: 4px;
+            font-size: 0.7rem;
+            margin-bottom: 3px;
             font-weight: 500;
             color: var(--text-muted);
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             display: block;
         }
         .form-control-sm, .form-select-sm {
-            font-size: 0.9rem;
-            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.6rem;
             background: var(--input-bg);
             color: var(--text);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 8px;
+            width: 100%;
         }
         .form-control-sm:focus, .form-select-sm:focus {
             background: var(--input-bg);
@@ -155,19 +141,21 @@
             outline: none;
         }
         .form-control-sm::placeholder { color: var(--text-muted); opacity: 0.7; }
-        input[readonly], input:disabled { opacity: 0.75; cursor: not-allowed; }
+        input[readonly], input:disabled, textarea[readonly] { opacity: 0.75; cursor: not-allowed; }
         input[type=number]::-webkit-outer-spin-button,
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+        textarea.form-control-sm { resize: vertical; min-height: 60px; }
         #addBtn {
-            font-size: 0.9rem;
-            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            padding: 0.45rem 1rem;
             border-radius: 20px;
             font-weight: 500;
             background: var(--primary-fill);
             color: var(--primary-text);
             border: none;
             box-shadow: var(--shadow-1);
+            width: 100%;
         }
         #addBtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         #addBtn:hover { box-shadow: var(--shadow-2); filter: brightness(1.05); }
@@ -189,30 +177,30 @@
             border-color: var(--primary-fill) !important;
         }
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
-        .table-scroll table { width: 100%; min-width: 850px; margin-bottom: 0; border-collapse: collapse; background: var(--surface); }
+        .table-scroll table { width: 100%; min-width: 950px; margin-bottom: 0; border-collapse: collapse; background: var(--surface); }
         .table-scroll thead { position: sticky; top: 0; z-index: 10; }
         .table-scroll thead th {
             background: var(--header-bg);
             border-bottom: 1px solid var(--border);
-            padding: 10px 8px;
-            font-size: 0.65rem;
+            padding: 8px 5px;
+            font-size: 0.62rem;
             text-transform: uppercase;
             color: var(--text-muted);
             font-weight: 600;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             white-space: nowrap;
             user-select: none;
         }
         .table-scroll thead th.sortable { cursor: pointer; }
         .table-scroll thead th.sortable:hover { background: var(--surface-2); }
-        .table-scroll thead th .sort-icon { margin-left: 4px; font-size: 0.6rem; opacity: 0.4; }
+        .table-scroll thead th .sort-icon { margin-left: 3px; font-size: 0.55rem; opacity: 0.4; }
         .table-scroll thead th.active .sort-icon { opacity: 1; color: var(--primary); }
         .table-scroll thead th.active { color: var(--primary); }
         .table-scroll tbody td {
-            padding: 10px 8px;
+            padding: 8px 5px;
             vertical-align: middle;
             border-bottom: 1px solid var(--border-light);
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             white-space: nowrap;
             color: var(--text);
             background: var(--surface);
@@ -224,16 +212,29 @@
             box-shadow: inset 3px 0 0 var(--primary);
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
-        .col-actions { min-width: 120px; width: 1%; text-align: center; }
+        .col-actions { min-width: 105px; width: 1%; text-align: center; }
+        .col-notes { max-width: 160px; min-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+        .notes-cell {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .notes-cell:hover { color: var(--primary); text-decoration: underline; }
+        .notes-empty { color: var(--text-muted); opacity: 0.4; }
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .status-btn {
-            width: 26px; height: 26px;
+            width: 24px; height: 24px;
             border-radius: 50%;
             border: 2px solid var(--border);
             padding: 0; cursor: pointer;
-            font-size: 0.6rem;
+            font-size: 0.58rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -248,10 +249,10 @@
         .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
         .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
         .table .btn-sm {
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            border-radius: 10px;
-            margin: 0 2px;
+            padding: 5px 8px;
+            font-size: 0.72rem;
+            border-radius: 8px;
+            margin: 0 1px;
             border: 1px solid var(--border);
             background: var(--surface);
         }
@@ -285,11 +286,11 @@
         .autocomplete-item.selected { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--primary); }
         .autocomplete-item .symbol { font-weight: 500; margin-right: 8px; color: var(--primary); }
         .autocomplete-item .name { color: var(--text-muted); font-size: 0.75rem; }
-        #searchBox { flex: 1; min-width: 180px; max-width: 320px; }
+        #searchBox { flex: 1; min-width: 160px; max-width: 280px; }
         #clearSearchBtn, #duplicateBtn { padding: 0.4rem 0.8rem; }
         .data-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
         .data-tools .tool-group { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
-        .data-tools .search-group { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 220px; }
+        .data-tools .search-group { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; }
         #importStatus { font-size: 0.8rem; font-weight: 500; color: var(--success); white-space: nowrap; }
         .modal-overlay {
             position: fixed;
@@ -307,17 +308,12 @@
             color: var(--text);
             border-radius: 20px;
             padding: 22px;
-            max-width: 440px;
+            max-width: 460px;
             width: 100%;
             box-shadow: var(--shadow-2);
             border: 1px solid var(--border);
         }
-        .modal-box h6 {
-            font-size: 1.05rem;
-            font-weight: 500;
-            margin: 0 0 16px 0;
-            color: var(--text);
-        }
+        .modal-box h6 { font-size: 1.05rem; font-weight: 500; margin: 0 0 16px 0; color: var(--text); }
         .modal-body-content { font-size: 0.9rem; line-height: 1.7; color: var(--text); }
         .modal-warning {
             margin-top: 14px;
@@ -378,11 +374,6 @@
             gap: 12px;
             min-width: 260px;
             justify-content: space-between;
-            animation: toastIn 0.2s ease-out;
-        }
-        @keyframes toastIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         .toast-action {
             background: var(--primary-fill);
@@ -409,27 +400,36 @@
         @media (prefers-reduced-motion: reduce) {
             * { animation: none !important; transition: none !important; }
         }
+
+        /* ============ MOBILE ============ */
         @media (max-width: 576px) {
             body { padding: 6px; }
-            .card { padding: 12px; margin-bottom: 10px; border-radius: 14px; }
-            .card h5 { font-size: 0.95rem; }
-            .header-row h1 { font-size: 1.1rem; }
-            .theme-toggle-btn { width: 40px; height: 40px; font-size: 1rem; }
-            .logout-btn { height: 40px; padding: 0 14px; font-size: 0.8rem; }
-            .table-scroll table { min-width: 800px; }
-            .table-scroll thead th { font-size: 0.55rem; padding: 8px 5px; }
-            .table-scroll tbody td { font-size: 0.72rem; padding: 8px 5px; }
-            .table .btn-sm { padding: 5px 8px; font-size: 0.7rem; }
-            .status-btn { width: 22px; height: 22px; font-size: 0.55rem; }
-            .form-control-sm, .form-select-sm { font-size: 0.85rem; padding: 0.4rem 0.6rem; }
-            #addBtn { font-size: 0.85rem; padding: 0.4rem 0.7rem; }
-            .btn-tool { font-size: 0.65rem; padding: 0.3rem 0.6rem; }
-            .autocomplete-item { padding: 8px 10px; font-size: 0.8rem; }
-            .autocomplete-item .name { font-size: 0.7rem; }
-            .col-actions { min-width: 110px; }
-            #searchBox { min-width: 0; max-width: none; }
-            .modal-box { padding: 18px; border-radius: 16px; }
-            .modal-actions .btn { min-width: 70px; font-size: 0.8rem; }
+            .card { padding: 10px; margin-bottom: 8px; border-radius: 12px; }
+            .card h5 { font-size: 0.88rem; margin-bottom: 8px; }
+            .header-row h1 { font-size: 1.05rem; }
+            .theme-toggle-btn { width: 38px; height: 38px; font-size: 0.95rem; }
+            .logout-btn { height: 38px; padding: 0 12px; font-size: 0.75rem; }
+            .form-label { font-size: 0.62rem; margin-bottom: 2px; }
+            .form-control-sm, .form-select-sm { font-size: 0.78rem; padding: 0.35rem 0.45rem; border-radius: 7px; }
+            #addBtn { font-size: 0.8rem; padding: 0.45rem 0.6rem; }
+            .btn-tool { font-size: 0.65rem; padding: 0.3rem 0.55rem; }
+            .table-scroll table { min-width: 950px; }
+            .table-scroll thead th { font-size: 0.52rem; padding: 6px 4px; letter-spacing: 0.2px; }
+            .table-scroll tbody td { font-size: 0.7rem; padding: 6px 4px; }
+            .table .btn-sm { padding: 4px 6px; font-size: 0.62rem; margin: 0 0px; }
+            .status-btn { width: 20px; height: 20px; font-size: 0.5rem; }
+            .col-actions { min-width: 90px; }
+            .col-notes { max-width: 90px; }
+            .notes-cell { max-width: 90px; font-size: 0.68rem; }
+            .autocomplete-item { padding: 8px 10px; font-size: 0.78rem; }
+            .autocomplete-item .name { font-size: 0.68rem; }
+            #searchBox { min-width: 0; max-width: none; font-size: 0.78rem; }
+            .modal-box { padding: 16px; border-radius: 14px; }
+            .modal-actions .btn { min-width: 66px; font-size: 0.78rem; padding: 0.4rem 0.8rem; }
+            .data-tools { gap: 6px; }
+            .data-tools .tool-group { gap: 4px; }
+            .data-tools .search-group { min-width: 100%; order: 99; }
+            #importStatus { font-size: 0.7rem; }
         }
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
     </style>
@@ -447,36 +447,54 @@
 
     <div class="card">
         <h5>➕ Add New Alert</h5>
-        <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-4">
+
+        <!-- Row 1: Symbol | Condition | Alert Price | Add (desktop) / Symbol | Condition | Alert Price (mobile) -->
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-5 col-md-4">
                 <label class="form-label" for="symbolInput">SYMBOL</label>
                 <div class="input-group">
-                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off" aria-autocomplete="list" aria-controls="autocompleteList" aria-expanded="false" style="z-index:1001;" autofocus>
+                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Symbol" autocomplete="off" aria-autocomplete="list" aria-controls="autocompleteList" aria-expanded="false" style="z-index:1001;" autofocus>
                     <div id="autocompleteList" class="autocomplete-items" role="listbox" style="display:none;"></div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label" for="condSelect">CONDITION</label>
+            <div class="col-3 col-md-2">
+                <label class="form-label" for="condSelect">COND</label>
                 <select id="condSelect" class="form-select form-select-sm">
                     <option value=">" selected>&gt;</option>
                     <option value="<">&lt;</option>
                 </select>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-4 col-md-3">
                 <label class="form-label" for="priceInput">ALERT PRICE</label>
-                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="e.g. 5000" step="1">
+                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="Price" step="1">
             </div>
-            <div class="col-12 col-md-2">
-                <button id="addBtn" class="btn w-100" title="Add (Enter)">Add</button>
+            <div class="col-12 col-md-3 d-none d-md-block">
+                <button id="addBtn" class="btn" title="Add (Enter)">Add</button>
             </div>
         </div>
-        <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.85rem;"></div>
+
+        <!-- Row 2: Notes -->
+        <div class="row g-2 mb-2">
+            <div class="col-12">
+                <label class="form-label" for="notesInput">NOTES (OPTIONAL)</label>
+                <input type="text" id="notesInput" class="form-control form-control-sm" placeholder="Your personalised action (optional)" maxlength="500">
+            </div>
+        </div>
+
+        <!-- Row 3: Add button (mobile only) -->
+        <div class="row g-2 d-md-none">
+            <div class="col-12">
+                <button id="addBtnMobile" class="btn" title="Add (Enter)" onclick="document.getElementById('addBtn').click()">Add</button>
+            </div>
+        </div>
+
+        <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.82rem;"></div>
     </div>
 
-    <div class="card" style="padding: 12px 16px;">
+    <div class="card" style="padding: 10px 14px;">
         <div class="data-tools">
             <div class="tool-group">
-                <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted);">💾</span>
+                <span style="font-size:0.85rem; font-weight:500; color:var(--text-muted);">💾</span>
                 <button id="exportBtn" class="btn btn-outline-success btn-tool" title="Export (Ctrl+E)">📥 Export</button>
                 <button id="importBtn" class="btn btn-outline-primary btn-tool" title="Import (Ctrl+I)">📤 Import</button>
                 <button id="duplicateBtn" class="btn btn-outline-primary btn-tool" title="Show duplicate symbols">🔁 Duplicates</button>
@@ -490,8 +508,8 @@
         </div>
     </div>
 
-    <div class="card" style="padding: 12px 6px;">
-        <h5 style="padding-left:10px;">📋 Your Alerts</h5>
+    <div class="card" style="padding: 10px 4px;">
+        <h5 style="padding-left:8px;">📋 Your Alerts</h5>
         <div class="table-scroll">
             <table class="table table-hover mb-0" id="alertsTable">
                 <thead>
@@ -505,6 +523,7 @@
                         <th class="sortable text-right" data-sort="pct_chg">% Chg <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left" data-sort="added">Added <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-left col-notes" data-sort="notes">Notes <span class="sort-icon">↕</span></th>
                         <th class="text-center col-actions">Actions</th>
                     </tr>
                 </thead>
@@ -525,7 +544,6 @@
 <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
 <script>
-// ============ GLOBAL 401 HANDLER ============
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
     return originalFetch.apply(this, args).then(response => {
@@ -537,7 +555,6 @@ window.fetch = function(...args) {
     });
 };
 
-// ============ THEME ============
 const themeToggle = document.getElementById('themeToggle');
 const logoutBtn = document.getElementById('logoutBtn');
 function applyTheme(theme) {
@@ -559,7 +576,6 @@ themeToggle.addEventListener('click', function() {
     localStorage.setItem('alertManagerTheme', newTheme);
 });
 
-// ============ TOAST SYSTEM ============
 function showToast(message, options = {}) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -571,19 +587,14 @@ function showToast(message, options = {}) {
         const btn = document.createElement('button');
         btn.className = 'toast-action';
         btn.textContent = options.actionLabel;
-        btn.addEventListener('click', () => {
-            options.onAction();
-            toast.remove();
-        });
+        btn.addEventListener('click', () => { options.onAction(); toast.remove(); });
         toast.appendChild(btn);
     }
     container.appendChild(toast);
-    const duration = options.duration || 4000;
-    setTimeout(() => { if (toast.parentNode) toast.remove(); }, duration);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, options.duration || 4000);
     return toast;
 }
 
-// ============ MODAL (with focus trap) ============
 let modalPreviousFocus = null;
 let modalKeyHandler = null;
 
@@ -605,16 +616,12 @@ function showAppModal({ title, bodyHTML, buttons, onEscape }) {
         actions.appendChild(btn);
     });
     document.getElementById('appModal').classList.add('show');
-
-    // Focus first input OR first button
     setTimeout(() => {
         const firstInput = document.querySelector('#appModal input, #appModal select, #appModal textarea');
         const firstBtn = document.querySelector('#appModalActions .btn');
         if (firstInput) { firstInput.focus(); if (firstInput.select) firstInput.select(); }
         else if (firstBtn) firstBtn.focus();
     }, 30);
-
-    // Focus trap
     modalKeyHandler = function(e) {
         if (e.key === 'Escape') {
             e.preventDefault();
@@ -633,7 +640,6 @@ function showAppModal({ title, bodyHTML, buttons, onEscape }) {
         }
         if (e.key === 'Enter' && !e.shiftKey) {
             const tag = document.activeElement.tagName;
-            // Allow Enter inside textarea, otherwise click the primary button
             if (tag !== 'TEXTAREA') {
                 const primary = document.querySelector('#appModalActions .btn-primary, #appModalActions .btn-danger');
                 if (primary) { e.preventDefault(); primary.click(); }
@@ -658,14 +664,12 @@ document.getElementById('appModal').addEventListener('click', function(e) {
     if (e.target.id === 'appModal') hideAppModal();
 });
 
-// ============ STATUS MESSAGE ============
 function showMessage(type, html) {
     const map = { success: 'var(--success)', danger: 'var(--danger)', warning: 'var(--warning)' };
     document.getElementById('addMessage').innerHTML =
         `<span style="color: ${map[type] || 'var(--text)'}; font-weight:500;">${html}</span>`;
 }
 
-// ============ LOGOUT ============
 logoutBtn.addEventListener('click', function() {
     showAppModal({
         title: 'Logout',
@@ -681,7 +685,15 @@ logoutBtn.addEventListener('click', function() {
     });
 });
 
-// ============ AUTOCOMPLETE with keyboard ============
+// Show full notes on tap/click
+function showFullNote(symbol, note) {
+    showAppModal({
+        title: `📝 Note — ${symbol}`,
+        bodyHTML: `<div style="white-space: pre-wrap; word-break: break-word;">${note.replace(/</g, '&lt;')}</div>`,
+        buttons: [{ label: 'OK', class: 'btn-primary', onClick: () => {} }]
+    });
+}
+
 const symbolInput = document.getElementById('symbolInput');
 const autocompleteList = document.getElementById('autocompleteList');
 const searchBox = document.getElementById('searchBox');
@@ -689,6 +701,7 @@ const clearSearchBtn = document.getElementById('clearSearchBtn');
 const duplicateBtn = document.getElementById('duplicateBtn');
 const condSelect = document.getElementById('condSelect');
 const priceInput = document.getElementById('priceInput');
+const notesInput = document.getElementById('notesInput');
 const addBtn = document.getElementById('addBtn');
 
 let acResults = [];
@@ -700,7 +713,6 @@ function closeAutocomplete() {
     symbolInput.setAttribute('aria-expanded', 'false');
     acSelected = -1;
 }
-
 function selectAutocompleteIndex(idx) {
     if (acResults.length === 0) return;
     acSelected = Math.max(0, Math.min(idx, acResults.length - 1));
@@ -709,7 +721,6 @@ function selectAutocompleteIndex(idx) {
         if (i === acSelected) el.scrollIntoView({ block: 'nearest' });
     });
 }
-
 function acceptAutocomplete() {
     if (acSelected >= 0 && acSelected < acResults.length) {
         symbolInput.value = acResults[acSelected].symbol;
@@ -717,7 +728,6 @@ function acceptAutocomplete() {
         condSelect.focus();
     }
 }
-
 function renderAutocomplete(data) {
     acResults = data;
     acSelected = -1;
@@ -743,7 +753,6 @@ function renderAutocomplete(data) {
         });
     });
 }
-
 symbolInput.addEventListener('input', function() {
     const query = this.value.trim();
     if (acFetchTimer) clearTimeout(acFetchTimer);
@@ -755,28 +764,17 @@ symbolInput.addEventListener('input', function() {
             .catch(() => closeAutocomplete());
     }, 150);
 });
-
 symbolInput.addEventListener('keydown', function(e) {
     const visible = autocompleteList.style.display === 'block';
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (visible && acResults.length > 0) selectAutocompleteIndex(acSelected + 1);
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (visible && acResults.length > 0) selectAutocompleteIndex(acSelected - 1);
-    } else if (e.key === 'PageDown') {
-        if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected + 5); }
-    } else if (e.key === 'PageUp') {
-        if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected - 5); }
-    } else if (e.key === 'Home') {
-        if (visible) { e.preventDefault(); selectAutocompleteIndex(0); }
-    } else if (e.key === 'End') {
-        if (visible) { e.preventDefault(); selectAutocompleteIndex(acResults.length - 1); }
-    } else if (e.key === 'Enter') {
-        if (visible) { e.preventDefault(); acceptAutocomplete(); }
-    } else if (e.key === 'Tab') {
-        if (visible && acSelected >= 0) { e.preventDefault(); acceptAutocomplete(); }
-    } else if (e.key === 'Escape') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (visible) selectAutocompleteIndex(acSelected + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (visible) selectAutocompleteIndex(acSelected - 1); }
+    else if (e.key === 'PageDown') { if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected + 5); } }
+    else if (e.key === 'PageUp') { if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected - 5); } }
+    else if (e.key === 'Home') { if (visible) { e.preventDefault(); selectAutocompleteIndex(0); } }
+    else if (e.key === 'End') { if (visible) { e.preventDefault(); selectAutocompleteIndex(acResults.length - 1); } }
+    else if (e.key === 'Enter') { if (visible) { e.preventDefault(); acceptAutocomplete(); } }
+    else if (e.key === 'Tab') { if (visible && acSelected >= 0) { e.preventDefault(); acceptAutocomplete(); } }
+    else if (e.key === 'Escape') {
         e.preventDefault();
         if (visible) closeAutocomplete();
         else if (symbolInput.value) symbolInput.value = '';
@@ -785,8 +783,6 @@ symbolInput.addEventListener('keydown', function(e) {
 document.addEventListener('click', function(e) {
     if (e.target !== symbolInput && !autocompleteList.contains(e.target)) closeAutocomplete();
 });
-
-// Paste parser for bulk or single-line alerts
 symbolInput.addEventListener('paste', function(e) {
     const text = (e.clipboardData || window.clipboardData).getData('text');
     if (!text) return;
@@ -804,21 +800,19 @@ symbolInput.addEventListener('paste', function(e) {
             condSelect.value = parsed[0].condition;
             priceInput.value = parsed[0].price;
             closeAutocomplete();
-            priceInput.focus();
+            notesInput.focus();
         } else {
             bulkAdd(parsed);
         }
     }
 });
 
-// ============ CONDITION DROPDOWN ============
 condSelect.addEventListener('keydown', function(e) {
     if (e.key === '>') { e.preventDefault(); condSelect.value = '>'; }
     else if (e.key === '<') { e.preventDefault(); condSelect.value = '<'; }
     else if (e.key === 'Escape') { e.preventDefault(); condSelect.blur(); }
 });
 
-// ============ PRICE INPUT ============
 priceInput.addEventListener('keydown', function(e) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
@@ -833,14 +827,19 @@ priceInput.addEventListener('keydown', function(e) {
     }
 });
 
-// ============ ADD FORM: Enter submits, Escape clears ============
+notesInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); submitForm(e.ctrlKey); }
+    else if (e.key === 'Escape') { e.preventDefault(); notesInput.value = ''; }
+});
+
 function submitForm(force) {
     const symbol = symbolInput.value.trim().toUpperCase();
     const condition = condSelect.value;
     const price = priceInput.value.trim();
+    const notes = notesInput.value.trim();
     if (!symbol || !price) { showMessage('danger', 'Fill all fields.'); return; }
-    const payload = { symbol, condition, price: parseFloat(price) };
-    if (force) payload.force_duplicate = true, payload.force_trigger = true;
+    const payload = { symbol, condition, price: parseFloat(price), notes };
+    if (force) { payload.force_duplicate = true; payload.force_trigger = true; }
     fetch('/api/add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -853,16 +852,12 @@ function submitForm(force) {
 [condSelect, priceInput].forEach(el => {
     el.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); submitForm(e.ctrlKey); }
-        else if (e.key === 'Escape') {
-            e.preventDefault();
-            if (this === priceInput) priceInput.value = '';
-        }
+        else if (e.key === 'Escape') { e.preventDefault(); if (this === priceInput) priceInput.value = ''; }
     });
 });
 
 addBtn.addEventListener('click', () => submitForm(false));
 
-// ============ FETCH ALERTS ============
 let currentSort = { column: null, direction: 1 };
 let alertsData = [];
 let focusedRowIndex = -1;
@@ -872,7 +867,7 @@ function sortAlerts(data, column, direction) {
     sorted.sort((a, b) => {
         let valA, valB;
         switch (column) {
-            case 'symbol': valA = a.symbol || ''; valB = b.symbol || ''; return direction * valA.localeCompare(valB);
+            case 'symbol': return direction * (a.symbol || '').localeCompare(b.symbol || '');
             case 'trigger': return direction * ((parseFloat(a.trigger_price) || 0) - (parseFloat(b.trigger_price) || 0));
             case 'cmp': return direction * ((parseFloat(a.cmp) || 0) - (parseFloat(b.cmp) || 0));
             case 'gap': return direction * (calculateGap(a) - calculateGap(b));
@@ -888,6 +883,7 @@ function sortAlerts(data, column, direction) {
                 return direction * (sv(a) - sv(b));
             }
             case 'added': return direction * ((new Date(a.added_at).getTime() || 0) - (new Date(b.added_at).getTime() || 0));
+            case 'notes': return direction * ((a.notes || '').localeCompare(b.notes || ''));
             default: return 0;
         }
     });
@@ -912,17 +908,20 @@ function formatDate(dateStr) {
     } catch { return '-'; }
 }
 
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         focusedRowIndex = -1;
         return;
     }
     let html = '';
     data.forEach((a, idx) => {
-        let cmpDisplay = '-';
-        let cmpClass = 'cmp-neutral';
+        let cmpDisplay = '-', cmpClass = 'cmp-neutral';
         if (a.cmp !== null && a.cmp !== undefined) {
             cmpDisplay = a.cmp;
             if ((a.condition === '>' && a.cmp > a.trigger_price) || (a.condition === '<' && a.cmp < a.trigger_price)) cmpClass = 'cmp-green';
@@ -950,8 +949,16 @@ function renderAlerts(data) {
         const dateDisplay = formatDate(a.added_at);
         const companyName = (a.company_name || '').replace(/"/g, '&quot;');
         const cmpForButton = (a.cmp !== null && a.cmp !== undefined) ? a.cmp : '';
+        const notes = (a.notes || '').trim();
+        const notesEscaped = escapeHtml(notes);
+        let notesCell;
+        if (notes) {
+            notesCell = `<span class="notes-cell" title="${notesEscaped}" data-note="${notesEscaped}" data-symbol="${a.symbol}">${notesEscaped}</span>`;
+        } else {
+            notesCell = `<span class="notes-empty">—</span>`;
+        }
 
-        html += `<tr data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" tabindex="0" data-row-index="${idx}">
+        html += `<tr data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" data-notes="${notesEscaped}" tabindex="0" data-row-index="${idx}">
             <td class="text-left"><strong>${a.symbol}</strong></td>
             <td class="text-center">${a.condition}</td>
             <td class="text-right">${a.trigger_price}</td>
@@ -961,6 +968,7 @@ function renderAlerts(data) {
             <td class="text-right ${pctChgClass}">${pctChgDisplay}</td>
             <td class="text-center"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left">${dateDisplay}</td>
+            <td class="text-left col-notes">${notesCell}</td>
             <td class="text-center" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-outline-primary" data-action="edit" title="Edit (E)">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning" data-action="reactivate" title="Reactivate (R)">🔄</button>` : ''}
@@ -970,6 +978,14 @@ function renderAlerts(data) {
     });
     tbody.innerHTML = html;
 
+    // Notes click -> show full note
+    tbody.querySelectorAll('.notes-cell').forEach(el => {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            showFullNote(this.dataset.symbol, this.dataset.note);
+        });
+    });
+
     tbody.querySelectorAll('tr[data-symbol]').forEach(row => {
         row.addEventListener('focus', function() {
             tbody.querySelectorAll('tr').forEach(r => r.classList.remove('row-focused'));
@@ -978,6 +994,7 @@ function renderAlerts(data) {
         });
         row.addEventListener('click', function(e) {
             if (e.target.closest('button')) return;
+            if (e.target.closest('.notes-cell')) return;
             this.focus();
         });
     });
@@ -1000,8 +1017,9 @@ function handleRowAction(action, row) {
     const condition = row.dataset.condition;
     const price = row.dataset.trigger;
     const cmp = row.dataset.cmp;
+    const notes = row.dataset.notes || '';
     if (action === 'edit') {
-        showEditDialog(id, symbol, cmp, condition, price);
+        showEditDialog(id, symbol, cmp, condition, price, notes);
     } else if (action === 'toggle') {
         fetch(`/api/toggle/${id}`, { method: 'POST' })
             .then(res => res.json())
@@ -1013,13 +1031,11 @@ function handleRowAction(action, row) {
     }
 }
 
-// ============ TABLE ROW KEYBOARD NAV ============
 document.getElementById('alertTableBody').addEventListener('keydown', function(e) {
     const rows = Array.from(this.querySelectorAll('tr[data-symbol]'));
     if (rows.length === 0) return;
     const active = document.activeElement.closest && document.activeElement.closest('tr');
     const idx = active ? rows.indexOf(active) : -1;
-
     if (e.key === 'ArrowDown') { e.preventDefault(); rows[Math.min(idx + 1, rows.length - 1)].focus(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); rows[Math.max(idx - 1, 0)].focus(); }
     else if (e.key === 'Home') { e.preventDefault(); rows[0].focus(); }
@@ -1032,15 +1048,14 @@ document.getElementById('alertTableBody').addEventListener('keydown', function(e
     else if (e.key === 'Escape') { e.preventDefault(); if (active) active.blur(); }
 });
 
-// ============ EDIT DIALOG ============
-function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
+function showEditDialog(alertId, symbol, cmp, condition, price, notes, onSuccess) {
     const cmpVal = (cmp !== null && cmp !== undefined && cmp !== '') ? cmp : '-';
     const bodyHTML = `
         <div class="row g-2 mb-3">
             <div class="col-6"><label class="form-label">SYMBOL</label><input type="text" class="form-control form-control-sm" value="${symbol}" readonly></div>
             <div class="col-6"><label class="form-label">CMP</label><input type="text" class="form-control form-control-sm" value="${cmpVal}" readonly></div>
         </div>
-        <div class="row g-2">
+        <div class="row g-2 mb-3">
             <div class="col-5"><label class="form-label">CONDITION</label>
                 <select id="editCondition" class="form-select form-select-sm">
                     <option value=">" ${condition === '>' ? 'selected' : ''}>&gt;</option>
@@ -1048,6 +1063,9 @@ function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
                 </select>
             </div>
             <div class="col-7"><label class="form-label">ALERT PRICE</label><input type="number" id="editPrice" class="form-control form-control-sm" value="${price}" step="1"></div>
+        </div>
+        <div class="row g-2">
+            <div class="col-12"><label class="form-label">NOTES (OPTIONAL)</label><textarea id="editNotes" class="form-control form-control-sm" rows="3" maxlength="500" placeholder="Your personalised action">${(notes || '').replace(/</g, '&lt;')}</textarea></div>
         </div>
     `;
     showAppModal({
@@ -1057,21 +1075,24 @@ function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
             { label: 'OK', class: 'btn-primary', onClick: () => {
                 const newCond = document.getElementById('editCondition').value;
                 const newPrice = parseFloat(document.getElementById('editPrice').value);
+                const newNotes = document.getElementById('editNotes').value.trim();
                 if (isNaN(newPrice) || newPrice <= 0) { showMessage('danger', '❌ Invalid price.'); return; }
-                fetch(`/api/update/${alertId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ condition: newCond, price: newPrice }) })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === 'ok') { showMessage('success', `✅ ${symbol} ${newCond} ${newPrice} updated`); (onSuccess || fetchAlerts)(); }
-                        else showMessage('danger', `❌ ${data.message}`);
-                    })
-                    .catch(() => showMessage('danger', '❌ Server error'));
+                fetch(`/api/update/${alertId}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ condition: newCond, price: newPrice, notes: newNotes })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') { showMessage('success', `✅ ${symbol} updated`); (onSuccess || fetchAlerts)(); }
+                    else showMessage('danger', `❌ ${data.message}`);
+                })
+                .catch(() => showMessage('danger', '❌ Server error'));
             }},
             { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
         ]
     });
 }
 
-// ============ REACTIVATE ============
 function triggerReactivate(id) {
     fetch(`/api/reactivate/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dry_run: true }) })
         .then(res => res.json())
@@ -1093,7 +1114,7 @@ function triggerReactivate(id) {
                 buttons: [
                     { label: 'OK', class: 'btn-primary', onClick: () => doReactivate(id) },
                     { label: 'Edit', class: 'btn-edit', onClick: () => {
-                        setTimeout(() => showEditDialog(id, preview.symbol, preview.current_price, preview.condition, preview.trigger_price, () => triggerReactivate(id)), 50);
+                        setTimeout(() => showEditDialog(id, preview.symbol, preview.current_price, preview.condition, preview.trigger_price, '', () => triggerReactivate(id)), 50);
                     }},
                     { label: 'Cancel', class: 'btn-secondary', onClick: () => showMessage('warning', '⏸️ Alert kept deactivated.') }
                 ]
@@ -1111,7 +1132,6 @@ function doReactivate(id) {
         });
 }
 
-// ============ DELETE with UNDO TOAST ============
 function confirmDelete(id, symbol) {
     showAppModal({
         title: '🗑️ Delete Alert',
@@ -1123,14 +1143,7 @@ function confirmDelete(id, symbol) {
                     .then(data => {
                         if (data.status === 'ok') {
                             fetchAlerts();
-                            showToast(`Deleted ${symbol}`, {
-                                actionLabel: 'Undo',
-                                duration: 5000,
-                                onAction: () => {
-                                    // Best-effort undo: re-add same alert
-                                    showToast('Undo is not available for deletes. Please re-add manually.', { duration: 3500 });
-                                }
-                            });
+                            showToast(`Deleted ${symbol}`, { duration: 3500 });
                         }
                     });
             }},
@@ -1139,7 +1152,6 @@ function confirmDelete(id, symbol) {
     });
 }
 
-// ============ SEARCH / DUPLICATES ============
 let showDuplicatesOnly = false;
 searchBox.addEventListener('input', filterTable);
 clearSearchBtn.addEventListener('click', function() {
@@ -1187,7 +1199,6 @@ function filterTable() {
     });
 }
 
-// ============ SORT ============
 document.querySelectorAll('.sortable').forEach(header => {
     header.addEventListener('click', function() {
         const column = this.dataset.sort;
@@ -1199,12 +1210,12 @@ document.querySelectorAll('.sortable').forEach(header => {
     });
 });
 
-// ============ ADD RESPONSE ============
 function handleAddResponse(data, payload) {
     if (data.status === 'ok') {
         showMessage('success', `✅ ${data.symbol} ${data.condition} ${data.price} added`);
         symbolInput.value = '';
         priceInput.value = '';
+        notesInput.value = '';
         symbolInput.focus();
         fetchAlerts();
     } else if (data.status === 'duplicate') {
@@ -1238,7 +1249,6 @@ function handleAddResponse(data, payload) {
     }
 }
 
-// Bulk add (paste multiple)
 function bulkAdd(list) {
     let done = 0, errors = 0;
     const processNext = (i) => {
@@ -1256,7 +1266,6 @@ function bulkAdd(list) {
     processNext(0);
 }
 
-// ============ EXPORT / IMPORT ============
 document.getElementById('exportBtn').addEventListener('click', function() {
     fetch('/api/export').then(res => res.json()).then(data => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1306,77 +1315,39 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     this.value = '';
 });
 
-// ============ GLOBAL SHORTCUTS ============
 document.addEventListener('keydown', function(e) {
     const inInput = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
     const inModal = document.getElementById('appModal').classList.contains('show');
-
-    // Modal open — the modal handler manages keys
     if (inModal) return;
-
-    // Alt+T: Toggle theme
     if (e.altKey && (e.key === 't' || e.key === 'T')) { e.preventDefault(); themeToggle.click(); return; }
-
-    // Ctrl+Shift+L: Logout
     if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); logoutBtn.click(); return; }
-
-    // Ctrl+E: Export
     if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); document.getElementById('exportBtn').click(); return; }
-
-    // Ctrl+I: Import
     if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); document.getElementById('importBtn').click(); return; }
-
-    // Ctrl+K or /: focus search
     if ((e.ctrlKey && (e.key === 'k' || e.key === 'K')) || (e.key === '/' && !inInput)) {
-        e.preventDefault();
-        searchBox.focus();
-        searchBox.select();
-        return;
+        e.preventDefault(); searchBox.focus(); searchBox.select(); return;
     }
-
-    // N: new alert (symbol field)
-    if ((e.key === 'n' || e.key === 'N') && !inInput) {
-        e.preventDefault();
-        symbolInput.focus();
-        return;
-    }
-
-    // ?: show help
-    if (e.key === '?' && !inInput) {
-        e.preventDefault();
-        showKeyboardHelp();
-        return;
-    }
-
-    // Escape global
+    if ((e.key === 'n' || e.key === 'N') && !inInput) { e.preventDefault(); symbolInput.focus(); return; }
+    if (e.key === '?' && !inInput) { e.preventDefault(); showKeyboardHelp(); return; }
     if (e.key === 'Escape' && !inInput) {
         const active = document.activeElement.closest && document.activeElement.closest('tr');
-        if (active) { active.blur(); }
+        if (active) active.blur();
     }
 });
 
-// ============ KEYBOARD HELP ============
 function showKeyboardHelp() {
     const rows = [
-        ['/', 'Focus search'],
-        ['Ctrl+K', 'Focus search'],
-        ['N', 'New alert'],
-        ['E', 'Edit focused row'],
-        ['Space', 'Toggle focused row'],
-        ['R', 'Reactivate focused row'],
-        ['Delete', 'Delete focused row'],
-        ['↑ / ↓', 'Navigate / step value'],
-        ['Home / End', 'First / last'],
+        ['/', 'Focus search'], ['Ctrl+K', 'Focus search'], ['N', 'New alert'],
+        ['E', 'Edit focused row'], ['Space', 'Toggle focused row'],
+        ['R', 'Reactivate focused row'], ['Delete', 'Delete focused row'],
+        ['↑ / ↓', 'Navigate / step value'], ['Home / End', 'First / last'],
         ['Page↑ / Page↓', 'Jump 5 in autocomplete'],
         ['Enter', 'Confirm / Submit / Accept'],
         ['Ctrl+Enter', 'Force add (skip warnings)'],
         ['Escape', 'Cancel / Close / Clear'],
         ['Tab / Shift+Tab', 'Next / previous field'],
-        ['Ctrl+E', 'Export'],
-        ['Ctrl+I', 'Import'],
-        ['Ctrl+Shift+L', 'Logout'],
-        ['Alt+T', 'Toggle theme'],
-        ['?', 'This help'],
+        ['Ctrl+E', 'Export'], ['Ctrl+I', 'Import'],
+        ['Ctrl+Shift+L', 'Logout'], ['Alt+T', 'Toggle theme'],
+        ['?', 'This help']
     ];
     const html = '<table class="shortcut-help-table">' +
         rows.map(r => `<tr><td><kbd>${r[0]}</kbd></td><td>${r[1]}</td></tr>`).join('') +
@@ -1388,7 +1359,6 @@ function showKeyboardHelp() {
     });
 }
 
-// ============ INIT ============
 function fetchAlerts() {
     fetch('/api/alerts')
         .then(res => res.json())
@@ -1400,7 +1370,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="10" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="11" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 

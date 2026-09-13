@@ -21,11 +21,11 @@ app = Flask(__name__)
 # ------------------------------------------------------------------
 #  AUTH STATE (in-memory)
 # ------------------------------------------------------------------
-SESSIONS = {}          # {session_id: expiry_unix_ts}
-PENDING_OTP = {}       # {ip: {'code': '1234', 'expiry': ts, 'sent_at': ts, 'attempts': int}}
-SESSION_DURATION = 30 * 24 * 3600   # 30 days
-OTP_VALIDITY = 300                  # 5 minutes
-OTP_THROTTLE = 60                   # 1 minute between OTP requests per IP
+SESSIONS = {}
+PENDING_OTP = {}
+SESSION_DURATION = 30 * 24 * 3600
+OTP_VALIDITY = 300
+OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
 
 # ------------------------------------------------------------------
@@ -92,21 +92,17 @@ def is_valid_worker_key():
 @app.before_request
 def check_auth():
     path = request.path
-
     if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico'):
         return None
     if path.startswith('/static/'):
         return None
-
     if path in ('/api/alerts',) or path.startswith('/api/mark_triggered'):
         if is_valid_worker_key():
             return None
-
     if not is_authenticated():
         if path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
         return redirect('/login')
-
     return None
 
 # ------------------------------------------------------------------
@@ -122,20 +118,12 @@ def login_page():
 def send_otp():
     ip = get_client_ip()
     now = time.time()
-
     existing = PENDING_OTP.get(ip)
     if existing and now - existing.get('sent_at', 0) < OTP_THROTTLE:
         remaining = int(OTP_THROTTLE - (now - existing['sent_at']))
         return jsonify({'status': 'error', 'message': f'Please wait {remaining}s before requesting again.'}), 429
-
     code = f"{random.randint(0, 9999):04d}"
-    PENDING_OTP[ip] = {
-        'code': code,
-        'expiry': now + OTP_VALIDITY,
-        'sent_at': now,
-        'attempts': 0
-    }
-
+    PENDING_OTP[ip] = {'code': code, 'expiry': now + OTP_VALIDITY, 'sent_at': now, 'attempts': 0}
     msg = (f"🔐 <b>Login OTP Requested</b>\n"
            f"Code: <b>{code}</b>\n"
            f"IP: <code>{ip}</code>\n"
@@ -150,52 +138,26 @@ def verify_otp():
     code = str(data.get('code', '')).strip()
     ip = get_client_ip()
     now = time.time()
-
     entry = PENDING_OTP.get(ip)
     if not entry or entry['expiry'] < now:
         return jsonify({'status': 'error', 'message': 'No OTP requested or expired. Request a new one.'}), 401
-
     entry['attempts'] = entry.get('attempts', 0) + 1
-
     if entry['attempts'] > MAX_OTP_ATTEMPTS:
         PENDING_OTP.pop(ip, None)
-        stock_alert.send_telegram(
-            f"🚨 <b>Too many failed login attempts</b>\n"
-            f"IP: <code>{ip}</code>\n"
-            f"OTP invalidated."
-        )
+        stock_alert.send_telegram(f"🚨 <b>Too many failed login attempts</b>\nIP: <code>{ip}</code>\nOTP invalidated.")
         return jsonify({'status': 'error', 'message': 'Too many attempts. Request a new OTP.'}), 401
-
     if entry['code'] != code:
-        stock_alert.send_telegram(
-            f"❌ <b>Failed login attempt</b>\n"
-            f"IP: <code>{ip}</code>\n"
-            f"Attempt: {entry['attempts']} of {MAX_OTP_ATTEMPTS}"
-        )
+        stock_alert.send_telegram(f"❌ <b>Failed login attempt</b>\nIP: <code>{ip}</code>\nAttempt: {entry['attempts']} of {MAX_OTP_ATTEMPTS}")
         return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
-
     PENDING_OTP.pop(ip, None)
     session_id = secrets.token_urlsafe(32)
     SESSIONS[session_id] = now + SESSION_DURATION
-
     ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
-    stock_alert.send_telegram(
-        f"✅ <b>Login Success</b>\n"
-        f"IP: <code>{ip}</code>\n"
-        f"Time: {ist_time}"
-    )
-
+    stock_alert.send_telegram(f"✅ <b>Login Success</b>\nIP: <code>{ip}</code>\nTime: {ist_time}")
     resp = make_response(jsonify({'status': 'ok'}))
     is_https = (request.headers.get('X-Forwarded-Proto', '') == 'https') or request.is_secure
-    resp.set_cookie(
-        'session_id',
-        session_id,
-        max_age=SESSION_DURATION,
-        httponly=True,
-        samesite='Lax',
-        secure=is_https,
-        path='/'
-    )
+    resp.set_cookie('session_id', session_id, max_age=SESSION_DURATION,
+                    httponly=True, samesite='Lax', secure=is_https, path='/')
     logger.info(f"Login success from {ip}")
     return resp
 
@@ -206,11 +168,7 @@ def logout():
         SESSIONS.pop(sid, None)
     ip = get_client_ip()
     ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
-    stock_alert.send_telegram(
-        f"👋 <b>Logout</b>\n"
-        f"IP: <code>{ip}</code>\n"
-        f"Time: {ist_time}"
-    )
+    stock_alert.send_telegram(f"👋 <b>Logout</b>\nIP: <code>{ip}</code>\nTime: {ist_time}")
     resp = make_response(jsonify({'status': 'ok'}))
     resp.set_cookie('session_id', '', max_age=0, path='/')
     return resp
@@ -235,7 +193,8 @@ def init_db():
                 trigger_price REAL NOT NULL,
                 is_active INTEGER DEFAULT 1,
                 is_triggered INTEGER DEFAULT 0,
-                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT DEFAULT ''
             )
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
@@ -268,7 +227,8 @@ def migrate_conditions():
                 trigger_price REAL NOT NULL,
                 is_active INTEGER DEFAULT 1,
                 is_triggered INTEGER DEFAULT 0,
-                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT DEFAULT ''
             )
         ''')
         c.execute('''
@@ -288,6 +248,22 @@ def migrate_conditions():
         conn.close()
     except Exception as e:
         logger.error(f"Migration error: {e}")
+
+def migrate_notes_column():
+    """Add notes column if missing."""
+    try:
+        conn = sqlite3.connect(config.DB_FILE)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(watchlist)")
+        cols = [r[1] for r in c.fetchall()]
+        if 'notes' not in cols:
+            logger.info("Adding 'notes' column to watchlist...")
+            c.execute("ALTER TABLE watchlist ADD COLUMN notes TEXT DEFAULT ''")
+            conn.commit()
+            logger.info("✅ notes column added.")
+        conn.close()
+    except Exception as e:
+        logger.error(f"Notes migration error: {e}")
 
 # ------------------------------------------------------------------
 #  API ROUTES
@@ -329,6 +305,7 @@ def add_alert():
     symbol = data.get('symbol', '').upper()
     condition = data.get('condition')
     trigger_price = data.get('price')
+    notes = (data.get('notes') or '').strip()
     force_duplicate = data.get('force_duplicate', False)
     force_trigger = data.get('force_trigger', False)
 
@@ -341,14 +318,10 @@ def add_alert():
         return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
 
     conn = get_db()
-
     existing = conn.execute('SELECT id FROM watchlist WHERE symbol = ?', (symbol,)).fetchone()
     if existing and not force_duplicate:
         conn.close()
-        return jsonify({
-            'status': 'duplicate',
-            'message': f"{symbol} is already in your list."
-        }), 200
+        return jsonify({'status': 'duplicate', 'message': f"{symbol} is already in your list."}), 200
 
     current_price = None
     try:
@@ -366,23 +339,17 @@ def add_alert():
 
     if warning and not force_trigger:
         conn.close()
-        return jsonify({
-            'status': 'warning',
-            'message': warning,
-            'current_price': current_price
-        }), 200
+        return jsonify({'status': 'warning', 'message': warning, 'current_price': current_price}), 200
 
     try:
-        conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price) VALUES (?, ?, ?)',
-                     (symbol, condition, trigger_price))
+        conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price, notes) VALUES (?, ?, ?, ?)',
+                     (symbol, condition, trigger_price, notes))
         conn.commit()
         conn.close()
-
         try:
             stock_alert.add_symbol_to_cache(symbol)
         except Exception as e:
             logger.warning(f"Could not pre-cache prev close for {symbol}: {e}")
-
         return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
         conn.close()
@@ -395,6 +362,7 @@ def update_alert(alert_id):
         data = request.json
         new_price = data.get('price')
         new_condition = data.get('condition')
+        new_notes = data.get('notes')
 
         conn = get_db()
         row = conn.execute('SELECT symbol FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
@@ -417,15 +385,19 @@ def update_alert(alert_id):
                 return jsonify({'status': 'error', 'message': 'Invalid condition'}), 400
             conn.execute('UPDATE watchlist SET condition = ? WHERE id = ?', (new_condition, alert_id))
 
+        if new_notes is not None:
+            conn.execute('UPDATE watchlist SET notes = ? WHERE id = ?', (new_notes.strip(), alert_id))
+
         conn.commit()
         conn.close()
 
-        final_row = get_db().execute('SELECT condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        final_row = get_db().execute('SELECT condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
         return jsonify({
             'status': 'ok',
             'symbol': symbol,
             'condition': final_row['condition'],
-            'price': final_row['trigger_price']
+            'price': final_row['trigger_price'],
+            'notes': final_row['notes']
         })
     except Exception as e:
         logger.error(f"Error in /api/update: {e}")
@@ -436,41 +408,26 @@ def reactivate_alert(alert_id):
     try:
         data = request.json or {}
         dry_run = data.get('dry_run', False)
-
         conn = get_db()
-        alert = conn.execute(
-            'SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?',
-            (alert_id,)
-        ).fetchone()
+        alert = conn.execute('SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
         if not alert:
             conn.close()
             return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
-
         prices = stock_alert.get_prices([alert['symbol']])
         current_price = prices.get(alert['symbol'])
-
         would_trigger = False
         if current_price is not None:
             if alert['condition'] == '>' and current_price > alert['trigger_price']:
                 would_trigger = True
             elif alert['condition'] == '<' and current_price < alert['trigger_price']:
                 would_trigger = True
-
         if dry_run:
             conn.close()
-            return jsonify({
-                'status': 'ok',
-                'dry_run': True,
-                'would_trigger': would_trigger,
-                'symbol': alert['symbol'],
-                'condition': alert['condition'],
-                'trigger_price': alert['trigger_price'],
-                'current_price': current_price
-            })
-
+            return jsonify({'status': 'ok', 'dry_run': True, 'would_trigger': would_trigger,
+                            'symbol': alert['symbol'], 'condition': alert['condition'],
+                            'trigger_price': alert['trigger_price'], 'current_price': current_price})
         conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
         conn.commit()
-
         if would_trigger:
             conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
             conn.commit()
@@ -481,7 +438,6 @@ def reactivate_alert(alert_id):
         else:
             conn.close()
             return jsonify({'status': 'ok', 'triggered': False})
-
     except Exception as e:
         logger.error(f"Error in /api/reactivate: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -493,30 +449,30 @@ def get_alerts():
         alerts = conn.execute('SELECT * FROM watchlist ORDER BY symbol').fetchall()
         conn.close()
         alerts_list = [dict(row) for row in alerts]
-
         if alerts_list:
             symbols = list(set(a['symbol'] for a in alerts_list))
             try:
                 prices = stock_alert.get_prices(symbols)
                 prev_closes = stock_alert.get_prev_closes(symbols)
-
                 for alert in alerts_list:
                     cmp = prices.get(alert['symbol'])
                     alert['cmp'] = cmp
-
                     prev_close = prev_closes.get(alert['symbol'])
                     if prev_close and cmp:
                         alert['pct_chg'] = ((cmp - prev_close) / prev_close) * 100
                     else:
                         alert['pct_chg'] = None
-
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
+                    if alert.get('notes') is None:
+                        alert['notes'] = ''
             except Exception as e:
                 logger.error(f"Failed to fetch prices: {e}")
                 for alert in alerts_list:
                     alert['cmp'] = None
                     alert['pct_chg'] = None
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
+                    if alert.get('notes') is None:
+                        alert['notes'] = ''
         return jsonify(alerts_list)
     except Exception as e:
         logger.error(f"Error in /api/alerts: {e}")
@@ -576,20 +532,16 @@ def export_alerts():
         logger.error(f"Export error: {e}")
         return jsonify({'error': str(e)}), 500
 
-# ---------- UPDATED IMPORT: preserve added_at from JSON ----------
 @app.route('/api/import', methods=['POST'])
 def import_alerts():
     try:
         data = request.json
         if not isinstance(data, list):
             return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
-
         conn = get_db()
         conn.execute('DELETE FROM watchlist')
-
         for item in data:
             cond = item.get('condition', '>')
-            # Migrate legacy operators
             if cond == '>=':
                 cond = '>'
             elif cond == '<=':
@@ -597,14 +549,11 @@ def import_alerts():
             if cond not in ('>', '<'):
                 cond = '>'
 
-            # Preserve added_at if present in the JSON, else fall back to CURRENT_TIMESTAMP
             raw_added_at = item.get('added_at')
             added_at = None
             if raw_added_at:
-                # Normalize to SQLite-friendly string: 'YYYY-MM-DD HH:MM:SS'
                 try:
                     s = str(raw_added_at).strip()
-                    # Try several common formats
                     parsed = None
                     for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f',
                                 '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d'):
@@ -614,48 +563,35 @@ def import_alerts():
                         except ValueError:
                             continue
                     if parsed is None:
-                        # Last resort: parse ISO strings with 'Z'
                         s2 = s.replace('Z', '+00:00')
                         parsed = datetime.fromisoformat(s2).replace(tzinfo=None)
                     added_at = parsed.strftime('%Y-%m-%d %H:%M:%S')
                 except Exception as e:
-                    logger.warning(f"Could not parse added_at '{raw_added_at}' for {item.get('symbol')}: {e}")
+                    logger.warning(f"Could not parse added_at '{raw_added_at}': {e}")
                     added_at = None
+
+            notes = (item.get('notes') or '').strip()
 
             if added_at:
                 conn.execute('''
-                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, added_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    item.get('symbol', '').upper(),
-                    cond,
-                    float(item.get('trigger_price', 0)),
-                    int(item.get('is_active', 1)),
-                    int(item.get('is_triggered', 0)),
-                    added_at
-                ))
+                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, added_at, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (item.get('symbol', '').upper(), cond, float(item.get('trigger_price', 0)),
+                      int(item.get('is_active', 1)), int(item.get('is_triggered', 0)), added_at, notes))
             else:
                 conn.execute('''
-                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    item.get('symbol', '').upper(),
-                    cond,
-                    float(item.get('trigger_price', 0)),
-                    int(item.get('is_active', 1)),
-                    int(item.get('is_triggered', 0))
-                ))
-
+                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (item.get('symbol', '').upper(), cond, float(item.get('trigger_price', 0)),
+                      int(item.get('is_active', 1)), int(item.get('is_triggered', 0)), notes))
         conn.commit()
         conn.close()
-
         try:
             all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
             if all_symbols:
                 stock_alert.get_prev_closes(all_symbols)
         except Exception as e:
             logger.warning(f"Could not pre-cache prev closes after import: {e}")
-
         return jsonify({'status': 'ok', 'count': len(data)})
     except Exception as e:
         logger.error(f"Import error: {e}")
@@ -716,6 +652,7 @@ threading.Thread(target=cleanup_sessions, daemon=True).start()
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()
+migrate_notes_column()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
