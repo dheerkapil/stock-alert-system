@@ -93,19 +93,15 @@ def is_valid_worker_key():
 def check_auth():
     path = request.path
 
-    # Public routes
     if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico'):
         return None
     if path.startswith('/static/'):
         return None
 
-    # Worker routes: allow if API key matches
     if path in ('/api/alerts',) or path.startswith('/api/mark_triggered'):
         if is_valid_worker_key():
             return None
-        # else fall through to session check
 
-    # Everything else requires a valid session
     if not is_authenticated():
         if path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
@@ -178,7 +174,6 @@ def verify_otp():
         )
         return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
 
-    # Success
     PENDING_OTP.pop(ip, None)
     session_id = secrets.token_urlsafe(32)
     SESSIONS[session_id] = now + SESSION_DURATION
@@ -581,32 +576,76 @@ def export_alerts():
         logger.error(f"Export error: {e}")
         return jsonify({'error': str(e)}), 500
 
+# ---------- UPDATED IMPORT: preserve added_at from JSON ----------
 @app.route('/api/import', methods=['POST'])
 def import_alerts():
     try:
         data = request.json
         if not isinstance(data, list):
             return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
+
         conn = get_db()
         conn.execute('DELETE FROM watchlist')
+
         for item in data:
             cond = item.get('condition', '>')
+            # Migrate legacy operators
             if cond == '>=':
                 cond = '>'
             elif cond == '<=':
                 cond = '<'
             if cond not in ('>', '<'):
                 cond = '>'
-            conn.execute('''
-                INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (
-                item.get('symbol', '').upper(),
-                cond,
-                float(item.get('trigger_price', 0)),
-                int(item.get('is_active', 1)),
-                int(item.get('is_triggered', 0))
-            ))
+
+            # Preserve added_at if present in the JSON, else fall back to CURRENT_TIMESTAMP
+            raw_added_at = item.get('added_at')
+            added_at = None
+            if raw_added_at:
+                # Normalize to SQLite-friendly string: 'YYYY-MM-DD HH:MM:SS'
+                try:
+                    s = str(raw_added_at).strip()
+                    # Try several common formats
+                    parsed = None
+                    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f',
+                                '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d'):
+                        try:
+                            parsed = datetime.strptime(s, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if parsed is None:
+                        # Last resort: parse ISO strings with 'Z'
+                        s2 = s.replace('Z', '+00:00')
+                        parsed = datetime.fromisoformat(s2).replace(tzinfo=None)
+                    added_at = parsed.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception as e:
+                    logger.warning(f"Could not parse added_at '{raw_added_at}' for {item.get('symbol')}: {e}")
+                    added_at = None
+
+            if added_at:
+                conn.execute('''
+                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, added_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    item.get('symbol', '').upper(),
+                    cond,
+                    float(item.get('trigger_price', 0)),
+                    int(item.get('is_active', 1)),
+                    int(item.get('is_triggered', 0)),
+                    added_at
+                ))
+            else:
+                conn.execute('''
+                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (
+                    item.get('symbol', '').upper(),
+                    cond,
+                    float(item.get('trigger_price', 0)),
+                    int(item.get('is_active', 1)),
+                    int(item.get('is_triggered', 0))
+                ))
+
         conn.commit()
         conn.close()
 
