@@ -27,6 +27,7 @@
             --input-bg: #ffffff;
             --header-bg: #f1f3f4;
             --row-hover: #f8f9fa;
+            --focus-ring: 0 0 0 3px rgba(26,115,232,0.35);
         }
         body.dark {
             --bg: #000000;
@@ -48,6 +49,7 @@
             --input-bg: #1e1e1e;
             --header-bg: #1e1e1e;
             --row-hover: #1a1a1a;
+            --focus-ring: 0 0 0 3px rgba(138,180,248,0.45);
         }
         * { box-sizing: border-box; }
         html {
@@ -75,14 +77,12 @@
             padding: 16px;
             border: none;
             color: var(--text);
-            transition: background 0.2s ease, box-shadow 0.2s ease;
         }
         .card h5 {
             font-size: 1rem;
             font-weight: 500;
             margin-bottom: 12px;
             color: var(--text);
-            letter-spacing: 0.1px;
         }
         .text-muted { color: var(--text-muted) !important; }
         .header-row {
@@ -98,13 +98,8 @@
             font-weight: 500;
             margin: 0;
             color: var(--text);
-            letter-spacing: 0.15px;
         }
-        .header-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
         .theme-toggle-btn {
             width: 44px; height: 44px;
             border-radius: 50%;
@@ -116,13 +111,11 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background 0.2s, transform 0.15s;
             box-shadow: var(--shadow-1);
             flex-shrink: 0;
         }
+        .theme-toggle-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         .theme-toggle-btn:hover { background: var(--border); }
-        .theme-toggle-btn:active { transform: scale(0.92); }
-
         .logout-btn {
             height: 44px;
             padding: 0 18px;
@@ -132,25 +125,19 @@
             color: var(--text);
             font-size: 0.85rem;
             font-weight: 500;
-            letter-spacing: 0.3px;
             cursor: pointer;
-            transition: background 0.2s, border-color 0.2s, transform 0.15s;
             box-shadow: var(--shadow-1);
             white-space: nowrap;
         }
-        .logout-btn:hover {
-            background: var(--surface-2);
-            border-color: var(--danger);
-            color: var(--danger);
-        }
-        .logout-btn:active { transform: scale(0.96); }
-
+        .logout-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .logout-btn:hover { background: var(--surface-2); border-color: var(--danger); color: var(--danger); }
         .form-label {
             font-size: 0.75rem;
             margin-bottom: 4px;
             font-weight: 500;
             color: var(--text-muted);
             letter-spacing: 0.4px;
+            display: block;
         }
         .form-control-sm, .form-select-sm {
             font-size: 0.9rem;
@@ -159,104 +146,51 @@
             color: var(--text);
             border: 1px solid var(--border);
             border-radius: 10px;
-            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
         .form-control-sm:focus, .form-select-sm:focus {
             background: var(--input-bg);
             color: var(--text);
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
+            box-shadow: var(--focus-ring);
             outline: none;
         }
-        body.dark .form-control-sm:focus,
-        body.dark .form-select-sm:focus {
-            box-shadow: 0 0 0 3px rgba(138,180,248,0.25);
-        }
         .form-control-sm::placeholder { color: var(--text-muted); opacity: 0.7; }
-        input[readonly], input:disabled {
-            opacity: 0.75;
-            cursor: not-allowed;
-        }
+        input[readonly], input:disabled { opacity: 0.75; cursor: not-allowed; }
         input[type=number]::-webkit-outer-spin-button,
-        input[type=number]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type=number] {
-            -moz-appearance: textfield;
-            appearance: textfield;
-        }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         #addBtn {
             font-size: 0.9rem;
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-weight: 500;
-            letter-spacing: 0.3px;
             background: var(--primary-fill);
             color: var(--primary-text);
             border: none;
-            transition: box-shadow 0.2s, transform 0.1s, background 0.2s;
             box-shadow: var(--shadow-1);
         }
+        #addBtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         #addBtn:hover { box-shadow: var(--shadow-2); filter: brightness(1.05); }
-        #addBtn:active { transform: scale(0.97); }
         .btn-tool {
             font-size: 0.75rem;
             padding: 0.4rem 0.9rem;
             border-radius: 20px;
             font-weight: 500;
-            letter-spacing: 0.3px;
-            transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
             white-space: nowrap;
         }
-        .btn-tool:active { transform: scale(0.96); }
-        .btn-outline-success {
-            color: var(--success) !important;
-            border-color: var(--border) !important;
-            background: var(--surface) !important;
-        }
-        .btn-outline-success:hover {
-            background: var(--surface-2) !important;
-            border-color: var(--success) !important;
-        }
-        .btn-outline-primary {
-            color: var(--primary) !important;
-            border-color: var(--border) !important;
-            background: var(--surface) !important;
-        }
-        .btn-outline-primary:hover {
-            background: var(--surface-2) !important;
-            border-color: var(--primary) !important;
-        }
-        .btn-outline-secondary {
-            color: var(--text-muted) !important;
-            border-color: var(--border) !important;
-            background: var(--surface) !important;
-        }
+        .btn-tool:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .btn-outline-success { color: var(--success) !important; border-color: var(--border) !important; background: var(--surface) !important; }
+        .btn-outline-primary { color: var(--primary) !important; border-color: var(--border) !important; background: var(--surface) !important; }
+        .btn-outline-secondary { color: var(--text-muted) !important; border-color: var(--border) !important; background: var(--surface) !important; }
         .btn-outline-secondary:hover { background: var(--surface-2) !important; }
         #duplicateBtn.active {
             background: var(--primary-fill) !important;
             color: var(--primary-text) !important;
             border-color: var(--primary-fill) !important;
-            box-shadow: var(--shadow-1);
         }
-        .table-scroll {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            border-radius: 12px;
-        }
-        .table-scroll table {
-            width: 100%;
-            min-width: 850px;
-            margin-bottom: 0;
-            border-collapse: collapse;
-            background: var(--surface);
-        }
-        .table-scroll thead {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+        .table-scroll table { width: 100%; min-width: 850px; margin-bottom: 0; border-collapse: collapse; background: var(--surface); }
+        .table-scroll thead { position: sticky; top: 0; z-index: 10; }
         .table-scroll thead th {
             background: var(--header-bg);
             border-bottom: 1px solid var(--border);
@@ -269,7 +203,7 @@
             white-space: nowrap;
             user-select: none;
         }
-        .table-scroll thead th.sortable { cursor: pointer; transition: background 0.15s; }
+        .table-scroll thead th.sortable { cursor: pointer; }
         .table-scroll thead th.sortable:hover { background: var(--surface-2); }
         .table-scroll thead th .sort-icon { margin-left: 4px; font-size: 0.6rem; opacity: 0.4; }
         .table-scroll thead th.active .sort-icon { opacity: 1; color: var(--primary); }
@@ -283,7 +217,13 @@
             color: var(--text);
             background: var(--surface);
         }
+        .table-scroll tbody tr { cursor: pointer; }
         .table-scroll tbody tr:hover td { background: var(--row-hover); }
+        .table-scroll tbody tr.row-focused td {
+            background: var(--surface-2);
+            box-shadow: inset 3px 0 0 var(--primary);
+        }
+        .table-scroll tbody tr:focus-visible { outline: none; }
         .col-actions { min-width: 120px; width: 1%; text-align: center; }
         .text-left { text-align: left; }
         .text-right { text-align: right; }
@@ -299,8 +239,8 @@
             justify-content: center;
             background: var(--border);
             color: #fff;
-            transition: 0.2s;
         }
+        .status-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         .status-btn.active { background: #28a745; border-color: #28a745; }
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.85; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
@@ -314,10 +254,8 @@
             margin: 0 2px;
             border: 1px solid var(--border);
             background: var(--surface);
-            transition: background 0.15s, transform 0.1s;
         }
-        .table .btn-sm:hover { background: var(--surface-2); }
-        .table .btn-sm:active { transform: scale(0.94); }
+        .table .btn-sm:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         .table .btn-outline-primary { color: var(--primary) !important; }
         .table .btn-outline-danger { color: var(--danger) !important; }
         .table .btn-outline-warning { color: var(--warning) !important; }
@@ -330,7 +268,7 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-top: none;
-            max-height: 200px;
+            max-height: 220px;
             overflow-y: auto;
             border-radius: 0 0 12px 12px;
             top: 100%; left: 0;
@@ -342,39 +280,17 @@
             border-bottom: 1px solid var(--border-light);
             font-size: 0.85rem;
             color: var(--text);
-            transition: background 0.1s;
         }
         .autocomplete-item:hover { background: var(--surface-2); }
+        .autocomplete-item.selected { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--primary); }
         .autocomplete-item .symbol { font-weight: 500; margin-right: 8px; color: var(--primary); }
         .autocomplete-item .name { color: var(--text-muted); font-size: 0.75rem; }
         #searchBox { flex: 1; min-width: 180px; max-width: 320px; }
         #clearSearchBtn, #duplicateBtn { padding: 0.4rem 0.8rem; }
-        .data-tools {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
-        }
-        .data-tools .tool-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: nowrap;
-        }
-        .data-tools .search-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex: 1;
-            min-width: 220px;
-        }
-        #importStatus {
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--success);
-            letter-spacing: 0.2px;
-            white-space: nowrap;
-        }
+        .data-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .data-tools .tool-group { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+        .data-tools .search-group { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 220px; }
+        #importStatus { font-size: 0.8rem; font-weight: 500; color: var(--success); white-space: nowrap; }
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -395,24 +311,14 @@
             width: 100%;
             box-shadow: var(--shadow-2);
             border: 1px solid var(--border);
-            animation: modalIn 0.15s ease-out;
-        }
-        @keyframes modalIn {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
         }
         .modal-box h6 {
             font-size: 1.05rem;
             font-weight: 500;
             margin: 0 0 16px 0;
             color: var(--text);
-            letter-spacing: 0.2px;
         }
-        .modal-body-content {
-            font-size: 0.9rem;
-            line-height: 1.7;
-            color: var(--text);
-        }
+        .modal-body-content { font-size: 0.9rem; line-height: 1.7; color: var(--text); }
         .modal-warning {
             margin-top: 14px;
             padding: 10px 12px;
@@ -422,46 +328,87 @@
             font-size: 0.85rem;
             font-weight: 500;
         }
-        .modal-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-start;
-            margin-top: 22px;
-            flex-wrap: wrap;
-        }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-start; margin-top: 22px; flex-wrap: wrap; }
         .modal-actions .btn {
             min-width: 84px;
             font-size: 0.85rem;
             padding: 0.45rem 1rem;
             border-radius: 20px;
             font-weight: 500;
-            transition: background 0.15s, filter 0.15s, transform 0.1s;
         }
-        .modal-actions .btn:active { transform: scale(0.96); }
-        .modal-actions .btn-primary {
+        .modal-actions .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .modal-actions .btn-primary { background: var(--primary-fill); color: var(--primary-text); border: none; }
+        .modal-actions .btn-secondary { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+        .modal-actions .btn-edit { background: var(--surface); color: var(--primary); border: 1px solid var(--border); }
+        .modal-actions .btn-danger { background: var(--danger); color: #fff; border: none; }
+        .shortcut-help-table { width: 100%; font-size: 0.85rem; }
+        .shortcut-help-table td { padding: 4px 8px; }
+        .shortcut-help-table td:first-child { text-align: right; white-space: nowrap; }
+        .shortcut-help-table kbd {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.75rem;
+            color: var(--text);
+        }
+        #toastContainer {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            pointer-events: none;
+        }
+        .toast-item {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-size: 0.85rem;
+            box-shadow: var(--shadow-2);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 260px;
+            justify-content: space-between;
+            animation: toastIn 0.2s ease-out;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .toast-action {
             background: var(--primary-fill);
             color: var(--primary-text);
             border: none;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
         }
-        .modal-actions .btn-primary:hover { filter: brightness(1.05); }
-        .modal-actions .btn-secondary {
-            background: var(--surface);
-            color: var(--text-muted);
-            border: 1px solid var(--border);
+        #skipLink {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            background: var(--primary-fill);
+            color: var(--primary-text);
+            padding: 8px 16px;
+            z-index: 5000;
+            border-radius: 0 0 8px 0;
+            text-decoration: none;
         }
-        .modal-actions .btn-secondary:hover { background: var(--surface-2); }
-        .modal-actions .btn-edit {
-            background: var(--surface);
-            color: var(--primary);
-            border: 1px solid var(--border);
+        #skipLink:focus { left: 0; }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
         }
-        .modal-actions .btn-edit:hover { background: var(--surface-2); }
-        .modal-actions .btn-danger {
-            background: var(--danger);
-            color: #fff;
-            border: none;
-        }
-        .modal-actions .btn-danger:hover { filter: brightness(1.1); }
         @media (max-width: 576px) {
             body { padding: 6px; }
             .card { padding: 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -485,16 +432,16 @@
             .modal-actions .btn { min-width: 70px; font-size: 0.8rem; }
         }
         body.dark .table-hover > tbody > tr:hover > * { background-color: var(--row-hover); }
-        body.dark .badge { background: var(--surface-2); }
     </style>
 </head>
 <body>
+<a href="#alertsTable" id="skipLink">Skip to alerts table</a>
 <div class="container">
     <div class="header-row">
         <h1>📊 Alert Manager</h1>
         <div class="header-actions">
-            <button id="themeToggle" class="theme-toggle-btn" title="Toggle theme">🌙</button>
-            <button id="logoutBtn" class="logout-btn" title="Log out">Logout</button>
+            <button id="themeToggle" class="theme-toggle-btn" title="Toggle theme (Alt+T)" aria-label="Toggle theme">🌙</button>
+            <button id="logoutBtn" class="logout-btn" title="Log out (Ctrl+Shift+L)">Logout</button>
         </div>
     </div>
 
@@ -502,51 +449,51 @@
         <h5>➕ Add New Alert</h5>
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
-                <label class="form-label">SYMBOL</label>
+                <label class="form-label" for="symbolInput">SYMBOL</label>
                 <div class="input-group">
-                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off" style="z-index:1001;">
-                    <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
+                    <input type="text" id="symbolInput" class="form-control form-control-sm" placeholder="Type symbol or name" autocomplete="off" aria-autocomplete="list" aria-controls="autocompleteList" aria-expanded="false" style="z-index:1001;" autofocus>
+                    <div id="autocompleteList" class="autocomplete-items" role="listbox" style="display:none;"></div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label">CONDITION</label>
+                <label class="form-label" for="condSelect">CONDITION</label>
                 <select id="condSelect" class="form-select form-select-sm">
                     <option value=">" selected>&gt;</option>
                     <option value="<">&lt;</option>
                 </select>
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label">ALERT PRICE</label>
-                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="e.g. 5000" step="0.01">
+                <label class="form-label" for="priceInput">ALERT PRICE</label>
+                <input type="number" id="priceInput" class="form-control form-control-sm" placeholder="e.g. 5000" step="1">
             </div>
             <div class="col-12 col-md-2">
-                <button id="addBtn" class="btn w-100">Add</button>
+                <button id="addBtn" class="btn w-100" title="Add (Enter)">Add</button>
             </div>
         </div>
-        <div id="addMessage" class="mt-2 small" style="font-size:0.85rem;"></div>
+        <div id="addMessage" class="mt-2 small" role="status" aria-live="polite" style="font-size:0.85rem;"></div>
     </div>
 
     <div class="card" style="padding: 12px 16px;">
         <div class="data-tools">
             <div class="tool-group">
                 <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted);">💾</span>
-                <button id="exportBtn" class="btn btn-outline-success btn-tool">📥 Export</button>
-                <button id="importBtn" class="btn btn-outline-primary btn-tool">📤 Import</button>
-                <button id="duplicateBtn" class="btn btn-outline-primary btn-tool" title="Show only duplicate symbols">🔁 Duplicates</button>
+                <button id="exportBtn" class="btn btn-outline-success btn-tool" title="Export (Ctrl+E)">📥 Export</button>
+                <button id="importBtn" class="btn btn-outline-primary btn-tool" title="Import (Ctrl+I)">📤 Import</button>
+                <button id="duplicateBtn" class="btn btn-outline-primary btn-tool" title="Show duplicate symbols">🔁 Duplicates</button>
             </div>
             <div class="search-group">
-                <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="🔍 Search symbol or company">
-                <button id="clearSearchBtn" class="btn btn-outline-secondary btn-tool" title="Clear search">✕ Clear</button>
+                <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="🔍 Search (press / or Ctrl+K)" aria-label="Search alerts">
+                <button id="clearSearchBtn" class="btn btn-outline-secondary btn-tool" title="Clear (Escape)">✕ Clear</button>
             </div>
             <input type="file" id="fileInput" accept=".json" style="display: none;">
-            <span id="importStatus"></span>
+            <span id="importStatus" role="status" aria-live="polite"></span>
         </div>
     </div>
 
     <div class="card" style="padding: 12px 6px;">
         <h5 style="padding-left:10px;">📋 Your Alerts</h5>
         <div class="table-scroll">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="alertsTable">
                 <thead>
                     <tr>
                         <th class="sortable text-left" data-sort="symbol">Symbol <span class="sort-icon">↕</span></th>
@@ -561,23 +508,24 @@
                         <th class="text-center col-actions">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="alertTableBody">
-                    <tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">Loading...</td></tr>
-                </tbody>
+                <tbody id="alertTableBody"></tbody>
             </table>
         </div>
     </div>
 </div>
 
-<div id="appModal" class="modal-overlay">
-    <div class="modal-box">
+<div id="appModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="appModalTitle">
+    <div class="modal-box" id="appModalBox">
         <h6 id="appModalTitle"></h6>
         <div id="appModalBody" class="modal-body-content"></div>
         <div id="appModalActions" class="modal-actions"></div>
     </div>
 </div>
 
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
 <script>
+// ============ GLOBAL 401 HANDLER ============
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
     return originalFetch.apply(this, args).then(response => {
@@ -589,9 +537,9 @@ window.fetch = function(...args) {
     });
 };
 
+// ============ THEME ============
 const themeToggle = document.getElementById('themeToggle');
 const logoutBtn = document.getElementById('logoutBtn');
-
 function applyTheme(theme) {
     if (theme === 'dark') {
         document.body.classList.add('dark');
@@ -603,8 +551,7 @@ function applyTheme(theme) {
         document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a73e8');
     }
 }
-const savedTheme = localStorage.getItem('alertManagerTheme') || 'light';
-applyTheme(savedTheme);
+applyTheme(localStorage.getItem('alertManagerTheme') || 'light');
 themeToggle.addEventListener('click', function() {
     const isDark = document.body.classList.contains('dark');
     const newTheme = isDark ? 'light' : 'dark';
@@ -612,7 +559,36 @@ themeToggle.addEventListener('click', function() {
     localStorage.setItem('alertManagerTheme', newTheme);
 });
 
-function showAppModal({ title, bodyHTML, buttons }) {
+// ============ TOAST SYSTEM ============
+function showToast(message, options = {}) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast-item';
+    const msg = document.createElement('span');
+    msg.textContent = message;
+    toast.appendChild(msg);
+    if (options.actionLabel && options.onAction) {
+        const btn = document.createElement('button');
+        btn.className = 'toast-action';
+        btn.textContent = options.actionLabel;
+        btn.addEventListener('click', () => {
+            options.onAction();
+            toast.remove();
+        });
+        toast.appendChild(btn);
+    }
+    container.appendChild(toast);
+    const duration = options.duration || 4000;
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, duration);
+    return toast;
+}
+
+// ============ MODAL (with focus trap) ============
+let modalPreviousFocus = null;
+let modalKeyHandler = null;
+
+function showAppModal({ title, bodyHTML, buttons, onEscape }) {
+    modalPreviousFocus = document.activeElement;
     document.getElementById('appModalTitle').innerHTML = title;
     document.getElementById('appModalBody').innerHTML = bodyHTML;
     const actions = document.getElementById('appModalActions');
@@ -621,6 +597,7 @@ function showAppModal({ title, bodyHTML, buttons }) {
         const btn = document.createElement('button');
         btn.className = 'btn ' + (b.class || 'btn-secondary');
         btn.textContent = b.label;
+        if (b.id) btn.id = b.id;
         btn.addEventListener('click', function() {
             if (!b.keepOpen) hideAppModal();
             if (b.onClick) b.onClick();
@@ -628,14 +605,67 @@ function showAppModal({ title, bodyHTML, buttons }) {
         actions.appendChild(btn);
     });
     document.getElementById('appModal').classList.add('show');
+
+    // Focus first input OR first button
+    setTimeout(() => {
+        const firstInput = document.querySelector('#appModal input, #appModal select, #appModal textarea');
+        const firstBtn = document.querySelector('#appModalActions .btn');
+        if (firstInput) { firstInput.focus(); if (firstInput.select) firstInput.select(); }
+        else if (firstBtn) firstBtn.focus();
+    }, 30);
+
+    // Focus trap
+    modalKeyHandler = function(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            hideAppModal();
+            if (onEscape) onEscape();
+            return;
+        }
+        if (e.key === 'Tab') {
+            const box = document.getElementById('appModalBox');
+            const focusables = box.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (focusables.length === 0) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            const tag = document.activeElement.tagName;
+            // Allow Enter inside textarea, otherwise click the primary button
+            if (tag !== 'TEXTAREA') {
+                const primary = document.querySelector('#appModalActions .btn-primary, #appModalActions .btn-danger');
+                if (primary) { e.preventDefault(); primary.click(); }
+            }
+        }
+    };
+    document.addEventListener('keydown', modalKeyHandler);
 }
+
 function hideAppModal() {
     document.getElementById('appModal').classList.remove('show');
+    if (modalKeyHandler) {
+        document.removeEventListener('keydown', modalKeyHandler);
+        modalKeyHandler = null;
+    }
+    if (modalPreviousFocus && modalPreviousFocus.focus) {
+        try { modalPreviousFocus.focus(); } catch (e) {}
+    }
+    modalPreviousFocus = null;
 }
 document.getElementById('appModal').addEventListener('click', function(e) {
     if (e.target.id === 'appModal') hideAppModal();
 });
 
+// ============ STATUS MESSAGE ============
+function showMessage(type, html) {
+    const map = { success: 'var(--success)', danger: 'var(--danger)', warning: 'var(--warning)' };
+    document.getElementById('addMessage').innerHTML =
+        `<span style="color: ${map[type] || 'var(--text)'}; font-weight:500;">${html}</span>`;
+}
+
+// ============ LOGOUT ============
 logoutBtn.addEventListener('click', function() {
     showAppModal({
         title: 'Logout',
@@ -651,149 +681,191 @@ logoutBtn.addEventListener('click', function() {
     });
 });
 
-function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
-    const cmpVal = (cmp !== null && cmp !== undefined && cmp !== '') ? cmp : '-';
-    const bodyHTML = `
-        <div class="row g-2 mb-3">
-            <div class="col-6">
-                <label class="form-label">SYMBOL</label>
-                <input type="text" class="form-control form-control-sm" value="${symbol}" readonly>
-            </div>
-            <div class="col-6">
-                <label class="form-label">CMP</label>
-                <input type="text" class="form-control form-control-sm" value="${cmpVal}" readonly>
-            </div>
-        </div>
-        <div class="row g-2">
-            <div class="col-5">
-                <label class="form-label">CONDITION</label>
-                <select id="editCondition" class="form-select form-select-sm">
-                    <option value=">" ${condition === '>' ? 'selected' : ''}>&gt;</option>
-                    <option value="<" ${condition === '<' ? 'selected' : ''}>&lt;</option>
-                </select>
-            </div>
-            <div class="col-7">
-                <label class="form-label">ALERT PRICE</label>
-                <input type="number" id="editPrice" class="form-control form-control-sm" value="${price}" step="0.01">
-            </div>
-        </div>
-    `;
-    showAppModal({
-        title: '✏️ Edit Alert',
-        bodyHTML: bodyHTML,
-        buttons: [
-            { label: 'OK', class: 'btn-primary', onClick: () => {
-                const newCond = document.getElementById('editCondition').value;
-                const newPrice = parseFloat(document.getElementById('editPrice').value);
-                if (isNaN(newPrice) || newPrice <= 0) {
-                    showMessage('danger', '❌ Invalid price.');
-                    return;
-                }
-                fetch(`/api/update/${alertId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ condition: newCond, price: newPrice })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        showMessage('success', `✅ ${symbol} ${newCond} ${newPrice} updated`);
-                        if (onSuccess) onSuccess();
-                        else fetchAlerts();
-                    } else {
-                        showMessage('danger', `❌ ${data.message}`);
-                    }
-                })
-                .catch(() => showMessage('danger', '❌ Server error'));
-            }},
-            { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
-        ]
-    });
-    setTimeout(() => {
-        const inp = document.getElementById('editPrice');
-        if (inp) { inp.focus(); inp.select(); }
-    }, 100);
-}
-
+// ============ AUTOCOMPLETE with keyboard ============
 const symbolInput = document.getElementById('symbolInput');
 const autocompleteList = document.getElementById('autocompleteList');
 const searchBox = document.getElementById('searchBox');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
 const duplicateBtn = document.getElementById('duplicateBtn');
+const condSelect = document.getElementById('condSelect');
+const priceInput = document.getElementById('priceInput');
+const addBtn = document.getElementById('addBtn');
 
-let showDuplicatesOnly = false;
+let acResults = [];
+let acSelected = -1;
+let acFetchTimer = null;
+
+function closeAutocomplete() {
+    autocompleteList.style.display = 'none';
+    symbolInput.setAttribute('aria-expanded', 'false');
+    acSelected = -1;
+}
+
+function selectAutocompleteIndex(idx) {
+    if (acResults.length === 0) return;
+    acSelected = Math.max(0, Math.min(idx, acResults.length - 1));
+    document.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+        el.classList.toggle('selected', i === acSelected);
+        if (i === acSelected) el.scrollIntoView({ block: 'nearest' });
+    });
+}
+
+function acceptAutocomplete() {
+    if (acSelected >= 0 && acSelected < acResults.length) {
+        symbolInput.value = acResults[acSelected].symbol;
+        closeAutocomplete();
+        condSelect.focus();
+    }
+}
+
+function renderAutocomplete(data) {
+    acResults = data;
+    acSelected = -1;
+    if (data.length === 0) { closeAutocomplete(); return; }
+    let html = '';
+    data.forEach((item, idx) => {
+        html += `<div class="autocomplete-item" role="option" data-symbol="${item.symbol}" data-index="${idx}">
+            <span class="symbol">${item.symbol}</span>
+            <span class="name">${item.name}</span>
+        </div>`;
+    });
+    autocompleteList.innerHTML = html;
+    autocompleteList.style.display = 'block';
+    symbolInput.setAttribute('aria-expanded', 'true');
+    document.querySelectorAll('.autocomplete-item').forEach(el => {
+        el.addEventListener('click', function() {
+            symbolInput.value = this.dataset.symbol;
+            closeAutocomplete();
+            condSelect.focus();
+        });
+        el.addEventListener('mouseenter', function() {
+            selectAutocompleteIndex(parseInt(this.dataset.index));
+        });
+    });
+}
 
 symbolInput.addEventListener('input', function() {
     const query = this.value.trim();
-    if (query.length < 1) { autocompleteList.style.display = 'none'; return; }
-    fetch(`/api/search?q=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.length === 0) { autocompleteList.style.display = 'none'; return; }
-            let html = '';
-            data.forEach(item => {
-                html += `<div class="autocomplete-item" data-symbol="${item.symbol}">
-                    <span class="symbol">${item.symbol}</span>
-                    <span class="name">${item.name}</span>
-                </div>`;
-            });
-            autocompleteList.innerHTML = html;
-            autocompleteList.style.display = 'block';
-            document.querySelectorAll('.autocomplete-item').forEach(el => {
-                el.addEventListener('click', function() {
-                    symbolInput.value = this.dataset.symbol;
-                    autocompleteList.style.display = 'none';
-                    symbolInput.blur();
-                });
-            });
-        })
-        .catch(() => { autocompleteList.style.display = 'none'; });
+    if (acFetchTimer) clearTimeout(acFetchTimer);
+    if (query.length < 1) { closeAutocomplete(); return; }
+    acFetchTimer = setTimeout(() => {
+        fetch(`/api/search?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => renderAutocomplete(data))
+            .catch(() => closeAutocomplete());
+    }, 150);
+});
+
+symbolInput.addEventListener('keydown', function(e) {
+    const visible = autocompleteList.style.display === 'block';
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visible && acResults.length > 0) selectAutocompleteIndex(acSelected + 1);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visible && acResults.length > 0) selectAutocompleteIndex(acSelected - 1);
+    } else if (e.key === 'PageDown') {
+        if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected + 5); }
+    } else if (e.key === 'PageUp') {
+        if (visible) { e.preventDefault(); selectAutocompleteIndex(acSelected - 5); }
+    } else if (e.key === 'Home') {
+        if (visible) { e.preventDefault(); selectAutocompleteIndex(0); }
+    } else if (e.key === 'End') {
+        if (visible) { e.preventDefault(); selectAutocompleteIndex(acResults.length - 1); }
+    } else if (e.key === 'Enter') {
+        if (visible) { e.preventDefault(); acceptAutocomplete(); }
+    } else if (e.key === 'Tab') {
+        if (visible && acSelected >= 0) { e.preventDefault(); acceptAutocomplete(); }
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (visible) closeAutocomplete();
+        else if (symbolInput.value) symbolInput.value = '';
+    }
 });
 document.addEventListener('click', function(e) {
-    if (e.target !== symbolInput) autocompleteList.style.display = 'none';
+    if (e.target !== symbolInput && !autocompleteList.contains(e.target)) closeAutocomplete();
 });
 
-searchBox.addEventListener('input', filterTable);
-clearSearchBtn.addEventListener('click', function() {
-    searchBox.value = '';
-    showDuplicatesOnly = false;
-    duplicateBtn.classList.remove('active');
-    filterTable();
-});
-duplicateBtn.addEventListener('click', function() {
-    showDuplicatesOnly = !showDuplicatesOnly;
-    if (showDuplicatesOnly) duplicateBtn.classList.add('active');
-    else duplicateBtn.classList.remove('active');
-    filterTable();
+// Paste parser for bulk or single-line alerts
+symbolInput.addEventListener('paste', function(e) {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text) return;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const parseLine = (line) => {
+        const m = line.match(/^([A-Za-z0-9_\-]+)\s*([<>])\s*([\d.]+)$/);
+        if (m) return { symbol: m[1].toUpperCase(), condition: m[2], price: parseFloat(m[3]) };
+        return null;
+    };
+    const parsed = lines.map(parseLine).filter(Boolean);
+    if (parsed.length > 0) {
+        e.preventDefault();
+        if (parsed.length === 1) {
+            symbolInput.value = parsed[0].symbol;
+            condSelect.value = parsed[0].condition;
+            priceInput.value = parsed[0].price;
+            closeAutocomplete();
+            priceInput.focus();
+        } else {
+            bulkAdd(parsed);
+        }
+    }
 });
 
-function getDuplicateSymbols() {
-    const counts = {};
-    alertsData.forEach(a => {
-        const s = (a.symbol || '').toUpperCase();
-        counts[s] = (counts[s] || 0) + 1;
-    });
-    const dupes = new Set();
-    Object.keys(counts).forEach(s => { if (counts[s] > 1) dupes.add(s); });
-    return dupes;
+// ============ CONDITION DROPDOWN ============
+condSelect.addEventListener('keydown', function(e) {
+    if (e.key === '>') { e.preventDefault(); condSelect.value = '>'; }
+    else if (e.key === '<') { e.preventDefault(); condSelect.value = '<'; }
+    else if (e.key === 'Escape') { e.preventDefault(); condSelect.blur(); }
+});
+
+// ============ PRICE INPUT ============
+priceInput.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        let val = parseFloat(priceInput.value) || 0;
+        val += (e.key === 'ArrowUp' ? step : -step);
+        if (val < 0) val = 0;
+        priceInput.value = val;
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        priceInput.value = '';
+    }
+});
+
+// ============ ADD FORM: Enter submits, Escape clears ============
+function submitForm(force) {
+    const symbol = symbolInput.value.trim().toUpperCase();
+    const condition = condSelect.value;
+    const price = priceInput.value.trim();
+    if (!symbol || !price) { showMessage('danger', 'Fill all fields.'); return; }
+    const payload = { symbol, condition, price: parseFloat(price) };
+    if (force) payload.force_duplicate = true, payload.force_trigger = true;
+    fetch('/api/add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => handleAddResponse(data, payload))
+    .catch(() => showMessage('danger', '❌ Server error'));
 }
 
-function filterTable() {
-    const query = searchBox.value.trim().toUpperCase();
-    const dupes = showDuplicatesOnly ? getDuplicateSymbols() : null;
-    const rows = document.querySelectorAll('#alertTableBody tr');
-    rows.forEach(row => {
-        if (!row.dataset.symbol) return;
-        const symbol = (row.dataset.symbol || '').toUpperCase();
-        const company = (row.dataset.company || '').toUpperCase();
-        const matchesSearch = !query || symbol.includes(query) || company.includes(query);
-        const matchesDup = !dupes || dupes.has(symbol);
-        row.style.display = (matchesSearch && matchesDup) ? '' : 'none';
+[condSelect, priceInput].forEach(el => {
+    el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); submitForm(e.ctrlKey); }
+        else if (e.key === 'Escape') {
+            e.preventDefault();
+            if (this === priceInput) priceInput.value = '';
+        }
     });
-}
+});
 
+addBtn.addEventListener('click', () => submitForm(false));
+
+// ============ FETCH ALERTS ============
 let currentSort = { column: null, direction: 1 };
 let alertsData = [];
+let focusedRowIndex = -1;
 
 function sortAlerts(data, column, direction) {
     const sorted = [...data];
@@ -801,28 +873,21 @@ function sortAlerts(data, column, direction) {
         let valA, valB;
         switch (column) {
             case 'symbol': valA = a.symbol || ''; valB = b.symbol || ''; return direction * valA.localeCompare(valB);
-            case 'trigger': valA = parseFloat(a.trigger_price) || 0; valB = parseFloat(b.trigger_price) || 0; return direction * (valA - valB);
-            case 'cmp': valA = parseFloat(a.cmp) || 0; valB = parseFloat(b.cmp) || 0; return direction * (valA - valB);
-            case 'gap': { const gapA = calculateGap(a), gapB = calculateGap(b); return direction * (gapA - gapB); }
+            case 'trigger': return direction * ((parseFloat(a.trigger_price) || 0) - (parseFloat(b.trigger_price) || 0));
+            case 'cmp': return direction * ((parseFloat(a.cmp) || 0) - (parseFloat(b.cmp) || 0));
+            case 'gap': return direction * (calculateGap(a) - calculateGap(b));
             case 'mgap': {
-                const gapA = calculateGap(a), gapB = calculateGap(b);
-                const absA = isFinite(gapA) ? Math.abs(gapA) : Infinity;
-                const absB = isFinite(gapB) ? Math.abs(gapB) : Infinity;
-                return direction * (absA - absB);
+                const gA = calculateGap(a), gB = calculateGap(b);
+                const aA = isFinite(gA) ? Math.abs(gA) : Infinity;
+                const aB = isFinite(gB) ? Math.abs(gB) : Infinity;
+                return direction * (aA - aB);
             }
-            case 'pct_chg': valA = parseFloat(a.pct_chg) || 0; valB = parseFloat(b.pct_chg) || 0; return direction * (valA - valB);
+            case 'pct_chg': return direction * ((parseFloat(a.pct_chg) || 0) - (parseFloat(b.pct_chg) || 0));
             case 'status': {
-                const getStatusVal = (item) => {
-                    if (item.is_triggered === 1) return 2;
-                    if (item.is_active === 1) return 0;
-                    return 1;
-                };
-                return direction * (getStatusVal(a) - getStatusVal(b));
+                const sv = (i) => i.is_triggered === 1 ? 2 : (i.is_active === 1 ? 0 : 1);
+                return direction * (sv(a) - sv(b));
             }
-            case 'added':
-                valA = new Date(a.added_at).getTime() || 0;
-                valB = new Date(b.added_at).getTime() || 0;
-                return direction * (valA - valB);
+            case 'added': return direction * ((new Date(a.added_at).getTime() || 0) - (new Date(b.added_at).getTime() || 0));
             default: return 0;
         }
     });
@@ -842,81 +907,51 @@ function formatDate(dateStr) {
         const d = new Date(dateStr);
         d.setHours(d.getHours() + 5);
         d.setMinutes(d.getMinutes() + 30);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
+        const p = (n) => String(n).padStart(2, '0');
+        return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
     } catch { return '-'; }
-}
-
-function showMessage(type, html) {
-    const map = { success: 'var(--success)', danger: 'var(--danger)', warning: 'var(--warning)' };
-    document.getElementById('addMessage').innerHTML =
-        `<span style="color: ${map[type] || 'var(--text)'}; font-weight:500;">${html}</span>`;
 }
 
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        focusedRowIndex = -1;
         return;
     }
     let html = '';
-    data.forEach(a => {
+    data.forEach((a, idx) => {
         let cmpDisplay = '-';
         let cmpClass = 'cmp-neutral';
         if (a.cmp !== null && a.cmp !== undefined) {
             cmpDisplay = a.cmp;
-            if (a.condition === '>' && a.cmp > a.trigger_price) cmpClass = 'cmp-green';
-            else if (a.condition === '<' && a.cmp < a.trigger_price) cmpClass = 'cmp-green';
+            if ((a.condition === '>' && a.cmp > a.trigger_price) || (a.condition === '<' && a.cmp < a.trigger_price)) cmpClass = 'cmp-green';
             else cmpClass = 'cmp-red';
         }
-        let gapDisplay = '-';
-        let gapClass = 'gap-neutral';
+        let gapDisplay = '-', gapClass = 'gap-neutral';
         const gap = calculateGap(a);
         if (isFinite(gap)) {
             gapDisplay = gap.toFixed(1) + '%';
-            const conditionMet = (a.condition === '>' && a.cmp > a.trigger_price) ||
-                                 (a.condition === '<' && a.cmp < a.trigger_price);
-            if (a.is_triggered === 1) {
-                gapClass = conditionMet ? 'gap-green' : 'gap-red';
-                gapDisplay = '🔔 ' + gapDisplay;
-            } else {
-                if (conditionMet) {
-                    gapClass = 'gap-green';
-                    gapDisplay = '⏳ ' + gapDisplay;
-                } else {
-                    gapClass = 'gap-red';
-                }
-            }
+            const condMet = (a.condition === '>' && a.cmp > a.trigger_price) || (a.condition === '<' && a.cmp < a.trigger_price);
+            if (a.is_triggered === 1) { gapClass = condMet ? 'gap-green' : 'gap-red'; gapDisplay = '🔔 ' + gapDisplay; }
+            else if (condMet) { gapClass = 'gap-green'; gapDisplay = '⏳ ' + gapDisplay; }
+            else gapClass = 'gap-red';
         }
         let mgapDisplay = '-';
         if (isFinite(gap)) mgapDisplay = Math.abs(gap).toFixed(1) + '%';
-        let pctChgDisplay = '-';
-        let pctChgClass = 'pct-neutral';
+        let pctChgDisplay = '-', pctChgClass = 'pct-neutral';
         if (a.pct_chg !== null && a.pct_chg !== undefined && isFinite(a.pct_chg)) {
             pctChgDisplay = (a.pct_chg > 0 ? '+' : '') + a.pct_chg.toFixed(2) + '%';
-            if (a.pct_chg > 0) pctChgClass = 'pct-green';
-            else if (a.pct_chg < 0) pctChgClass = 'pct-red';
-            else pctChgClass = 'pct-neutral';
+            pctChgClass = a.pct_chg > 0 ? 'pct-green' : (a.pct_chg < 0 ? 'pct-red' : 'pct-neutral');
         }
-        let statusClass = 'inactive';
-        let statusText = '⚪';
-        let disabled = '';
-        if (a.is_triggered === 1) {
-            statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled';
-        } else if (a.is_active === 1) {
-            statusClass = 'active'; statusText = '🟢';
-        } else {
-            statusClass = 'inactive'; statusText = '⚪';
-        }
+        let statusClass = 'inactive', statusText = '⚪', disabled = '';
+        if (a.is_triggered === 1) { statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled'; }
+        else if (a.is_active === 1) { statusClass = 'active'; statusText = '🟢'; }
         const dateDisplay = formatDate(a.added_at);
         const companyName = (a.company_name || '').replace(/"/g, '&quot;');
         const cmpForButton = (a.cmp !== null && a.cmp !== undefined) ? a.cmp : '';
 
-        html += `<tr data-symbol="${a.symbol}" data-company="${companyName}">
+        html += `<tr data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" tabindex="0" data-row-index="${idx}">
             <td class="text-left"><strong>${a.symbol}</strong></td>
             <td class="text-center">${a.condition}</td>
             <td class="text-right">${a.trigger_price}</td>
@@ -924,145 +959,235 @@ function renderAlerts(data) {
             <td class="text-right ${gapClass}">${gapDisplay}</td>
             <td class="text-right">${mgapDisplay}</td>
             <td class="text-right ${pctChgClass}">${pctChgDisplay}</td>
-            <td class="text-center">
-                <button class="status-btn ${statusClass}" data-id="${a.id}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" ${disabled}>
-                    ${statusText}
-                </button>
-            </td>
+            <td class="text-center"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left">${dateDisplay}</td>
             <td class="text-center" style="white-space:nowrap;">
-                <button class="btn btn-sm btn-outline-primary edit-btn" 
-                        data-id="${a.id}" data-symbol="${a.symbol}" data-cmp="${cmpForButton}" 
-                        data-price="${a.trigger_price}" data-condition="${a.condition}" 
-                        title="Edit">✏️</button>
-                ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning reactivate-btn" data-id="${a.id}" title="Reactivate">🔄</button>` : ''}
-                <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${a.id}" data-symbol="${a.symbol}" title="Delete">🗑️</button>
+                <button class="btn btn-sm btn-outline-primary" data-action="edit" title="Edit (E)">✏️</button>
+                ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning" data-action="reactivate" title="Reactivate (R)">🔄</button>` : ''}
+                <button class="btn btn-sm btn-outline-danger" data-action="delete" title="Delete (Delete)">🗑️</button>
             </td>
         </tr>`;
     });
     tbody.innerHTML = html;
-    filterTable();
 
-    document.querySelectorAll('.edit-btn').forEach(b => {
-        b.addEventListener('click', function() {
-            showEditDialog(this.dataset.id, this.dataset.symbol, this.dataset.cmp, this.dataset.condition, this.dataset.price);
+    tbody.querySelectorAll('tr[data-symbol]').forEach(row => {
+        row.addEventListener('focus', function() {
+            tbody.querySelectorAll('tr').forEach(r => r.classList.remove('row-focused'));
+            this.classList.add('row-focused');
+            focusedRowIndex = parseInt(this.dataset.rowIndex);
+        });
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            this.focus();
         });
     });
-    document.querySelectorAll('.reactivate-btn').forEach(b => {
-        b.addEventListener('click', function() { triggerReactivate(this.dataset.id); });
-    });
-    document.querySelectorAll('.status-btn:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.dataset.id;
-            fetch(`/api/toggle/${id}`, { method: 'POST' })
-                .then(res => res.json())
-                .then(data => { if (data.status === 'ok') fetchAlerts(); });
+
+    tbody.querySelectorAll('button[data-action]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const action = this.dataset.action;
+            const row = this.closest('tr');
+            handleRowAction(action, row);
         });
     });
-    document.querySelectorAll('.delete-btn').forEach(b => {
-        b.addEventListener('click', function() {
-            const id = this.dataset.id;
-            const symbol = this.dataset.symbol;
-            showAppModal({
-                title: '🗑️ Delete Alert',
-                bodyHTML: `<div>Delete <b>${symbol}</b>? This cannot be undone.</div>`,
-                buttons: [
-                    { label: 'OK', class: 'btn-danger', onClick: () => {
-                        fetch(`/api/delete/${id}`, { method: 'DELETE' })
-                            .then(res => res.json())
-                            .then(data => { if (data.status === 'ok') fetchAlerts(); });
-                    }},
-                    { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
-                ]
-            });
-        });
+
+    filterTable();
+}
+
+function handleRowAction(action, row) {
+    const id = row.dataset.id;
+    const symbol = row.dataset.symbol;
+    const condition = row.dataset.condition;
+    const price = row.dataset.trigger;
+    const cmp = row.dataset.cmp;
+    if (action === 'edit') {
+        showEditDialog(id, symbol, cmp, condition, price);
+    } else if (action === 'toggle') {
+        fetch(`/api/toggle/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { if (data.status === 'ok') fetchAlerts(); });
+    } else if (action === 'reactivate') {
+        triggerReactivate(id);
+    } else if (action === 'delete') {
+        confirmDelete(id, symbol);
+    }
+}
+
+// ============ TABLE ROW KEYBOARD NAV ============
+document.getElementById('alertTableBody').addEventListener('keydown', function(e) {
+    const rows = Array.from(this.querySelectorAll('tr[data-symbol]'));
+    if (rows.length === 0) return;
+    const active = document.activeElement.closest && document.activeElement.closest('tr');
+    const idx = active ? rows.indexOf(active) : -1;
+
+    if (e.key === 'ArrowDown') { e.preventDefault(); rows[Math.min(idx + 1, rows.length - 1)].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); rows[Math.max(idx - 1, 0)].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); rows[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); rows[rows.length - 1].focus(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (active) handleRowAction('edit', active); }
+    else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); if (active) handleRowAction('edit', active); }
+    else if (e.key === ' ') { e.preventDefault(); if (active && active.dataset.triggered !== '1') handleRowAction('toggle', active); }
+    else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); if (active && active.dataset.triggered === '1') handleRowAction('reactivate', active); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (active) handleRowAction('delete', active); }
+    else if (e.key === 'Escape') { e.preventDefault(); if (active) active.blur(); }
+});
+
+// ============ EDIT DIALOG ============
+function showEditDialog(alertId, symbol, cmp, condition, price, onSuccess) {
+    const cmpVal = (cmp !== null && cmp !== undefined && cmp !== '') ? cmp : '-';
+    const bodyHTML = `
+        <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label">SYMBOL</label><input type="text" class="form-control form-control-sm" value="${symbol}" readonly></div>
+            <div class="col-6"><label class="form-label">CMP</label><input type="text" class="form-control form-control-sm" value="${cmpVal}" readonly></div>
+        </div>
+        <div class="row g-2">
+            <div class="col-5"><label class="form-label">CONDITION</label>
+                <select id="editCondition" class="form-select form-select-sm">
+                    <option value=">" ${condition === '>' ? 'selected' : ''}>&gt;</option>
+                    <option value="<" ${condition === '<' ? 'selected' : ''}>&lt;</option>
+                </select>
+            </div>
+            <div class="col-7"><label class="form-label">ALERT PRICE</label><input type="number" id="editPrice" class="form-control form-control-sm" value="${price}" step="1"></div>
+        </div>
+    `;
+    showAppModal({
+        title: '✏️ Edit Alert',
+        bodyHTML,
+        buttons: [
+            { label: 'OK', class: 'btn-primary', onClick: () => {
+                const newCond = document.getElementById('editCondition').value;
+                const newPrice = parseFloat(document.getElementById('editPrice').value);
+                if (isNaN(newPrice) || newPrice <= 0) { showMessage('danger', '❌ Invalid price.'); return; }
+                fetch(`/api/update/${alertId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ condition: newCond, price: newPrice }) })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'ok') { showMessage('success', `✅ ${symbol} ${newCond} ${newPrice} updated`); (onSuccess || fetchAlerts)(); }
+                        else showMessage('danger', `❌ ${data.message}`);
+                    })
+                    .catch(() => showMessage('danger', '❌ Server error'));
+            }},
+            { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
+        ]
     });
 }
 
+// ============ REACTIVATE ============
 function triggerReactivate(id) {
-    fetch(`/api/reactivate/${id}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: true })
-    })
-    .then(res => res.json())
-    .then(preview => {
-        if (preview.status !== 'ok') { showMessage('danger', `❌ ${preview.message || 'Preview failed'}`); return; }
-        if (!preview.would_trigger) { doReactivate(id); return; }
-        const cmpVal = (preview.current_price !== null && preview.current_price !== undefined) ? preview.current_price : '-';
-        const bodyHTML = `
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <label class="form-label">SYMBOL</label>
-                    <input type="text" class="form-control form-control-sm" value="${preview.symbol}" readonly>
+    fetch(`/api/reactivate/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dry_run: true }) })
+        .then(res => res.json())
+        .then(preview => {
+            if (preview.status !== 'ok') { showMessage('danger', `❌ ${preview.message || 'Preview failed'}`); return; }
+            if (!preview.would_trigger) { doReactivate(id); return; }
+            const cmpVal = (preview.current_price !== null && preview.current_price !== undefined) ? preview.current_price : '-';
+            const bodyHTML = `
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><label class="form-label">SYMBOL</label><input type="text" class="form-control form-control-sm" value="${preview.symbol}" readonly></div>
+                    <div class="col-6"><label class="form-label">CMP</label><input type="text" class="form-control form-control-sm" value="${cmpVal}" readonly></div>
                 </div>
-                <div class="col-6">
-                    <label class="form-label">CMP</label>
-                    <input type="text" class="form-control form-control-sm" value="${cmpVal}" readonly>
-                </div>
-            </div>
-            <div class="row g-2">
-                <div class="col-6">
-                    <label class="form-label">CONDITION</label>
-                    <input type="text" class="form-control form-control-sm" value="${preview.condition} ${preview.trigger_price}" readonly>
-                </div>
-            </div>
-            <div class="modal-warning">⚠️ Condition is still met. Re-trigger this alert?</div>
-        `;
-        showAppModal({
-            title: '🔄 Reactivate Alert',
-            bodyHTML: bodyHTML,
-            buttons: [
-                { label: 'OK', class: 'btn-primary', onClick: () => doReactivate(id) },
-                { label: 'Edit', class: 'btn-edit', onClick: () => {
-                    setTimeout(() => {
-                        showEditDialog(id, preview.symbol, preview.current_price, preview.condition, preview.trigger_price, () => triggerReactivate(id));
-                    }, 50);
-                }},
-                { label: 'Cancel', class: 'btn-secondary', onClick: () => {
-                    showMessage('warning', '⏸️ Alert kept deactivated.');
-                }}
-            ]
-        });
-    })
-    .catch(() => showMessage('danger', '❌ Preview error'));
+                <div class="row g-2"><div class="col-6"><label class="form-label">CONDITION</label><input type="text" class="form-control form-control-sm" value="${preview.condition} ${preview.trigger_price}" readonly></div></div>
+                <div class="modal-warning">⚠️ Condition is still met. Re-trigger this alert?</div>
+            `;
+            showAppModal({
+                title: '🔄 Reactivate Alert',
+                bodyHTML,
+                buttons: [
+                    { label: 'OK', class: 'btn-primary', onClick: () => doReactivate(id) },
+                    { label: 'Edit', class: 'btn-edit', onClick: () => {
+                        setTimeout(() => showEditDialog(id, preview.symbol, preview.current_price, preview.condition, preview.trigger_price, () => triggerReactivate(id)), 50);
+                    }},
+                    { label: 'Cancel', class: 'btn-secondary', onClick: () => showMessage('warning', '⏸️ Alert kept deactivated.') }
+                ]
+            });
+        })
+        .catch(() => showMessage('danger', '❌ Preview error'));
 }
 
 function doReactivate(id) {
-    fetch(`/api/reactivate/${id}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dry_run: false })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'ok') {
-            if (data.triggered) showMessage('success', '✅ Alert re-triggered immediately.');
-            else showMessage('success', '✅ Alert reactivated.');
-            fetchAlerts();
-        } else {
-            showMessage('danger', `❌ Reactivation failed: ${data.message}`);
-        }
-    });
-}
-
-function fetchAlerts() {
-    fetch('/api/alerts')
+    fetch(`/api/reactivate/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dry_run: false }) })
         .then(res => res.json())
         .then(data => {
-            alertsData = data;
-            if (currentSort.column) {
-                const sorted = sortAlerts(alertsData, currentSort.column, currentSort.direction);
-                renderAlerts(sorted);
-            } else {
-                renderAlerts(alertsData);
-            }
-        })
-        .catch(error => {
-            console.error('Fetch error:', error);
-            document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="10" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+            if (data.status === 'ok') { showMessage('success', data.triggered ? '✅ Alert re-triggered immediately.' : '✅ Alert reactivated.'); fetchAlerts(); }
+            else showMessage('danger', `❌ ${data.message}`);
         });
 }
 
+// ============ DELETE with UNDO TOAST ============
+function confirmDelete(id, symbol) {
+    showAppModal({
+        title: '🗑️ Delete Alert',
+        bodyHTML: `<div>Delete <b>${symbol}</b>? This cannot be undone.</div>`,
+        buttons: [
+            { label: 'OK', class: 'btn-danger', onClick: () => {
+                fetch(`/api/delete/${id}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'ok') {
+                            fetchAlerts();
+                            showToast(`Deleted ${symbol}`, {
+                                actionLabel: 'Undo',
+                                duration: 5000,
+                                onAction: () => {
+                                    // Best-effort undo: re-add same alert
+                                    showToast('Undo is not available for deletes. Please re-add manually.', { duration: 3500 });
+                                }
+                            });
+                        }
+                    });
+            }},
+            { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
+        ]
+    });
+}
+
+// ============ SEARCH / DUPLICATES ============
+let showDuplicatesOnly = false;
+searchBox.addEventListener('input', filterTable);
+clearSearchBtn.addEventListener('click', function() {
+    searchBox.value = '';
+    showDuplicatesOnly = false;
+    duplicateBtn.classList.remove('active');
+    filterTable();
+    searchBox.focus();
+});
+duplicateBtn.addEventListener('click', function() {
+    showDuplicatesOnly = !showDuplicatesOnly;
+    duplicateBtn.classList.toggle('active', showDuplicatesOnly);
+    filterTable();
+});
+searchBox.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        if (searchBox.value) { searchBox.value = ''; filterTable(); }
+        else searchBox.blur();
+    } else if (e.key === 'ArrowDown') {
+        const firstRow = document.querySelector('#alertTableBody tr[data-symbol]');
+        if (firstRow) { e.preventDefault(); firstRow.focus(); }
+    }
+});
+
+function getDuplicateSymbols() {
+    const counts = {};
+    alertsData.forEach(a => {
+        const s = (a.symbol || '').toUpperCase();
+        counts[s] = (counts[s] || 0) + 1;
+    });
+    const dupes = new Set();
+    Object.keys(counts).forEach(s => { if (counts[s] > 1) dupes.add(s); });
+    return dupes;
+}
+function filterTable() {
+    const query = searchBox.value.trim().toUpperCase();
+    const dupes = showDuplicatesOnly ? getDuplicateSymbols() : null;
+    document.querySelectorAll('#alertTableBody tr[data-symbol]').forEach(row => {
+        const symbol = (row.dataset.symbol || '').toUpperCase();
+        const company = (row.dataset.company || '').toUpperCase();
+        const matchesSearch = !query || symbol.includes(query) || company.includes(query);
+        const matchesDup = !dupes || dupes.has(symbol);
+        row.style.display = (matchesSearch && matchesDup) ? '' : 'none';
+    });
+}
+
+// ============ SORT ============
 document.querySelectorAll('.sortable').forEach(header => {
     header.addEventListener('click', function() {
         const column = this.dataset.sort;
@@ -1070,31 +1195,17 @@ document.querySelectorAll('.sortable').forEach(header => {
         else { currentSort.column = column; currentSort.direction = 1; }
         document.querySelectorAll('.sortable').forEach(th => th.classList.remove('active'));
         this.classList.add('active');
-        const sorted = sortAlerts(alertsData, currentSort.column, currentSort.direction);
-        renderAlerts(sorted);
+        renderAlerts(sortAlerts(alertsData, currentSort.column, currentSort.direction));
     });
 });
 
-document.getElementById('addBtn').addEventListener('click', function() {
-    const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
-    const condition = document.getElementById('condSelect').value;
-    const price = document.getElementById('priceInput').value.trim();
-    if (!symbol || !price) { showMessage('danger', 'Fill all fields.'); return; }
-    const payload = { symbol, condition, price: parseFloat(price) };
-    fetch('/api/add', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => handleAddResponse(data, payload))
-    .catch(() => showMessage('danger', '❌ Server error'));
-});
-
+// ============ ADD RESPONSE ============
 function handleAddResponse(data, payload) {
     if (data.status === 'ok') {
         showMessage('success', `✅ ${data.symbol} ${data.condition} ${data.price} added`);
-        document.getElementById('symbolInput').value = '';
-        document.getElementById('priceInput').value = '';
+        symbolInput.value = '';
+        priceInput.value = '';
+        symbolInput.focus();
         fetchAlerts();
     } else if (data.status === 'duplicate') {
         showAppModal({
@@ -1127,6 +1238,25 @@ function handleAddResponse(data, payload) {
     }
 }
 
+// Bulk add (paste multiple)
+function bulkAdd(list) {
+    let done = 0, errors = 0;
+    const processNext = (i) => {
+        if (i >= list.length) {
+            showMessage('success', `✅ Bulk add: ${done} added, ${errors} failed.`);
+            fetchAlerts();
+            return;
+        }
+        const item = list[i];
+        fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item, force_duplicate: true, force_trigger: true }) })
+            .then(res => res.json())
+            .then(data => { if (data.status === 'ok') done++; else errors++; processNext(i + 1); })
+            .catch(() => { errors++; processNext(i + 1); });
+    };
+    processNext(0);
+}
+
+// ============ EXPORT / IMPORT ============
 document.getElementById('exportBtn').addEventListener('click', function() {
     fetch('/api/export').then(res => res.json()).then(data => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1134,11 +1264,10 @@ document.getElementById('exportBtn').addEventListener('click', function() {
         const a = document.createElement('a');
         a.href = url;
         a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }).catch(() => alert('Export failed.'));
+        showToast('Export downloaded');
+    }).catch(() => showToast('Export failed'));
 });
 
 document.getElementById('importBtn').addEventListener('click', function() {
@@ -1164,7 +1293,8 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
                                 if (result.status === 'ok') {
                                     document.getElementById('importStatus').textContent = `✅ ${result.count} imported`;
                                     fetchAlerts();
-                                } else { alert('Import failed: ' + result.message); }
+                                    showToast(`${result.count} alerts imported`);
+                                } else alert('Import failed: ' + result.message);
                             });
                     }},
                     { label: 'Cancel', class: 'btn-secondary', onClick: () => {} }
@@ -1175,6 +1305,104 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     reader.readAsText(file);
     this.value = '';
 });
+
+// ============ GLOBAL SHORTCUTS ============
+document.addEventListener('keydown', function(e) {
+    const inInput = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    const inModal = document.getElementById('appModal').classList.contains('show');
+
+    // Modal open — the modal handler manages keys
+    if (inModal) return;
+
+    // Alt+T: Toggle theme
+    if (e.altKey && (e.key === 't' || e.key === 'T')) { e.preventDefault(); themeToggle.click(); return; }
+
+    // Ctrl+Shift+L: Logout
+    if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); logoutBtn.click(); return; }
+
+    // Ctrl+E: Export
+    if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); document.getElementById('exportBtn').click(); return; }
+
+    // Ctrl+I: Import
+    if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); document.getElementById('importBtn').click(); return; }
+
+    // Ctrl+K or /: focus search
+    if ((e.ctrlKey && (e.key === 'k' || e.key === 'K')) || (e.key === '/' && !inInput)) {
+        e.preventDefault();
+        searchBox.focus();
+        searchBox.select();
+        return;
+    }
+
+    // N: new alert (symbol field)
+    if ((e.key === 'n' || e.key === 'N') && !inInput) {
+        e.preventDefault();
+        symbolInput.focus();
+        return;
+    }
+
+    // ?: show help
+    if (e.key === '?' && !inInput) {
+        e.preventDefault();
+        showKeyboardHelp();
+        return;
+    }
+
+    // Escape global
+    if (e.key === 'Escape' && !inInput) {
+        const active = document.activeElement.closest && document.activeElement.closest('tr');
+        if (active) { active.blur(); }
+    }
+});
+
+// ============ KEYBOARD HELP ============
+function showKeyboardHelp() {
+    const rows = [
+        ['/', 'Focus search'],
+        ['Ctrl+K', 'Focus search'],
+        ['N', 'New alert'],
+        ['E', 'Edit focused row'],
+        ['Space', 'Toggle focused row'],
+        ['R', 'Reactivate focused row'],
+        ['Delete', 'Delete focused row'],
+        ['↑ / ↓', 'Navigate / step value'],
+        ['Home / End', 'First / last'],
+        ['Page↑ / Page↓', 'Jump 5 in autocomplete'],
+        ['Enter', 'Confirm / Submit / Accept'],
+        ['Ctrl+Enter', 'Force add (skip warnings)'],
+        ['Escape', 'Cancel / Close / Clear'],
+        ['Tab / Shift+Tab', 'Next / previous field'],
+        ['Ctrl+E', 'Export'],
+        ['Ctrl+I', 'Import'],
+        ['Ctrl+Shift+L', 'Logout'],
+        ['Alt+T', 'Toggle theme'],
+        ['?', 'This help'],
+    ];
+    const html = '<table class="shortcut-help-table">' +
+        rows.map(r => `<tr><td><kbd>${r[0]}</kbd></td><td>${r[1]}</td></tr>`).join('') +
+        '</table>';
+    showAppModal({
+        title: '⌨️ Keyboard Shortcuts',
+        bodyHTML: html,
+        buttons: [{ label: 'OK', class: 'btn-primary', onClick: () => {} }]
+    });
+}
+
+// ============ INIT ============
+function fetchAlerts() {
+    fetch('/api/alerts')
+        .then(res => res.json())
+        .then(data => {
+            alertsData = data;
+            if (currentSort.column) renderAlerts(sortAlerts(alertsData, currentSort.column, currentSort.direction));
+            else renderAlerts(alertsData);
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            document.getElementById('alertTableBody').innerHTML =
+                `<tr><td colspan="10" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+        });
+}
 
 fetchAlerts();
 setInterval(fetchAlerts, 60000);
