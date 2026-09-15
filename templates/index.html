@@ -231,7 +231,7 @@
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
 
-        /* Column widths (sums to 100%) — rebalanced for readable Symbol & Added */
+        /* Column widths (sums to 100%) */
         .col-symbol  { width: 13%; }
         .col-cond    { width: 4%; }
         .col-trigger { width: 8%; }
@@ -1126,8 +1126,18 @@ function showEditDialog(alertId, symbol, cmp, condition, price, notes, onSuccess
                 })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.status === 'ok') { showMessage('success', `✅ ${symbol} updated`); (onSuccess || fetchAlerts)(); }
-                    else showMessage('danger', `❌ ${data.message}`);
+                    if (data.status === 'ok') {
+                        if (data.triggered_now) {
+                            showMessage('success', `🔔 ${symbol} ${newCond} ${newPrice} updated — alert triggered!`);
+                        } else if (data.was_triggered) {
+                            showMessage('success', `✅ ${symbol} updated — re-armed, monitoring again`);
+                        } else {
+                            showMessage('success', `✅ ${symbol} updated`);
+                        }
+                        (onSuccess || fetchAlerts)();
+                    } else {
+                        showMessage('danger', `❌ ${data.message}`);
+                    }
                 })
                 .catch(() => showMessage('danger', '❌ Server error'));
             }},

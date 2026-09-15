@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ------------------------------------------------------------------
-#  AUTH STATE (in-memory)
-# ------------------------------------------------------------------
 SESSIONS = {}
 PENDING_OTP = {}
 SESSION_DURATION = 30 * 24 * 3600
@@ -28,9 +25,6 @@ OTP_VALIDITY = 300
 OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
 
-# ------------------------------------------------------------------
-#  GLOBAL CACHE FOR NSE SYMBOLS
-# ------------------------------------------------------------------
 NSE_SYMBOLS = []
 NSE_NAME_LOOKUP = {}
 
@@ -64,9 +58,6 @@ def refresh_nse_symbols():
 
 refresh_nse_symbols()
 
-# ------------------------------------------------------------------
-#  AUTH HELPERS
-# ------------------------------------------------------------------
 def get_client_ip():
     xff = request.headers.get('X-Forwarded-For', '')
     if xff:
@@ -105,9 +96,6 @@ def check_auth():
         return redirect('/login')
     return None
 
-# ------------------------------------------------------------------
-#  AUTH ROUTES
-# ------------------------------------------------------------------
 @app.route('/login')
 def login_page():
     if is_authenticated():
@@ -173,9 +161,6 @@ def logout():
     resp.set_cookie('session_id', '', max_age=0, path='/')
     return resp
 
-# ------------------------------------------------------------------
-#  DATABASE
-# ------------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect(config.DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -250,7 +235,6 @@ def migrate_conditions():
         logger.error(f"Migration error: {e}")
 
 def migrate_notes_column():
-    """Add notes column if missing."""
     try:
         conn = sqlite3.connect(config.DB_FILE)
         c = conn.cursor()
@@ -265,9 +249,6 @@ def migrate_notes_column():
     except Exception as e:
         logger.error(f"Notes migration error: {e}")
 
-# ------------------------------------------------------------------
-#  API ROUTES
-# ------------------------------------------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -356,6 +337,7 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ---------- UPDATED /api/update: re-evaluates triggered alerts ----------
 @app.route('/api/update/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
     try:
@@ -365,11 +347,12 @@ def update_alert(alert_id):
         new_notes = data.get('notes')
 
         conn = get_db()
-        row = conn.execute('SELECT symbol FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        row = conn.execute('SELECT symbol, is_triggered FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
         if not row:
             conn.close()
             return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
         symbol = row['symbol']
+        was_triggered = (row['is_triggered'] == 1)
 
         if new_price is not None:
             try:
@@ -389,15 +372,53 @@ def update_alert(alert_id):
             conn.execute('UPDATE watchlist SET notes = ? WHERE id = ?', (new_notes.strip(), alert_id))
 
         conn.commit()
+        final_row = conn.execute('SELECT condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        final_condition = final_row['condition']
+        final_price = final_row['trigger_price']
+        final_notes = final_row['notes']
         conn.close()
 
-        final_row = get_db().execute('SELECT condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+        triggered_now = False
+
+        # If alert was triggered when edited, re-evaluate the new condition.
+        if was_triggered:
+            current_price = None
+            try:
+                prices = stock_alert.get_prices([symbol])
+                current_price = prices.get(symbol)
+            except Exception as e:
+                logger.warning(f"Could not fetch price for {symbol} during edit re-eval: {e}")
+
+            condition_met = False
+            if current_price is not None:
+                if final_condition == '>' and current_price > final_price:
+                    condition_met = True
+                elif final_condition == '<' and current_price < final_price:
+                    condition_met = True
+
+            conn2 = get_db()
+            if condition_met:
+                # Keep triggered, send alert
+                conn2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (alert_id,))
+                conn2.commit()
+                conn2.close()
+                msg = (f"🔔 ALERT (Edited)\n{symbol} {final_condition} {final_price}\nCurrent: {current_price}")
+                stock_alert.send_telegram(msg)
+                triggered_now = True
+            else:
+                # Re-arm: reset triggered, ensure active
+                conn2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
+                conn2.commit()
+                conn2.close()
+
         return jsonify({
             'status': 'ok',
             'symbol': symbol,
-            'condition': final_row['condition'],
-            'price': final_row['trigger_price'],
-            'notes': final_row['notes']
+            'condition': final_condition,
+            'price': final_price,
+            'notes': final_notes,
+            'triggered_now': triggered_now,
+            'was_triggered': was_triggered
         })
     except Exception as e:
         logger.error(f"Error in /api/update: {e}")
@@ -597,9 +618,6 @@ def import_alerts():
         logger.error(f"Import error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ------------------------------------------------------------------
-#  BACKGROUND THREADS
-# ------------------------------------------------------------------
 def daily_cache_warmer():
     last_run_date = None
     while True:
@@ -647,9 +665,6 @@ threading.Thread(target=start_worker, daemon=True).start()
 threading.Thread(target=daily_cache_warmer, daemon=True).start()
 threading.Thread(target=cleanup_sessions, daemon=True).start()
 
-# ------------------------------------------------------------------
-#  INIT
-# ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
