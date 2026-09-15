@@ -337,7 +337,6 @@ def add_alert():
         logger.error(f"Add alert DB error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# ---------- UPDATED /api/update: re-evaluates triggered alerts ----------
 @app.route('/api/update/<int:alert_id>', methods=['POST'])
 def update_alert(alert_id):
     try:
@@ -380,7 +379,6 @@ def update_alert(alert_id):
 
         triggered_now = False
 
-        # If alert was triggered when edited, re-evaluate the new condition.
         if was_triggered:
             current_price = None
             try:
@@ -398,7 +396,6 @@ def update_alert(alert_id):
 
             conn2 = get_db()
             if condition_met:
-                # Keep triggered, send alert
                 conn2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (alert_id,))
                 conn2.commit()
                 conn2.close()
@@ -406,7 +403,6 @@ def update_alert(alert_id):
                 stock_alert.send_telegram(msg)
                 triggered_now = True
             else:
-                # Re-arm: reset triggered, ensure active
                 conn2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
                 conn2.commit()
                 conn2.close()
