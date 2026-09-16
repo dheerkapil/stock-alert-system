@@ -37,6 +37,21 @@ def is_market_open(now):
 def is_weekday(now):
     return now.weekday() < 5
 
+def _extract_date_ist(idx):
+    """
+    Given a pandas Timestamp (possibly tz-aware, possibly naive),
+    return its date in IST.
+    """
+    try:
+        if hasattr(idx, 'tzinfo') and idx.tzinfo is not None:
+            return idx.astimezone(config.TIMEZONE).date()
+        elif hasattr(idx, 'date'):
+            return idx.date()
+        else:
+            return idx
+    except Exception:
+        return None
+
 # ------------------------------------------------------------------
 #  FETCH ALERTS FROM WEB UI
 # ------------------------------------------------------------------
@@ -122,6 +137,12 @@ def _invalidate_cache_if_new_day():
         logger.info(f"Previous-close cache invalidated for new day: {today}")
 
 def batch_fetch_prev_closes(symbols):
+    """
+    Batch download previous closes for multiple symbols in ONE Yahoo Finance call.
+    Explicitly skips any bar whose date equals today (IST), so that the previous
+    close is always the last COMPLETED trading day, regardless of whether the
+    fetch runs before market open, during trading, or after close.
+    """
     if not symbols:
         return {}
     symbols = [s.upper() for s in symbols]
@@ -133,33 +154,57 @@ def batch_fetch_prev_closes(symbols):
     try:
         data = yf.download(
             tickers=" ".join(tickers),
-            period="5d",
+            period="10d",
             interval="1d",
             progress=False,
             group_by='ticker',
             threads=True,
             auto_adjust=False
         )
-
-        for sym, ticker in zip(symbols, tickers):
-            try:
-                if ticker in data.columns.levels[0]:
-                    df = data[ticker]
-                    closes = df['Close'].dropna()
-                    if len(closes) >= 2:
-                        result[sym] = float(closes.iloc[-2])
-                    elif len(closes) == 1:
-                        result[sym] = float(closes.iloc[-1])
-                    else:
-                        result[sym] = None
-                else:
-                    result[sym] = None
-            except Exception as e:
-                logger.warning(f"Failed to extract prev close for {sym}: {e}")
-                result[sym] = None
     except Exception as e:
         logger.error(f"Batch download failed: {e}")
         return {}
+
+    today_ist = datetime.now(config.TIMEZONE).date()
+
+    for sym, ticker in zip(symbols, tickers):
+        try:
+            # --- Locate this symbol's DataFrame in the download result ---
+            df = None
+            if len(symbols) == 1:
+                # Single symbol: yf.download returns a flat DataFrame
+                df = data
+            else:
+                # Multi-symbol with group_by='ticker': MultiIndex columns
+                if hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
+                    df = data[ticker]
+                else:
+                    result[sym] = None
+                    continue
+
+            if df is None or df.empty:
+                result[sym] = None
+                continue
+
+            closes = df['Close'].dropna()
+            if closes.empty:
+                result[sym] = None
+                continue
+
+            # --- Walk backward from the last bar, take the last bar NOT from today ---
+            prev_close = None
+            for i in range(len(closes) - 1, -1, -1):
+                idx = closes.index[i]
+                bar_date = _extract_date_ist(idx)
+                if bar_date is not None and bar_date < today_ist:
+                    prev_close = float(closes.iloc[i])
+                    break
+
+            result[sym] = prev_close
+
+        except Exception as e:
+            logger.warning(f"Failed to extract prev close for {sym}: {e}")
+            result[sym] = None
 
     return result
 
