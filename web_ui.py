@@ -1,9 +1,11 @@
+import os
 import sqlite3
 import threading
 import time
 import logging
 import secrets
 import random
+import base64
 import requests
 import pandas as pd
 import json
@@ -18,6 +20,21 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# ------------------------------------------------------------------
+#  GITHUB AUTO-BACKUP CONFIGURATION
+# ------------------------------------------------------------------
+GITHUB_TOKEN = os.environ.get("GITHUB_BACKUP_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
+GITHUB_BACKUP_FILE = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
+GITHUB_API = "https://api.github.com"
+BACKUP_DEBOUNCE_SECONDS = 5
+
+_backup_timer = None
+_backup_lock = threading.Lock()
+
+# ------------------------------------------------------------------
+#  AUTH STATE
+# ------------------------------------------------------------------
 SESSIONS = {}
 PENDING_OTP = {}
 SESSION_DURATION = 30 * 24 * 3600
@@ -25,6 +42,9 @@ OTP_VALIDITY = 300
 OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
 
+# ------------------------------------------------------------------
+#  NSE SYMBOLS CACHE
+# ------------------------------------------------------------------
 NSE_SYMBOLS = []
 NSE_NAME_LOOKUP = {}
 
@@ -58,6 +78,9 @@ def refresh_nse_symbols():
 
 refresh_nse_symbols()
 
+# ------------------------------------------------------------------
+#  AUTH HELPERS
+# ------------------------------------------------------------------
 def get_client_ip():
     xff = request.headers.get('X-Forwarded-For', '')
     if xff:
@@ -96,6 +119,9 @@ def check_auth():
         return redirect('/login')
     return None
 
+# ------------------------------------------------------------------
+#  AUTH ROUTES
+# ------------------------------------------------------------------
 @app.route('/login')
 def login_page():
     if is_authenticated():
@@ -161,6 +187,9 @@ def logout():
     resp.set_cookie('session_id', '', max_age=0, path='/')
     return resp
 
+# ------------------------------------------------------------------
+#  DATABASE
+# ------------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect(config.DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -249,6 +278,148 @@ def migrate_notes_column():
     except Exception as e:
         logger.error(f"Notes migration error: {e}")
 
+# ------------------------------------------------------------------
+#  GITHUB AUTO-BACKUP FUNCTIONS
+# ------------------------------------------------------------------
+def schedule_backup():
+    """
+    Schedule a backup to GitHub in BACKUP_DEBOUNCE_SECONDS seconds.
+    Coalesces rapid writes into a single commit.
+    """
+    global _backup_timer
+    if not GITHUB_TOKEN:
+        return
+    with _backup_lock:
+        if _backup_timer is not None:
+            _backup_timer.cancel()
+        _backup_timer = threading.Timer(BACKUP_DEBOUNCE_SECONDS, _do_backup)
+        _backup_timer.daemon = True
+        _backup_timer.start()
+
+def _do_backup():
+    """Fetch the watchlist from the DB and push it as JSON to GitHub."""
+    global _backup_timer
+    try:
+        conn = sqlite3.connect(config.DB_FILE)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM watchlist ORDER BY id').fetchall()
+        conn.close()
+        data = [dict(r) for r in rows]
+        content = json.dumps(data, indent=2, default=str)
+        _push_to_github(content)
+    except Exception as e:
+        logger.error(f"Backup failed: {e}")
+    finally:
+        with _backup_lock:
+            _backup_timer = None
+
+def _push_to_github(content):
+    """Push the given content to the backup file in the GitHub repo."""
+    url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "stock-alert-backup",
+    }
+
+    sha = None
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            sha = r.json().get("sha")
+        elif r.status_code != 404:
+            logger.warning(f"GitHub GET returned {r.status_code}: {r.text[:200]}")
+    except Exception as e:
+        logger.error(f"GitHub GET failed: {e}")
+        return
+
+    try:
+        alert_count = len(json.loads(content))
+    except Exception:
+        alert_count = 0
+
+    body = {
+        "message": f"Auto-backup: {alert_count} alerts",
+        "content": base64.b64encode(content.encode('utf-8')).decode('ascii'),
+    }
+    if sha:
+        body["sha"] = sha
+
+    try:
+        r = requests.put(url, headers=headers, json=body, timeout=15)
+        if r.status_code in (200, 201):
+            logger.info(f"Backed up {alert_count} alerts to GitHub.")
+        else:
+            logger.error(f"GitHub PUT failed {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        logger.error(f"GitHub PUT exception: {e}")
+
+def restore_from_github():
+    """
+    On startup, if the DB is empty, restore the watchlist from
+    the backup file on GitHub.
+    """
+    if not GITHUB_TOKEN:
+        logger.info("No GITHUB_BACKUP_TOKEN set — skipping restore.")
+        return
+    try:
+        # Check if DB is empty
+        conn = sqlite3.connect(config.DB_FILE)
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM watchlist')
+        count = c.fetchone()[0]
+        conn.close()
+        if count > 0:
+            logger.info(f"DB already has {count} alerts — skipping restore.")
+            return
+
+        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
+        headers = {
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "stock-alert-backup",
+        }
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code != 200:
+            logger.warning(f"Restore: GitHub returned {r.status_code}. No backup to restore.")
+            return
+
+        content_b64 = r.json().get("content", "")
+        decoded = base64.b64decode(content_b64).decode('utf-8')
+        data = json.loads(decoded)
+        if not isinstance(data, list):
+            logger.error("Restore: Backup file is not a list.")
+            return
+
+        conn = sqlite3.connect(config.DB_FILE)
+        c = conn.cursor()
+        restored = 0
+        for item in data:
+            try:
+                c.execute('''
+                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, added_at, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    (item.get('symbol') or '').upper(),
+                    item.get('condition', '>'),
+                    float(item.get('trigger_price', 0)),
+                    int(item.get('is_active', 1)),
+                    int(item.get('is_triggered', 0)),
+                    item.get('added_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    item.get('notes') or '',
+                ))
+                restored += 1
+            except Exception as e:
+                logger.warning(f"Restore skip {item.get('symbol')}: {e}")
+        conn.commit()
+        conn.close()
+        logger.info(f"✅ Restored {restored} alerts from GitHub backup.")
+    except Exception as e:
+        logger.error(f"Restore failed: {e}")
+
+# ------------------------------------------------------------------
+#  API ROUTES
+# ------------------------------------------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -331,6 +502,7 @@ def add_alert():
             stock_alert.add_symbol_to_cache(symbol)
         except Exception as e:
             logger.warning(f"Could not pre-cache prev close for {symbol}: {e}")
+        schedule_backup()
         return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
         conn.close()
@@ -407,6 +579,7 @@ def update_alert(alert_id):
                 conn2.commit()
                 conn2.close()
 
+        schedule_backup()
         return jsonify({
             'status': 'ok',
             'symbol': symbol,
@@ -451,9 +624,11 @@ def reactivate_alert(alert_id):
             conn.close()
             msg = (f"🔔 ALERT (Reactivated)\n{alert['symbol']} {alert['condition']} {alert['trigger_price']}\nCurrent: {current_price}")
             stock_alert.send_telegram(msg)
+            schedule_backup()
             return jsonify({'status': 'ok', 'triggered': True})
         else:
             conn.close()
+            schedule_backup()
             return jsonify({'status': 'ok', 'triggered': False})
     except Exception as e:
         logger.error(f"Error in /api/reactivate: {e}")
@@ -508,6 +683,7 @@ def toggle_alert(alert_id):
         conn.execute('UPDATE watchlist SET is_active = ? WHERE id = ?', (new_val, alert_id))
         conn.commit()
         conn.close()
+        schedule_backup()
         return jsonify({'status': 'ok', 'is_active': new_val})
     except Exception as e:
         logger.error(f"Error in /api/toggle: {e}")
@@ -520,6 +696,7 @@ def mark_triggered(alert_id):
         conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
         conn.commit()
         conn.close()
+        schedule_backup()
         return jsonify({'status': 'ok'})
     except Exception as e:
         logger.error(f"Error in /api/mark_triggered: {e}")
@@ -532,6 +709,7 @@ def delete_alert(alert_id):
         conn.execute('DELETE FROM watchlist WHERE id = ?', (alert_id,))
         conn.commit()
         conn.close()
+        schedule_backup()
         return jsonify({'status': 'ok'})
     except Exception as e:
         logger.error(f"Error in /api/delete: {e}")
@@ -609,11 +787,15 @@ def import_alerts():
                 stock_alert.get_prev_closes(all_symbols)
         except Exception as e:
             logger.warning(f"Could not pre-cache prev closes after import: {e}")
+        schedule_backup()
         return jsonify({'status': 'ok', 'count': len(data)})
     except Exception as e:
         logger.error(f"Import error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ------------------------------------------------------------------
+#  BACKGROUND THREADS
+# ------------------------------------------------------------------
 def daily_cache_warmer():
     last_run_date = None
     while True:
@@ -661,9 +843,13 @@ threading.Thread(target=start_worker, daemon=True).start()
 threading.Thread(target=daily_cache_warmer, daemon=True).start()
 threading.Thread(target=cleanup_sessions, daemon=True).start()
 
+# ------------------------------------------------------------------
+#  INIT
+# ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
+restore_from_github()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
