@@ -28,9 +28,12 @@ GITHUB_REPO = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
 GITHUB_BACKUP_FILE = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
 GITHUB_API = "https://api.github.com"
 BACKUP_DEBOUNCE_SECONDS = 5
+BACKUP_FAILURE_ALERT_THRESHOLD = 3
 
 _backup_timer = None
 _backup_lock = threading.Lock()
+_backup_failures = 0
+_backup_alert_sent = False
 
 # ------------------------------------------------------------------
 #  AUTH STATE
@@ -281,11 +284,25 @@ def migrate_notes_column():
 # ------------------------------------------------------------------
 #  GITHUB AUTO-BACKUP FUNCTIONS
 # ------------------------------------------------------------------
+def _alert_backup_failure(reason):
+    """
+    Send a Telegram alert the first time backup hits the failure threshold.
+    Subsequent failures do not re-alert until a successful backup resets it.
+    """
+    global _backup_alert_sent
+    if _backup_alert_sent:
+        return
+    _backup_alert_sent = True
+    msg = (f"⚠️ <b>GitHub Backup Failing</b>\n"
+           f"Reason: {reason}\n"
+           f"Backups have failed {_backup_failures} times in a row.\n"
+           f"Likely cause: GITHUB_BACKUP_TOKEN expired or revoked.\n"
+           f"Action: generate a new fine-grained token and update the "
+           f"env var on Render.")
+    stock_alert.send_telegram(msg)
+    logger.error(f"Backup failure alert sent to Telegram: {reason}")
+
 def schedule_backup():
-    """
-    Schedule a backup to GitHub in BACKUP_DEBOUNCE_SECONDS seconds.
-    Coalesces rapid writes into a single commit.
-    """
     global _backup_timer
     if not GITHUB_TOKEN:
         return
@@ -297,7 +314,6 @@ def schedule_backup():
         _backup_timer.start()
 
 def _do_backup():
-    """Fetch the watchlist from the DB and push it as JSON to GitHub."""
     global _backup_timer
     try:
         conn = sqlite3.connect(config.DB_FILE)
@@ -309,12 +325,20 @@ def _do_backup():
         _push_to_github(content)
     except Exception as e:
         logger.error(f"Backup failed: {e}")
+        global _backup_failures
+        _backup_failures += 1
+        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+            _alert_backup_failure(str(e))
     finally:
         with _backup_lock:
             _backup_timer = None
 
 def _push_to_github(content):
-    """Push the given content to the backup file in the GitHub repo."""
+    """
+    Push the given content to the backup file in the GitHub repo.
+    Updates the failure counter and sends Telegram alert on repeated failure.
+    """
+    global _backup_failures, _backup_alert_sent
     url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -322,15 +346,28 @@ def _push_to_github(content):
         "User-Agent": "stock-alert-backup",
     }
 
+    # Step 1: get existing file SHA (or confirm new file)
     sha = None
     try:
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             sha = r.json().get("sha")
+        elif r.status_code == 401:
+            _backup_failures += 1
+            if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+                _alert_backup_failure("401 Unauthorized on GET")
+            return
         elif r.status_code != 404:
             logger.warning(f"GitHub GET returned {r.status_code}: {r.text[:200]}")
+            _backup_failures += 1
+            if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+                _alert_backup_failure(f"HTTP {r.status_code} on GET")
+            return
     except Exception as e:
         logger.error(f"GitHub GET failed: {e}")
+        _backup_failures += 1
+        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+            _alert_backup_failure(f"GET exception: {e}")
         return
 
     try:
@@ -345,19 +382,33 @@ def _push_to_github(content):
     if sha:
         body["sha"] = sha
 
+    # Step 2: PUT the new content
     try:
         r = requests.put(url, headers=headers, json=body, timeout=15)
         if r.status_code in (200, 201):
             logger.info(f"Backed up {alert_count} alerts to GitHub.")
+            # Successful backup → reset failure counter and alert flag
+            if _backup_failures > 0:
+                logger.info("Backup succeeded after previous failures — resetting counter.")
+            _backup_failures = 0
+            _backup_alert_sent = False
         else:
             logger.error(f"GitHub PUT failed {r.status_code}: {r.text[:300]}")
+            _backup_failures += 1
+            if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+                reason = "401 Unauthorized on PUT" if r.status_code == 401 else f"HTTP {r.status_code} on PUT"
+                _alert_backup_failure(reason)
     except Exception as e:
         logger.error(f"GitHub PUT exception: {e}")
+        _backup_failures += 1
+        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+            _alert_backup_failure(f"PUT exception: {e}")
 
 def restore_from_github():
     """
-    On startup, if the DB is empty, restore the watchlist from
-    the backup file on GitHub.
+    On startup, if the DB is empty, restore the watchlist from the
+    backup file on GitHub.
+    Also validate the token: if 401, send a Telegram alert immediately.
     """
     if not GITHUB_TOKEN:
         logger.info("No GITHUB_BACKUP_TOKEN set — skipping restore.")
@@ -369,9 +420,6 @@ def restore_from_github():
         c.execute('SELECT COUNT(*) FROM watchlist')
         count = c.fetchone()[0]
         conn.close()
-        if count > 0:
-            logger.info(f"DB already has {count} alerts — skipping restore.")
-            return
 
         url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
         headers = {
@@ -380,8 +428,26 @@ def restore_from_github():
             "User-Agent": "stock-alert-backup",
         }
         r = requests.get(url, headers=headers, timeout=15)
+
+        # Validate token on every startup regardless of DB state
+        if r.status_code == 401:
+            stock_alert.send_telegram(
+                "🚨 <b>GitHub Backup Token Invalid</b>\n"
+                "The GITHUB_BACKUP_TOKEN is expired or revoked.\n"
+                "Backups will fail until a new token is configured.\n"
+                "Action: generate a new fine-grained token and update "
+                "the env var on Render."
+            )
+            logger.error("Startup: GitHub token returned 401.")
+            return
+
         if r.status_code != 200:
             logger.warning(f"Restore: GitHub returned {r.status_code}. No backup to restore.")
+            return
+
+        # If DB is not empty, we only needed the token validation above.
+        if count > 0:
+            logger.info(f"DB already has {count} alerts — skipping restore.")
             return
 
         content_b64 = r.json().get("content", "")
