@@ -1278,5 +1278,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-18 17:05:53",
     "notes": ""
+  },
+  {
+    "id": 129,
+    "symbol": "GRAVITA",
+    "condition": ">",
+    "trigger_price": 1900.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-18 17:13:00",
+    "notes": ""
   }
 ]
