@@ -1,0 +1,1242 @@
+[
+  {
+    "id": 1,
+    "symbol": "360ONE",
+    "condition": ">",
+    "trigger_price": 1210.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:03:00",
+    "notes": ""
+  },
+  {
+    "id": 2,
+    "symbol": "ABDL",
+    "condition": ">",
+    "trigger_price": 695.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 3,
+    "symbol": "AGARWALEYE",
+    "condition": ">",
+    "trigger_price": 560.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 4,
+    "symbol": "AHCL",
+    "condition": ">",
+    "trigger_price": 19.6,
+    "is_active": 1,
+    "is_triggered": 1,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 5,
+    "symbol": "ALOKINDS",
+    "condition": ">",
+    "trigger_price": 8.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:39:00",
+    "notes": ""
+  },
+  {
+    "id": 6,
+    "symbol": "ANTELOPUS",
+    "condition": ">",
+    "trigger_price": 1220.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 7,
+    "symbol": "APTUS",
+    "condition": ">",
+    "trigger_price": 394.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 8,
+    "symbol": "AQYLON",
+    "condition": ">",
+    "trigger_price": 27.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 9,
+    "symbol": "AWL",
+    "condition": ">",
+    "trigger_price": 205.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 10,
+    "symbol": "BEPL",
+    "condition": ">",
+    "trigger_price": 136.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 11,
+    "symbol": "BLACKBUCK",
+    "condition": ">",
+    "trigger_price": 640.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 12,
+    "symbol": "BRIGHOTEL",
+    "condition": ">",
+    "trigger_price": 69.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 13,
+    "symbol": "CAMPUS",
+    "condition": ">",
+    "trigger_price": 255.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 14,
+    "symbol": "CANHLIFE",
+    "condition": ">",
+    "trigger_price": 157.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:18:00",
+    "notes": ""
+  },
+  {
+    "id": 15,
+    "symbol": "CARRARO",
+    "condition": ">",
+    "trigger_price": 650.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 16,
+    "symbol": "CARTRADE",
+    "condition": ">",
+    "trigger_price": 3250.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 17,
+    "symbol": "CELLO",
+    "condition": ">",
+    "trigger_price": 406.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 18,
+    "symbol": "CHEMPLASTS",
+    "condition": ">",
+    "trigger_price": 190.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 19,
+    "symbol": "CLEAN",
+    "condition": ">",
+    "trigger_price": 912.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 20,
+    "symbol": "CONCOR",
+    "condition": ">",
+    "trigger_price": 530.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 09:42:00",
+    "notes": ""
+  },
+  {
+    "id": 21,
+    "symbol": "DAMCAPITAL",
+    "condition": ">",
+    "trigger_price": 171.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 22,
+    "symbol": "DATAPATTNS",
+    "condition": ">",
+    "trigger_price": 4900.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 23,
+    "symbol": "DHAMPURSUG",
+    "condition": ">",
+    "trigger_price": 165.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 10:13:00",
+    "notes": "Retrace check"
+  },
+  {
+    "id": 24,
+    "symbol": "DIFFNKG",
+    "condition": ">",
+    "trigger_price": 485.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 25,
+    "symbol": "DMART",
+    "condition": ">",
+    "trigger_price": 3755.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 19:58:00",
+    "notes": ""
+  },
+  {
+    "id": 26,
+    "symbol": "DREAMFOLKS",
+    "condition": ">",
+    "trigger_price": 88.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 27,
+    "symbol": "DWARKESH",
+    "condition": ">",
+    "trigger_price": 55.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 28,
+    "symbol": "EASEMYTRIP",
+    "condition": ">",
+    "trigger_price": 10.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 29,
+    "symbol": "ECOSMOBLTY",
+    "condition": ">",
+    "trigger_price": 165.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 30,
+    "symbol": "EDELWEISS",
+    "condition": ">",
+    "trigger_price": 138.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 31,
+    "symbol": "EMAMILTD",
+    "condition": ">",
+    "trigger_price": 390.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 32,
+    "symbol": "EMUDHRA",
+    "condition": "<",
+    "trigger_price": 570.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 33,
+    "symbol": "ENDURANCE",
+    "condition": ">",
+    "trigger_price": 2735.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-17 21:05:00",
+    "notes": ""
+  },
+  {
+    "id": 34,
+    "symbol": "ENTERO",
+    "condition": "<",
+    "trigger_price": 1600.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 35,
+    "symbol": "EXICOM",
+    "condition": ">",
+    "trigger_price": 182.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 36,
+    "symbol": "GARUDA",
+    "condition": ">",
+    "trigger_price": 196.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 37,
+    "symbol": "GENUSPOWER",
+    "condition": ">",
+    "trigger_price": 352.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 38,
+    "symbol": "GLOBECIVIL",
+    "condition": ">",
+    "trigger_price": 50.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 39,
+    "symbol": "GOCOLORS",
+    "condition": ">",
+    "trigger_price": 445.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 40,
+    "symbol": "HAPPSTMNDS",
+    "condition": ">",
+    "trigger_price": 450.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 41,
+    "symbol": "HERANBA",
+    "condition": ">",
+    "trigger_price": 230.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 42,
+    "symbol": "HERITGFOOD",
+    "condition": ">",
+    "trigger_price": 450.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 43,
+    "symbol": "HEXT",
+    "condition": ">",
+    "trigger_price": 615.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 44,
+    "symbol": "HIKAL",
+    "condition": ">",
+    "trigger_price": 255.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 09:36:00",
+    "notes": ""
+  },
+  {
+    "id": 45,
+    "symbol": "HILINFRA",
+    "condition": ">",
+    "trigger_price": 49.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 46,
+    "symbol": "HMAAGRO",
+    "condition": ">",
+    "trigger_price": 25.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 47,
+    "symbol": "INDHOTEL",
+    "condition": ">",
+    "trigger_price": 750.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 07:41:00",
+    "notes": ""
+  },
+  {
+    "id": 48,
+    "symbol": "INDIGOPNTS",
+    "condition": ">",
+    "trigger_price": 1700.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 49,
+    "symbol": "INNOVACAP",
+    "condition": ">",
+    "trigger_price": 1180.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-16 06:36:00",
+    "notes": ""
+  },
+  {
+    "id": 50,
+    "symbol": "IRMENERGY",
+    "condition": ">",
+    "trigger_price": 390.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 51,
+    "symbol": "JAMNAAUTO",
+    "condition": ">",
+    "trigger_price": 147.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 09:53:00",
+    "notes": ""
+  },
+  {
+    "id": 52,
+    "symbol": "JLHL",
+    "condition": ">",
+    "trigger_price": 335.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 53,
+    "symbol": "JNKINDIA",
+    "condition": ">",
+    "trigger_price": 570.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 54,
+    "symbol": "JTLIND",
+    "condition": ">",
+    "trigger_price": 84.1,
+    "is_active": 1,
+    "is_triggered": 1,
+    "added_at": "2026-09-15 22:16:00",
+    "notes": ""
+  },
+  {
+    "id": 55,
+    "symbol": "JYOTHYLAB",
+    "condition": ">",
+    "trigger_price": 215.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 56,
+    "symbol": "KAJARIACER",
+    "condition": ">",
+    "trigger_price": 1260.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 07:36:00",
+    "notes": ""
+  },
+  {
+    "id": 57,
+    "symbol": "KAYNES",
+    "condition": ">",
+    "trigger_price": 4530.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 58,
+    "symbol": "KMSUGAR",
+    "condition": ">",
+    "trigger_price": 35.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 59,
+    "symbol": "KRONOX",
+    "condition": ">",
+    "trigger_price": 225.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 60,
+    "symbol": "KROSS",
+    "condition": ">",
+    "trigger_price": 245.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 61,
+    "symbol": "KRYSTAL",
+    "condition": ">",
+    "trigger_price": 710.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 62,
+    "symbol": "LATENTVIEW",
+    "condition": ">",
+    "trigger_price": 340.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 63,
+    "symbol": "LAXMIDENTL",
+    "condition": ">",
+    "trigger_price": 280.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 64,
+    "symbol": "LOTUSDEV",
+    "condition": ">",
+    "trigger_price": 217.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 65,
+    "symbol": "MAMATA",
+    "condition": ">",
+    "trigger_price": 440.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 66,
+    "symbol": "MAPMYINDIA",
+    "condition": ">",
+    "trigger_price": 1215.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 67,
+    "symbol": "MEDANTA",
+    "condition": ">",
+    "trigger_price": 1510.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 68,
+    "symbol": "MEIL",
+    "condition": ">",
+    "trigger_price": 350.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 69,
+    "symbol": "MOBIKWIK",
+    "condition": ">",
+    "trigger_price": 235.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 70,
+    "symbol": "MOTISONS",
+    "condition": ">",
+    "trigger_price": 17.5,
+    "is_active": 1,
+    "is_triggered": 1,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 71,
+    "symbol": "MRPL",
+    "condition": ">",
+    "trigger_price": 190.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 72,
+    "symbol": "MUTHOOTMF",
+    "condition": ">",
+    "trigger_price": 252.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 73,
+    "symbol": "NFL",
+    "condition": ">",
+    "trigger_price": 78.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 07:47:00",
+    "notes": ""
+  },
+  {
+    "id": 74,
+    "symbol": "NILASPACES",
+    "condition": ">",
+    "trigger_price": 13.75,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-16 10:45:00",
+    "notes": ""
+  },
+  {
+    "id": 75,
+    "symbol": "NURECA",
+    "condition": ">",
+    "trigger_price": 451.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 76,
+    "symbol": "OIL",
+    "condition": ">",
+    "trigger_price": 520.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 09:31:00",
+    "notes": "buy 2500"
+  },
+  {
+    "id": 77,
+    "symbol": "OLAELEC",
+    "condition": ">",
+    "trigger_price": 60.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 78,
+    "symbol": "ORCHPHARMA",
+    "condition": "<",
+    "trigger_price": 940.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-16 06:38:00",
+    "notes": ""
+  },
+  {
+    "id": 79,
+    "symbol": "OSWALPUMPS",
+    "condition": ">",
+    "trigger_price": 440.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 80,
+    "symbol": "PARADEEP",
+    "condition": ">",
+    "trigger_price": 165.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 81,
+    "symbol": "PICCADIL",
+    "condition": ">",
+    "trigger_price": 800.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 23:44:00",
+    "notes": ""
+  },
+  {
+    "id": 82,
+    "symbol": "PINELABS",
+    "condition": ">",
+    "trigger_price": 210.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 22:33:00",
+    "notes": ""
+  },
+  {
+    "id": 83,
+    "symbol": "PLAZACABLE",
+    "condition": ">",
+    "trigger_price": 64.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 84,
+    "symbol": "PONNIERODE",
+    "condition": ">",
+    "trigger_price": 372.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 10:15:00",
+    "notes": "Sugar retrace"
+  },
+  {
+    "id": 85,
+    "symbol": "PROSTARM",
+    "condition": ">",
+    "trigger_price": 145.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 86,
+    "symbol": "PROTEAN",
+    "condition": ">",
+    "trigger_price": 685.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 87,
+    "symbol": "PWL",
+    "condition": ">",
+    "trigger_price": 158.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:11:00",
+    "notes": ""
+  },
+  {
+    "id": 88,
+    "symbol": "RAYMONDREL",
+    "condition": ">",
+    "trigger_price": 710.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:13:00",
+    "notes": ""
+  },
+  {
+    "id": 89,
+    "symbol": "ROLEXRINGS",
+    "condition": ">",
+    "trigger_price": 170.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 90,
+    "symbol": "RUSHIL",
+    "condition": ">",
+    "trigger_price": 18.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:15:00",
+    "notes": ""
+  },
+  {
+    "id": 91,
+    "symbol": "RUSTOMJEE",
+    "condition": ">",
+    "trigger_price": 435.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 92,
+    "symbol": "SAGILITY",
+    "condition": ">",
+    "trigger_price": 46.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:50:00",
+    "notes": ""
+  },
+  {
+    "id": 93,
+    "symbol": "SALASAR",
+    "condition": ">",
+    "trigger_price": 5.6,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 20:07:00",
+    "notes": ""
+  },
+  {
+    "id": 94,
+    "symbol": "SAPPHIRE",
+    "condition": ">",
+    "trigger_price": 260.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 95,
+    "symbol": "SARVESHWAR",
+    "condition": ">",
+    "trigger_price": 4.17,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 09:49:00",
+    "notes": "basmati play"
+  },
+  {
+    "id": 96,
+    "symbol": "SCODATUBES",
+    "condition": ">",
+    "trigger_price": 140.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 97,
+    "symbol": "SHANTIGOLD",
+    "condition": ">",
+    "trigger_price": 270.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:35:00",
+    "notes": ""
+  },
+  {
+    "id": 98,
+    "symbol": "SIGNATURE",
+    "condition": ">",
+    "trigger_price": 835.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 99,
+    "symbol": "SMARTWORKS",
+    "condition": ">",
+    "trigger_price": 610.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 100,
+    "symbol": "SMCGLOBAL",
+    "condition": ">",
+    "trigger_price": 90.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 101,
+    "symbol": "SSDL",
+    "condition": ">",
+    "trigger_price": 78.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 102,
+    "symbol": "STYL",
+    "condition": ">",
+    "trigger_price": 425.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 103,
+    "symbol": "STYLEBAAZA",
+    "condition": ">",
+    "trigger_price": 425.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 104,
+    "symbol": "SUBEXLTD",
+    "condition": ">",
+    "trigger_price": 22.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 105,
+    "symbol": "SULA",
+    "condition": ">",
+    "trigger_price": 175.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 106,
+    "symbol": "SURAKSHA",
+    "condition": ">",
+    "trigger_price": 350.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 107,
+    "symbol": "SWIGGY",
+    "condition": ">",
+    "trigger_price": 300.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 108,
+    "symbol": "TEXRAIL",
+    "condition": ">",
+    "trigger_price": 123.75,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 109,
+    "symbol": "THOMASCOOK",
+    "condition": ">",
+    "trigger_price": 115.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:47:00",
+    "notes": ""
+  },
+  {
+    "id": 110,
+    "symbol": "TIPSMUSIC",
+    "condition": ">",
+    "trigger_price": 725.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 07:52:00",
+    "notes": ""
+  },
+  {
+    "id": 111,
+    "symbol": "TITAGARH",
+    "condition": ">",
+    "trigger_price": 970.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 112,
+    "symbol": "TRANSRAILL",
+    "condition": ">",
+    "trigger_price": 610.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 113,
+    "symbol": "TVSSCS",
+    "condition": ">",
+    "trigger_price": 143.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 114,
+    "symbol": "UNIECOM",
+    "condition": ">",
+    "trigger_price": 94.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 115,
+    "symbol": "UNIMECH",
+    "condition": "<",
+    "trigger_price": 1530.0,
+    "is_active": 1,
+    "is_triggered": 1,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 116,
+    "symbol": "URBANCO",
+    "condition": "<",
+    "trigger_price": 155.0,
+    "is_active": 1,
+    "is_triggered": 1,
+    "added_at": "2026-09-13 09:46:00",
+    "notes": "retrace check"
+  },
+  {
+    "id": 117,
+    "symbol": "UTKARSHBNK",
+    "condition": ">",
+    "trigger_price": 16.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 118,
+    "symbol": "VERANDA",
+    "condition": ">",
+    "trigger_price": 265.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 119,
+    "symbol": "VMSTMT",
+    "condition": ">",
+    "trigger_price": 51.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 120,
+    "symbol": "VPRPL",
+    "condition": ">",
+    "trigger_price": 54.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 121,
+    "symbol": "WHIRLPOOL",
+    "condition": ">",
+    "trigger_price": 790.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-13 07:37:00",
+    "notes": ""
+  },
+  {
+    "id": 122,
+    "symbol": "YATRA",
+    "condition": ">",
+    "trigger_price": 136.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  },
+  {
+    "id": 123,
+    "symbol": "ZAGGLE",
+    "condition": ">",
+    "trigger_price": 220.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:48:00",
+    "notes": ""
+  },
+  {
+    "id": 124,
+    "symbol": "ZEEL",
+    "condition": ">",
+    "trigger_price": 113.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-12 17:24:00",
+    "notes": ""
+  }
+]
