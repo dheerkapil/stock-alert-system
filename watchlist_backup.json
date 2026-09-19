@@ -1388,5 +1388,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:01:53",
     "notes": ""
+  },
+  {
+    "id": 140,
+    "symbol": "DEEPA",
+    "condition": ">",
+    "trigger_price": 203.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:02:26",
+    "notes": ""
   }
 ]
