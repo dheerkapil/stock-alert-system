@@ -1748,5 +1748,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:16:19",
     "notes": ""
+  },
+  {
+    "id": 176,
+    "symbol": "JKIPL",
+    "condition": ">",
+    "trigger_price": 122.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:16:55",
+    "notes": ""
   }
 ]
