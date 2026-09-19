@@ -1398,5 +1398,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:02:26",
     "notes": ""
+  },
+  {
+    "id": 141,
+    "symbol": "PERNIASPOP",
+    "condition": ">",
+    "trigger_price": 580.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:02:57",
+    "notes": ""
   }
 ]
