@@ -1478,5 +1478,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:32:14",
     "notes": ""
+  },
+  {
+    "id": 149,
+    "symbol": "TEMPSENS",
+    "condition": ">",
+    "trigger_price": 610.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:32:56",
+    "notes": "temp"
   }
 ]
