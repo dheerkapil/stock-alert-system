@@ -1958,5 +1958,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 14:09:29",
     "notes": ""
+  },
+  {
+    "id": 198,
+    "symbol": "STEAMHOUSE",
+    "condition": ">",
+    "trigger_price": 104.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 14:10:11",
+    "notes": ""
   }
 ]
