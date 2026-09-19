@@ -1798,5 +1798,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:40:43",
     "notes": ""
+  },
+  {
+    "id": 181,
+    "symbol": "REGAAL",
+    "condition": ">",
+    "trigger_price": 97.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:47:18",
+    "notes": ""
   }
 ]
