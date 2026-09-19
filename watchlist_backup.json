@@ -1638,5 +1638,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:55:20",
     "notes": ""
+  },
+  {
+    "id": 165,
+    "symbol": "SRTL",
+    "condition": ">",
+    "trigger_price": 41.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:57:31",
+    "notes": ""
   }
 ]
