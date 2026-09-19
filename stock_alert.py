@@ -18,6 +18,11 @@ _PREV_CLOSE_CACHE = {}
 _PREV_CLOSE_DATE = None
 
 # ------------------------------------------------------------------
+#  HEARTBEAT STATE
+# ------------------------------------------------------------------
+_last_heartbeat_hour = None
+
+# ------------------------------------------------------------------
 #  AUTH HEADER FOR WORKER ROUTES
 # ------------------------------------------------------------------
 def api_headers():
@@ -38,10 +43,6 @@ def is_weekday(now):
     return now.weekday() < 5
 
 def _extract_date_ist(idx):
-    """
-    Given a pandas Timestamp (possibly tz-aware, possibly naive),
-    return its date in IST.
-    """
     try:
         if hasattr(idx, 'tzinfo') and idx.tzinfo is not None:
             return idx.astimezone(config.TIMEZONE).date()
@@ -137,12 +138,6 @@ def _invalidate_cache_if_new_day():
         logger.info(f"Previous-close cache invalidated for new day: {today}")
 
 def batch_fetch_prev_closes(symbols):
-    """
-    Batch download previous closes for multiple symbols in ONE Yahoo Finance call.
-    Explicitly skips any bar whose date equals today (IST), so that the previous
-    close is always the last COMPLETED trading day, regardless of whether the
-    fetch runs before market open, during trading, or after close.
-    """
     if not symbols:
         return {}
     symbols = [s.upper() for s in symbols]
@@ -169,13 +164,10 @@ def batch_fetch_prev_closes(symbols):
 
     for sym, ticker in zip(symbols, tickers):
         try:
-            # --- Locate this symbol's DataFrame in the download result ---
             df = None
             if len(symbols) == 1:
-                # Single symbol: yf.download returns a flat DataFrame
                 df = data
             else:
-                # Multi-symbol with group_by='ticker': MultiIndex columns
                 if hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
                     df = data[ticker]
                 else:
@@ -186,12 +178,17 @@ def batch_fetch_prev_closes(symbols):
                 result[sym] = None
                 continue
 
+            # --- Guard for missing 'Close' column (newly listed / illiquid) ---
+            if 'Close' not in df.columns:
+                logger.warning(f"No 'Close' column for {sym} — skipping.")
+                result[sym] = None
+                continue
+
             closes = df['Close'].dropna()
             if closes.empty:
                 result[sym] = None
                 continue
 
-            # --- Walk backward from the last bar, take the last bar NOT from today ---
             prev_close = None
             for i in range(len(closes) - 1, -1, -1):
                 idx = closes.index[i]
@@ -209,6 +206,8 @@ def batch_fetch_prev_closes(symbols):
     return result
 
 def get_prev_closes(symbols):
+    """Fetch prev closes using cache; fetches missing ones from Yahoo.
+    NOT safe to call from request handlers — may block for seconds."""
     global _PREV_CLOSE_CACHE
     _invalidate_cache_if_new_day()
 
@@ -235,6 +234,13 @@ def get_prev_closes(symbols):
 
     return result
 
+def get_prev_closes_cached_only(symbols):
+    """Read from cache only. Never fetches. Safe inside request handlers."""
+    _invalidate_cache_if_new_day()
+    if not symbols:
+        return {}
+    return {s.upper(): _PREV_CLOSE_CACHE.get(s.upper()) for s in symbols}
+
 def add_symbol_to_cache(symbol):
     global _PREV_CLOSE_CACHE
     _invalidate_cache_if_new_day()
@@ -250,68 +256,101 @@ def add_symbol_to_cache(symbol):
     return val
 
 # ------------------------------------------------------------------
-#  TELEGRAM
+#  TELEGRAM  (with retry)
 # ------------------------------------------------------------------
-def send_telegram(message):
+def send_telegram(message, retries=3):
+    """Send a Telegram message. Retries up to `retries` times on failure.
+    Returns True on success, False if all attempts failed."""
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         logger.error("Telegram credentials missing.")
-        return
+        return False
+
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": config.TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
-    try:
-        requests.post(url, json=payload, timeout=10)
-    except Exception as e:
-        logger.error(f"Telegram error: {e}")
+
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.post(url, json=payload, timeout=10)
+            if r.status_code == 200:
+                return True
+            logger.warning(f"Telegram returned {r.status_code} (attempt {attempt}/{retries})")
+        except Exception as e:
+            logger.warning(f"Telegram error (attempt {attempt}/{retries}): {e}")
+        if attempt < retries:
+            time.sleep(2)
+
+    logger.error(f"Telegram failed after {retries} attempts: {message[:80]}")
+    return False
 
 # ------------------------------------------------------------------
-#  MAIN LOOP
+#  MAIN LOOP  (supervised + heartbeat)
 # ------------------------------------------------------------------
 def main():
+    global _last_heartbeat_hour
+
     logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
     logger.info(f"Market hours: {config.START_TIME} - {config.STOP_TIME} IST. Weekdays only.")
 
     while True:
-        now = datetime.now(config.TIMEZONE)
-
-        while not is_weekday(now) or not is_market_open(now):
-            time.sleep(60)
+        try:
             now = datetime.now(config.TIMEZONE)
 
-        alerts = get_active_alerts()
-        if not alerts:
-            logger.info("No active alerts.")
-            time.sleep(config.POLL_INTERVAL)
-            continue
+            # --- Sleep outside market hours ---
+            while not is_weekday(now) or not is_market_open(now):
+                time.sleep(60)
+                now = datetime.now(config.TIMEZONE)
 
-        symbols = list(set(a['symbol'] for a in alerts))
-        logger.info(f"Fetching prices for {len(symbols)} symbols...")
-        prices = get_prices(symbols)
+            alerts = get_active_alerts()
 
-        for alert in alerts:
-            symbol = alert['symbol']
-            cond = alert['condition']
-            trigger = alert['trigger_price']
-            current = prices.get(symbol)
-            if current is None:
+            # --- Hourly heartbeat (fires once per hour, on first loop tick of the hour) ---
+            if now.hour != _last_heartbeat_hour:
+                send_telegram(
+                    f"💓 Alive — {now.strftime('%H:%M')} IST\n"
+                    f"Active alerts: {len(alerts)}"
+                )
+                _last_heartbeat_hour = now.hour
+
+            if not alerts:
+                logger.info("No active alerts.")
+                time.sleep(config.POLL_INTERVAL)
                 continue
 
-            triggered = False
-            if cond == '>' and current > trigger:
-                triggered = True
-            elif cond == '<' and current < trigger:
-                triggered = True
+            symbols = list(set(a['symbol'] for a in alerts))
+            logger.info(f"Fetching prices for {len(symbols)} symbols...")
+            prices = get_prices(symbols)
 
-            if triggered:
-                msg = (f"🔔 ALERT\n{symbol} {cond} {trigger}\nCurrent: {current}\n{now.strftime('%H:%M:%S')} IST")
-                send_telegram(msg)
-                try:
-                    requests.post(f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
-                                  headers=api_headers(), timeout=10)
-                except Exception as e:
-                    logger.error(f"Failed to mark triggered: {e}")
-                logger.info(f"Alert {alert['id']} triggered.")
+            for alert in alerts:
+                symbol = alert['symbol']
+                cond = alert['condition']
+                trigger = alert['trigger_price']
+                current = prices.get(symbol)
+                if current is None:
+                    continue
 
-        time.sleep(config.POLL_INTERVAL)
+                triggered = False
+                if cond == '>' and current > trigger:
+                    triggered = True
+                elif cond == '<' and current < trigger:
+                    triggered = True
+
+                if triggered:
+                    msg = (f"🔔 ALERT\n{symbol} {cond} {trigger}\n"
+                           f"Current: {current}\n{now.strftime('%H:%M:%S')} IST")
+                    send_telegram(msg)
+                    try:
+                        requests.post(
+                            f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
+                            headers=api_headers(), timeout=10
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to mark triggered: {e}")
+                    logger.info(f"Alert {alert['id']} triggered.")
+
+            time.sleep(config.POLL_INTERVAL)
+
+        except Exception as e:
+            logger.exception(f"Worker error: {e}. Restarting in 30s.")
+            time.sleep(30)
 
 if __name__ == "__main__":
     main()

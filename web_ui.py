@@ -5,6 +5,8 @@ import time
 import logging
 import secrets
 import random
+import hmac
+import hashlib
 import base64
 import requests
 import pandas as pd
@@ -19,6 +21,11 @@ logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# ------------------------------------------------------------------
+#  SESSION SECRET (for signed cookies)
+# ------------------------------------------------------------------
+SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long-random-string")
 
 # ------------------------------------------------------------------
 #  GITHUB AUTO-BACKUP CONFIGURATION
@@ -38,7 +45,9 @@ _backup_alert_sent = False
 # ------------------------------------------------------------------
 #  AUTH STATE
 # ------------------------------------------------------------------
-SESSIONS = {}
+# NOTE: Sessions are now stored in signed cookies (no server-side dict).
+# Only PENDING_OTP remains in memory. If the worker restarts, users stay
+# logged in — but pending OTPs are lost (acceptable, just request a new one).
 PENDING_OTP = {}
 SESSION_DURATION = 30 * 24 * 3600
 OTP_VALIDITY = 300
@@ -90,17 +99,29 @@ def get_client_ip():
         return xff.split(',')[0].strip()
     return request.remote_addr or 'unknown'
 
+def make_session_token():
+    """Generate a signed token: '<expiry>.<hmac>'. Stateless, survives restarts."""
+    expiry = int(time.time()) + SESSION_DURATION
+    payload = str(expiry)
+    sig = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+def verify_session_token(token):
+    """Return True if the token's signature is valid and it hasn't expired."""
+    try:
+        payload, sig = token.rsplit(".", 1)
+        expected = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return False
+        return int(payload) > time.time()
+    except Exception:
+        return False
+
 def is_authenticated():
     sid = request.cookies.get('session_id')
     if not sid:
         return False
-    expiry = SESSIONS.get(sid)
-    if not expiry:
-        return False
-    if expiry < time.time():
-        SESSIONS.pop(sid, None)
-        return False
-    return True
+    return verify_session_token(sid)
 
 def is_valid_worker_key():
     supplied = request.headers.get('X-API-Key', '')
@@ -167,8 +188,10 @@ def verify_otp():
         stock_alert.send_telegram(f"❌ <b>Failed login attempt</b>\nIP: <code>{ip}</code>\nAttempt: {entry['attempts']} of {MAX_OTP_ATTEMPTS}")
         return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
     PENDING_OTP.pop(ip, None)
-    session_id = secrets.token_urlsafe(32)
-    SESSIONS[session_id] = now + SESSION_DURATION
+
+    # Stateless signed session token — survives worker restarts.
+    session_id = make_session_token()
+
     ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
     stock_alert.send_telegram(f"✅ <b>Login Success</b>\nIP: <code>{ip}</code>\nTime: {ist_time}")
     resp = make_response(jsonify({'status': 'ok'}))
@@ -180,9 +203,6 @@ def verify_otp():
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    sid = request.cookies.get('session_id')
-    if sid:
-        SESSIONS.pop(sid, None)
     ip = get_client_ip()
     ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
     stock_alert.send_telegram(f"👋 <b>Logout</b>\nIP: <code>{ip}</code>\nTime: {ist_time}")
@@ -285,10 +305,6 @@ def migrate_notes_column():
 #  GITHUB AUTO-BACKUP FUNCTIONS
 # ------------------------------------------------------------------
 def _alert_backup_failure(reason):
-    """
-    Send a Telegram alert the first time backup hits the failure threshold.
-    Subsequent failures do not re-alert until a successful backup resets it.
-    """
     global _backup_alert_sent
     if _backup_alert_sent:
         return
@@ -334,10 +350,6 @@ def _do_backup():
             _backup_timer = None
 
 def _push_to_github(content):
-    """
-    Push the given content to the backup file in the GitHub repo.
-    Updates the failure counter and sends Telegram alert on repeated failure.
-    """
     global _backup_failures, _backup_alert_sent
     url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
     headers = {
@@ -346,7 +358,6 @@ def _push_to_github(content):
         "User-Agent": "stock-alert-backup",
     }
 
-    # Step 1: get existing file SHA (or confirm new file)
     sha = None
     try:
         r = requests.get(url, headers=headers, timeout=10)
@@ -382,12 +393,10 @@ def _push_to_github(content):
     if sha:
         body["sha"] = sha
 
-    # Step 2: PUT the new content
     try:
         r = requests.put(url, headers=headers, json=body, timeout=15)
         if r.status_code in (200, 201):
             logger.info(f"Backed up {alert_count} alerts to GitHub.")
-            # Successful backup → reset failure counter and alert flag
             if _backup_failures > 0:
                 logger.info("Backup succeeded after previous failures — resetting counter.")
             _backup_failures = 0
@@ -405,16 +414,10 @@ def _push_to_github(content):
             _alert_backup_failure(f"PUT exception: {e}")
 
 def restore_from_github():
-    """
-    On startup, if the DB is empty, restore the watchlist from the
-    backup file on GitHub.
-    Also validate the token: if 401, send a Telegram alert immediately.
-    """
     if not GITHUB_TOKEN:
         logger.info("No GITHUB_BACKUP_TOKEN set — skipping restore.")
         return
     try:
-        # Check if DB is empty
         conn = sqlite3.connect(config.DB_FILE)
         c = conn.cursor()
         c.execute('SELECT COUNT(*) FROM watchlist')
@@ -429,7 +432,6 @@ def restore_from_github():
         }
         r = requests.get(url, headers=headers, timeout=15)
 
-        # Validate token on every startup regardless of DB state
         if r.status_code == 401:
             stock_alert.send_telegram(
                 "🚨 <b>GitHub Backup Token Invalid</b>\n"
@@ -445,7 +447,6 @@ def restore_from_github():
             logger.warning(f"Restore: GitHub returned {r.status_code}. No backup to restore.")
             return
 
-        # If DB is not empty, we only needed the token validation above.
         if count > 0:
             logger.info(f"DB already has {count} alerts — skipping restore.")
             return
@@ -564,10 +565,12 @@ def add_alert():
                      (symbol, condition, trigger_price, notes))
         conn.commit()
         conn.close()
-        try:
-            stock_alert.add_symbol_to_cache(symbol)
-        except Exception as e:
-            logger.warning(f"Could not pre-cache prev close for {symbol}: {e}")
+        # Pre-cache prev close in the background (never blocks the request).
+        threading.Thread(
+            target=stock_alert.add_symbol_to_cache,
+            args=(symbol,),
+            daemon=True
+        ).start()
         schedule_backup()
         return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
@@ -710,8 +713,10 @@ def get_alerts():
         if alerts_list:
             symbols = list(set(a['symbol'] for a in alerts_list))
             try:
+                # Live prices: still fetched per request (TradingView is fast).
                 prices = stock_alert.get_prices(symbols)
-                prev_closes = stock_alert.get_prev_closes(symbols)
+                # Prev closes: CACHE ONLY. Never fetches. Background thread keeps it warm.
+                prev_closes = stock_alert.get_prev_closes_cached_only(symbols)
                 for alert in alerts_list:
                     cmp = prices.get(alert['symbol'])
                     alert['cmp'] = cmp
@@ -847,12 +852,17 @@ def import_alerts():
                       int(item.get('is_active', 1)), int(item.get('is_triggered', 0)), notes))
         conn.commit()
         conn.close()
+        # Warm prev-close cache in the background (never blocks the import response).
         try:
             all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
             if all_symbols:
-                stock_alert.get_prev_closes(all_symbols)
+                threading.Thread(
+                    target=stock_alert.get_prev_closes,
+                    args=(all_symbols,),
+                    daemon=True
+                ).start()
         except Exception as e:
-            logger.warning(f"Could not pre-cache prev closes after import: {e}")
+            logger.warning(f"Could not start prev-close warm after import: {e}")
         schedule_backup()
         return jsonify({'status': 'ok', 'count': len(data)})
     except Exception as e:
@@ -886,13 +896,31 @@ def daily_cache_warmer():
             logger.error(f"Cache warmer error: {e}")
             time.sleep(60)
 
+def prev_close_refresher():
+    """Keeps prev-close cache warm in the background so request handlers
+    never have to hit Yahoo Finance. Fires every 30 minutes."""
+    time.sleep(60)  # let the app finish booting
+    while True:
+        try:
+            conn = sqlite3.connect(config.DB_FILE)
+            rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
+            conn.close()
+            symbols = [r[0].upper() for r in rows if r[0]]
+            if symbols:
+                logger.info(f"Prev-close refresher: warming {len(symbols)} symbols")
+                stock_alert.get_prev_closes(symbols)
+                logger.info("Prev-close refresher: done")
+            time.sleep(1800)  # 30 minutes
+        except Exception as e:
+            logger.exception(f"Prev-close refresher error: {e}")
+            time.sleep(300)
+
 def cleanup_sessions():
+    """Expire pending OTPs. Sessions are stateless now (signed cookies),
+    so nothing to clean up for them."""
     while True:
         try:
             now = time.time()
-            expired_sessions = [k for k, v in list(SESSIONS.items()) if v < now]
-            for k in expired_sessions:
-                SESSIONS.pop(k, None)
             expired_otps = [k for k, v in list(PENDING_OTP.items()) if v.get('expiry', 0) < now]
             for k in expired_otps:
                 PENDING_OTP.pop(k, None)
@@ -902,11 +930,18 @@ def cleanup_sessions():
             time.sleep(300)
 
 def start_worker():
+    """Run the alert worker. If it ever raises, restart it after 30s."""
     time.sleep(5)
-    stock_alert.main()
+    while True:
+        try:
+            stock_alert.main()
+        except Exception as e:
+            logger.exception(f"Worker thread died, restarting in 30s: {e}")
+            time.sleep(30)
 
 threading.Thread(target=start_worker, daemon=True).start()
 threading.Thread(target=daily_cache_warmer, daemon=True).start()
+threading.Thread(target=prev_close_refresher, daemon=True).start()
 threading.Thread(target=cleanup_sessions, daemon=True).start()
 
 # ------------------------------------------------------------------
