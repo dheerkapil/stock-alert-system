@@ -1928,5 +1928,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 12:17:58",
     "notes": ""
+  },
+  {
+    "id": 194,
+    "symbol": "RKSWAMY",
+    "condition": ">",
+    "trigger_price": 115.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 12:18:29",
+    "notes": ""
   }
 ]
