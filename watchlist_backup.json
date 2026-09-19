@@ -1758,5 +1758,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:16:55",
     "notes": ""
+  },
+  {
+    "id": 177,
+    "symbol": "TRUALT",
+    "condition": ">",
+    "trigger_price": 541.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:17:26",
+    "notes": ""
   }
 ]
