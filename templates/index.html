@@ -183,7 +183,12 @@
         }
 
         /* ============ TABLE ============ */
-        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+        .table-scroll {
+            overflow: auto;
+            max-height: 75vh;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+        }
         .table-scroll table {
             width: 100%;
             min-width: 1150px;
@@ -192,8 +197,10 @@
             background: var(--surface);
             table-layout: fixed;
         }
-        .table-scroll thead { position: sticky; top: 0; z-index: 10; }
         .table-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
             background: var(--header-bg);
             border-bottom: 1px solid var(--border);
             padding: 10px 6px;
