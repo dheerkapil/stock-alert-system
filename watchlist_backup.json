@@ -1928,5 +1928,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 12:18:29",
     "notes": ""
+  },
+  {
+    "id": 195,
+    "symbol": "VSTL",
+    "condition": ">",
+    "trigger_price": 137.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 12:20:26",
+    "notes": ""
   }
 ]
