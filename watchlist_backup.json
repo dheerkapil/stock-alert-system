@@ -1548,5 +1548,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:38:34",
     "notes": ""
+  },
+  {
+    "id": 156,
+    "symbol": "LCL",
+    "condition": ">",
+    "trigger_price": 585.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:40:08",
+    "notes": ""
   }
 ]
