@@ -196,12 +196,12 @@
         .table-scroll thead th {
             background: var(--header-bg);
             border-bottom: 1px solid var(--border);
-            padding: 10px 6px;
-            font-size: 0.72rem;
+            padding: 10px 5px;
+            font-size: 0.7rem;
             text-transform: uppercase;
             color: var(--text-muted);
             font-weight: 600;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             white-space: nowrap;
             user-select: none;
             overflow: hidden;
@@ -209,14 +209,14 @@
         }
         .table-scroll thead th.sortable { cursor: pointer; }
         .table-scroll thead th.sortable:hover { background: var(--surface-2); }
-        .table-scroll thead th .sort-icon { margin-left: 3px; font-size: 0.6rem; opacity: 0.4; }
+        .table-scroll thead th .sort-icon { margin-left: 2px; font-size: 0.55rem; opacity: 0.4; }
         .table-scroll thead th.active .sort-icon { opacity: 1; color: var(--primary); }
         .table-scroll thead th.active { color: var(--primary); }
         .table-scroll tbody td {
-            padding: 8px 6px;
+            padding: 8px 5px;
             vertical-align: middle;
             border-bottom: 1px solid var(--border-light);
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: var(--text);
             background: var(--surface);
             overflow: hidden;
@@ -231,17 +231,18 @@
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
 
-        /* Column widths (sums to 100%) */
-        .col-symbol  { width: 13%; }
-        .col-cond    { width: 4%; }
-        .col-trigger { width: 8%; }
-        .col-cmp     { width: 8%; }
-        .col-gap     { width: 8%; }
+        /* Column widths — sums to 100% */
+        .col-symbol  { width: 10%; }
+        .col-cond    { width: 3%; }
+        .col-trigger { width: 7%; }
+        .col-cmp     { width: 7%; }
+        .col-gap     { width: 7%; }
         .col-mgap    { width: 6%; }
-        .col-chg     { width: 8%; }
+        .col-chg     { width: 7%; }
+        .col-vol     { width: 7%; }
         .col-status  { width: 5%; }
-        .col-added   { width: 14%; }
-        .col-notes   { width: 15%; }
+        .col-added   { width: 12%; }
+        .col-notes   { width: 18%; }
         .col-actions { width: 11%; }
 
         .text-left { text-align: left; }
@@ -256,7 +257,7 @@
             white-space: nowrap;
             color: var(--text);
             cursor: pointer;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
         }
         .notes-cell:hover { color: var(--primary); text-decoration: underline; }
         .notes-empty { color: var(--text-muted); opacity: 0.35; }
@@ -281,8 +282,8 @@
         .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
         .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
         .table .btn-sm {
-            padding: 5px 8px;
-            font-size: 0.72rem;
+            padding: 5px 7px;
+            font-size: 0.7rem;
             border-radius: 8px;
             margin: 0 1px;
             border: 1px solid var(--border);
@@ -458,17 +459,17 @@
 
             .table-scroll table { min-width: 1000px; }
             .table-scroll thead th {
-                font-size: 0.68rem;
-                padding: 8px 5px;
-                letter-spacing: 0.3px;
+                font-size: 0.65rem;
+                padding: 8px 4px;
+                letter-spacing: 0.2px;
             }
             .table-scroll tbody td {
-                font-size: 0.78rem;
-                padding: 7px 5px;
+                font-size: 0.75rem;
+                padding: 7px 4px;
             }
-            .table .btn-sm { padding: 5px 7px; font-size: 0.68rem; margin: 0; }
+            .table .btn-sm { padding: 5px 6px; font-size: 0.65rem; margin: 0; }
             .status-btn { width: 22px; height: 22px; font-size: 0.55rem; }
-            .notes-cell { font-size: 0.78rem; }
+            .notes-cell { font-size: 0.75rem; }
 
             .autocomplete-item { padding: 9px 11px; font-size: 0.82rem; }
             .autocomplete-item .name { font-size: 0.7rem; }
@@ -564,6 +565,7 @@
                         <th class="sortable text-right col-gap" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-mgap" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-chg" data-sort="pct_chg">% Chg <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right col-vol" data-sort="vol">%Vol <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center col-status" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left col-added" data-sort="added">Added <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left col-notes" data-sort="notes">Notes <span class="sort-icon">↕</span></th>
@@ -909,7 +911,6 @@ let focusedRowIndex = -1;
 function sortAlerts(data, column, direction) {
     const sorted = [...data];
     sorted.sort((a, b) => {
-        let valA, valB;
         switch (column) {
             case 'symbol': return direction * (a.symbol || '').localeCompare(b.symbol || '');
             case 'trigger': return direction * ((parseFloat(a.trigger_price) || 0) - (parseFloat(b.trigger_price) || 0));
@@ -922,6 +923,14 @@ function sortAlerts(data, column, direction) {
                 return direction * (aA - aB);
             }
             case 'pct_chg': return direction * ((parseFloat(a.pct_chg) || 0) - (parseFloat(b.pct_chg) || 0));
+            case 'vol': {
+                const vA = (a.vol_pct === null || a.vol_pct === undefined || !isFinite(a.vol_pct)) ? null : a.vol_pct;
+                const vB = (b.vol_pct === null || b.vol_pct === undefined || !isFinite(b.vol_pct)) ? null : b.vol_pct;
+                if (vA === null && vB === null) return 0;
+                if (vA === null) return 1;
+                if (vB === null) return -1;
+                return direction * (vA - vB);
+            }
             case 'status': {
                 const sv = (i) => i.is_triggered === 1 ? 2 : (i.is_active === 1 ? 0 : 1);
                 return direction * (sv(a) - sv(b));
@@ -959,7 +968,7 @@ function escapeHtml(s) {
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         focusedRowIndex = -1;
         return;
     }
@@ -987,6 +996,10 @@ function renderAlerts(data) {
             pctChgDisplay = (a.pct_chg > 0 ? '+' : '') + a.pct_chg.toFixed(2) + '%';
             pctChgClass = a.pct_chg > 0 ? 'pct-green' : (a.pct_chg < 0 ? 'pct-red' : 'pct-neutral');
         }
+        let volPctDisplay = '-';
+        if (a.vol_pct !== null && a.vol_pct !== undefined && isFinite(a.vol_pct)) {
+            volPctDisplay = a.vol_pct.toFixed(1) + '%';
+        }
         let statusClass = 'inactive', statusText = '⚪', disabled = '';
         if (a.is_triggered === 1) { statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled'; }
         else if (a.is_active === 1) { statusClass = 'active'; statusText = '🟢'; }
@@ -1010,6 +1023,7 @@ function renderAlerts(data) {
             <td class="text-right col-gap ${gapClass}">${gapDisplay}</td>
             <td class="text-right col-mgap">${mgapDisplay}</td>
             <td class="text-right col-chg ${pctChgClass}">${pctChgDisplay}</td>
+            <td class="text-right col-vol">${volPctDisplay}</td>
             <td class="text-center col-status"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left col-added">${dateDisplay}</td>
             <td class="text-left col-notes">${notesCell}</td>
@@ -1423,7 +1437,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="11" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="12" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 

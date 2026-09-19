@@ -12,7 +12,7 @@ import requests
 import pandas as pd
 import json
 from io import StringIO
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from flask import Flask, render_template, request, jsonify, redirect, make_response
 import config
 import stock_alert
@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ------------------------------------------------------------------
-#  SESSION SECRET (for signed cookies)
+#  SESSION SECRET
 # ------------------------------------------------------------------
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long-random-string")
 
 # ------------------------------------------------------------------
-#  GITHUB AUTO-BACKUP CONFIGURATION
+#  GITHUB AUTO-BACKUP
 # ------------------------------------------------------------------
 GITHUB_TOKEN = os.environ.get("GITHUB_BACKUP_TOKEN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
@@ -45,14 +45,16 @@ _backup_alert_sent = False
 # ------------------------------------------------------------------
 #  AUTH STATE
 # ------------------------------------------------------------------
-# NOTE: Sessions are now stored in signed cookies (no server-side dict).
-# Only PENDING_OTP remains in memory. If the worker restarts, users stay
-# logged in — but pending OTPs are lost (acceptable, just request a new one).
 PENDING_OTP = {}
 SESSION_DURATION = 30 * 24 * 3600
 OTP_VALIDITY = 300
 OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
+
+# ------------------------------------------------------------------
+#  EOD RETENTION
+# ------------------------------------------------------------------
+EOD_RETENTION_DAYS = 365
 
 # ------------------------------------------------------------------
 #  NSE SYMBOLS CACHE
@@ -100,14 +102,12 @@ def get_client_ip():
     return request.remote_addr or 'unknown'
 
 def make_session_token():
-    """Generate a signed token: '<expiry>.<hmac>'. Stateless, survives restarts."""
     expiry = int(time.time()) + SESSION_DURATION
     payload = str(expiry)
     sig = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{sig}"
 
 def verify_session_token(token):
-    """Return True if the token's signature is valid and it hasn't expired."""
     try:
         payload, sig = token.rsplit(".", 1)
         expected = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -188,10 +188,7 @@ def verify_otp():
         stock_alert.send_telegram(f"❌ <b>Failed login attempt</b>\nIP: <code>{ip}</code>\nAttempt: {entry['attempts']} of {MAX_OTP_ATTEMPTS}")
         return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
     PENDING_OTP.pop(ip, None)
-
-    # Stateless signed session token — survives worker restarts.
     session_id = make_session_token()
-
     ist_time = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
     stock_alert.send_telegram(f"✅ <b>Login Success</b>\nIP: <code>{ip}</code>\nTime: {ist_time}")
     resp = make_response(jsonify({'status': 'ok'}))
@@ -235,6 +232,19 @@ def init_db():
             )
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS eod_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                trade_date TEXT NOT NULL,
+                open REAL, high REAL, low REAL, close REAL, volume REAL,
+                UNIQUE(symbol, trade_date)
+            )
+        ''')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_eod_symbol_date ON eod_snapshots (symbol, trade_date)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_snapshots (trade_date)')
+
         conn.commit()
         conn.close()
         logger.info("Database initialized.")
@@ -302,7 +312,48 @@ def migrate_notes_column():
         logger.error(f"Notes migration error: {e}")
 
 # ------------------------------------------------------------------
-#  GITHUB AUTO-BACKUP FUNCTIONS
+#  EOD PERSISTENCE
+# ------------------------------------------------------------------
+def _persist_eod_snapshots(eod_data):
+    """Insert today's EOD bar per symbol. Safe to re-run (REPLACE)."""
+    if not eod_data:
+        return
+    today_str = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
+    try:
+        conn = sqlite3.connect(config.DB_FILE)
+        inserted = 0
+        for sym, bar in eod_data.items():
+            if not bar or bar.get('close') is None:
+                continue
+            conn.execute('''
+                INSERT OR REPLACE INTO eod_snapshots
+                (symbol, trade_date, open, high, low, close, volume)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (sym, today_str, bar.get('open'), bar.get('high'),
+                  bar.get('low'), bar.get('close'), bar.get('volume')))
+            inserted += 1
+        conn.commit()
+        conn.close()
+        logger.info(f"✅ Persisted {inserted} EOD snapshots for {today_str}.")
+    except Exception as e:
+        logger.error(f"EOD persist failed: {e}")
+
+def _prune_eod_snapshots():
+    """Delete EOD rows older than EOD_RETENTION_DAYS."""
+    try:
+        cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=EOD_RETENTION_DAYS)).strftime('%Y-%m-%d')
+        conn = sqlite3.connect(config.DB_FILE)
+        cur = conn.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (cutoff,))
+        removed = cur.rowcount
+        conn.commit()
+        conn.close()
+        if removed:
+            logger.info(f"🧹 Pruned {removed} EOD rows older than {cutoff}.")
+    except Exception as e:
+        logger.error(f"EOD prune failed: {e}")
+
+# ------------------------------------------------------------------
+#  GITHUB AUTO-BACKUP
 # ------------------------------------------------------------------
 def _alert_backup_failure(reason):
     global _backup_alert_sent
@@ -313,8 +364,7 @@ def _alert_backup_failure(reason):
            f"Reason: {reason}\n"
            f"Backups have failed {_backup_failures} times in a row.\n"
            f"Likely cause: GITHUB_BACKUP_TOKEN expired or revoked.\n"
-           f"Action: generate a new fine-grained token and update the "
-           f"env var on Render.")
+           f"Action: generate a new fine-grained token and update the env var on Render.")
     stock_alert.send_telegram(msg)
     logger.error(f"Backup failure alert sent to Telegram: {reason}")
 
@@ -437,8 +487,7 @@ def restore_from_github():
                 "🚨 <b>GitHub Backup Token Invalid</b>\n"
                 "The GITHUB_BACKUP_TOKEN is expired or revoked.\n"
                 "Backups will fail until a new token is configured.\n"
-                "Action: generate a new fine-grained token and update "
-                "the env var on Render."
+                "Action: generate a new fine-grained token and update the env var on Render."
             )
             logger.error("Startup: GitHub token returned 401.")
             return
@@ -565,12 +614,18 @@ def add_alert():
                      (symbol, condition, trigger_price, notes))
         conn.commit()
         conn.close()
-        # Pre-cache prev close in the background (never blocks the request).
-        threading.Thread(
-            target=stock_alert.add_symbol_to_cache,
-            args=(symbol,),
-            daemon=True
-        ).start()
+
+        def _warm_new_symbol(sym):
+            try:
+                stock_alert.add_symbol_to_cache(sym)
+            except Exception as e:
+                logger.warning(f"prev-close warm failed for {sym}: {e}")
+            try:
+                stock_alert.get_avg_volumes([sym])
+            except Exception as e:
+                logger.warning(f"avg-volume warm failed for {sym}: {e}")
+
+        threading.Thread(target=_warm_new_symbol, args=(symbol,), daemon=True).start()
         schedule_backup()
         return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
@@ -713,18 +768,28 @@ def get_alerts():
         if alerts_list:
             symbols = list(set(a['symbol'] for a in alerts_list))
             try:
-                # Live prices: still fetched per request (TradingView is fast).
-                prices = stock_alert.get_prices(symbols)
-                # Prev closes: CACHE ONLY. Never fetches. Background thread keeps it warm.
+                pv = stock_alert.get_prices_with_volume(symbols)
                 prev_closes = stock_alert.get_prev_closes_cached_only(symbols)
+                avg_volumes = stock_alert.get_avg_volumes_cached_only(symbols)
+
                 for alert in alerts_list:
-                    cmp = prices.get(alert['symbol'])
+                    entry = pv.get(alert['symbol'], {})
+                    cmp = entry.get('price')
+                    current_vol = entry.get('volume')
                     alert['cmp'] = cmp
+
                     prev_close = prev_closes.get(alert['symbol'])
                     if prev_close and cmp:
                         alert['pct_chg'] = ((cmp - prev_close) / prev_close) * 100
                     else:
                         alert['pct_chg'] = None
+
+                    avg_vol = avg_volumes.get(alert['symbol'])
+                    if current_vol and avg_vol and avg_vol > 0:
+                        alert['vol_pct'] = (current_vol / avg_vol) * 100
+                    else:
+                        alert['vol_pct'] = None
+
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
                     if alert.get('notes') is None:
                         alert['notes'] = ''
@@ -733,6 +798,7 @@ def get_alerts():
                 for alert in alerts_list:
                     alert['cmp'] = None
                     alert['pct_chg'] = None
+                    alert['vol_pct'] = None
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
                     if alert.get('notes') is None:
                         alert['notes'] = ''
@@ -852,17 +918,24 @@ def import_alerts():
                       int(item.get('is_active', 1)), int(item.get('is_triggered', 0)), notes))
         conn.commit()
         conn.close()
-        # Warm prev-close cache in the background (never blocks the import response).
+
+        def _warm_after_import(symbols):
+            try:
+                stock_alert.get_prev_closes(symbols)
+            except Exception as e:
+                logger.warning(f"prev-close warm after import failed: {e}")
+            try:
+                stock_alert.get_avg_volumes(symbols)
+            except Exception as e:
+                logger.warning(f"avg-volume warm after import failed: {e}")
+
         try:
             all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
             if all_symbols:
-                threading.Thread(
-                    target=stock_alert.get_prev_closes,
-                    args=(all_symbols,),
-                    daemon=True
-                ).start()
+                threading.Thread(target=_warm_after_import, args=(all_symbols,), daemon=True).start()
         except Exception as e:
-            logger.warning(f"Could not start prev-close warm after import: {e}")
+            logger.warning(f"Could not start warm after import: {e}")
+
         schedule_backup()
         return jsonify({'status': 'ok', 'count': len(data)})
     except Exception as e:
@@ -872,6 +945,18 @@ def import_alerts():
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
 # ------------------------------------------------------------------
+def _warm_reference_data(symbols):
+    if not symbols:
+        return
+    try:
+        stock_alert.get_prev_closes(symbols)
+    except Exception as e:
+        logger.error(f"prev-close warm failed: {e}")
+    try:
+        stock_alert.get_avg_volumes(symbols)
+    except Exception as e:
+        logger.error(f"avg-volume warm failed: {e}")
+
 def daily_cache_warmer():
     last_run_date = None
     while True:
@@ -879,14 +964,14 @@ def daily_cache_warmer():
             now = datetime.now(config.TIMEZONE)
             today = now.date()
             if (now.hour == 8 and now.minute < 5 and last_run_date != today):
-                logger.info("🕗 8 AM: warming previous-close cache...")
+                logger.info("🕗 8 AM: warming reference caches...")
                 try:
                     conn = sqlite3.connect(config.DB_FILE)
                     rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
                     conn.close()
                     symbols = [r[0].upper() for r in rows if r[0]]
                     if symbols:
-                        stock_alert.get_prev_closes(symbols)
+                        _warm_reference_data(symbols)
                         logger.info(f"✅ Cache warmed for {len(symbols)} symbols.")
                     last_run_date = today
                 except Exception as e:
@@ -896,10 +981,9 @@ def daily_cache_warmer():
             logger.error(f"Cache warmer error: {e}")
             time.sleep(60)
 
-def prev_close_refresher():
-    """Keeps prev-close cache warm in the background so request handlers
-    never have to hit Yahoo Finance. Fires every 30 minutes."""
-    time.sleep(60)  # let the app finish booting
+def reference_data_refresher():
+    """Keeps prev-close + avg-volume caches warm. Never fetches already-cached symbols."""
+    time.sleep(60)
     while True:
         try:
             conn = sqlite3.connect(config.DB_FILE)
@@ -907,17 +991,59 @@ def prev_close_refresher():
             conn.close()
             symbols = [r[0].upper() for r in rows if r[0]]
             if symbols:
-                logger.info(f"Prev-close refresher: warming {len(symbols)} symbols")
-                stock_alert.get_prev_closes(symbols)
-                logger.info("Prev-close refresher: done")
-            time.sleep(1800)  # 30 minutes
+                logger.info(f"Reference refresher: warming {len(symbols)} symbols")
+                _warm_reference_data(symbols)
+                logger.info("Reference refresher: done")
+            time.sleep(1800)
         except Exception as e:
-            logger.exception(f"Prev-close refresher error: {e}")
+            logger.exception(f"Reference refresher error: {e}")
             time.sleep(300)
 
+def eod_fetcher():
+    """
+    Fires once per weekday at/after 4:30 PM IST.
+    Pulls today's completed OHLCV bar, refreshes caches, persists to SQLite, prunes old rows.
+    """
+    last_run_date = None
+    while True:
+        try:
+            now = datetime.now(config.TIMEZONE)
+            today = now.date()
+
+            if (now.weekday() < 5
+                    and now.hour == 16 and now.minute >= 30
+                    and last_run_date != today):
+
+                logger.info("🕟 4:30 PM: fetching end-of-day data...")
+                try:
+                    conn = sqlite3.connect(config.DB_FILE)
+                    rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
+                    conn.close()
+                    symbols = [r[0].upper() for r in rows if r[0]]
+
+                    if symbols:
+                        eod = stock_alert.batch_fetch_eod(symbols)
+
+                        refreshed = 0
+                        for sym, bar in eod.items():
+                            if bar and bar.get('close') is not None:
+                                stock_alert._PREV_CLOSE_CACHE[sym] = bar['close']
+                                refreshed += 1
+                        logger.info(f"✅ EOD: refreshed {refreshed}/{len(symbols)} prev closes.")
+
+                        _persist_eod_snapshots(eod)
+                        _prune_eod_snapshots()
+
+                    last_run_date = today
+                except Exception as e:
+                    logger.error(f"EOD fetch failed: {e}")
+
+            time.sleep(60)
+        except Exception as e:
+            logger.error(f"EOD fetcher error: {e}")
+            time.sleep(60)
+
 def cleanup_sessions():
-    """Expire pending OTPs. Sessions are stateless now (signed cookies),
-    so nothing to clean up for them."""
     while True:
         try:
             now = time.time()
@@ -930,7 +1056,6 @@ def cleanup_sessions():
             time.sleep(300)
 
 def start_worker():
-    """Run the alert worker. If it ever raises, restart it after 30s."""
     time.sleep(5)
     while True:
         try:
@@ -941,7 +1066,8 @@ def start_worker():
 
 threading.Thread(target=start_worker, daemon=True).start()
 threading.Thread(target=daily_cache_warmer, daemon=True).start()
-threading.Thread(target=prev_close_refresher, daemon=True).start()
+threading.Thread(target=reference_data_refresher, daemon=True).start()
+threading.Thread(target=eod_fetcher, daemon=True).start()
 threading.Thread(target=cleanup_sessions, daemon=True).start()
 
 # ------------------------------------------------------------------
