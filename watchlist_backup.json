@@ -1578,5 +1578,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:42:18",
     "notes": "check RSI Divergence"
+  },
+  {
+    "id": 159,
+    "symbol": "KNACK",
+    "condition": ">",
+    "trigger_price": 216.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:44:12",
+    "notes": ""
   }
 ]
