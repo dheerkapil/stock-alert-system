@@ -1818,5 +1818,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:48:10",
     "notes": ""
+  },
+  {
+    "id": 183,
+    "symbol": "MBEL",
+    "condition": ">",
+    "trigger_price": 345.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:49:11",
+    "notes": ""
   }
 ]
