@@ -1888,5 +1888,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 12:06:54",
     "notes": ""
+  },
+  {
+    "id": 190,
+    "symbol": "BAJAJHFL",
+    "condition": ">",
+    "trigger_price": 94.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 12:09:25",
+    "notes": ""
   }
 ]
