@@ -1588,5 +1588,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:44:12",
     "notes": ""
+  },
+  {
+    "id": 160,
+    "symbol": "CSM",
+    "condition": ">",
+    "trigger_price": 112.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:46:13",
+    "notes": ""
   }
 ]
