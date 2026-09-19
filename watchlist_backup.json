@@ -1458,5 +1458,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:05:54",
     "notes": ""
+  },
+  {
+    "id": 147,
+    "symbol": "SYMBIOTEC",
+    "condition": ">",
+    "trigger_price": 1140.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:06:34",
+    "notes": ""
   }
 ]
