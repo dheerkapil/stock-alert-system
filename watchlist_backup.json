@@ -1828,5 +1828,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:49:11",
     "notes": ""
+  },
+  {
+    "id": 184,
+    "symbol": "TRAVELFOOD",
+    "condition": ">",
+    "trigger_price": 1420.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:51:33",
+    "notes": ""
   }
 ]
