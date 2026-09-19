@@ -1728,5 +1728,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 05:20:42",
     "notes": ""
+  },
+  {
+    "id": 174,
+    "symbol": "FABTECH",
+    "condition": ">",
+    "trigger_price": 175.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:15:04",
+    "notes": ""
   }
 ]
