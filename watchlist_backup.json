@@ -1418,5 +1418,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:03:38",
     "notes": ""
+  },
+  {
+    "id": 143,
+    "symbol": "LUMINO",
+    "condition": ">",
+    "trigger_price": 118.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:04:15",
+    "notes": ""
   }
 ]
