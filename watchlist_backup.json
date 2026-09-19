@@ -1678,5 +1678,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 05:02:49",
     "notes": "add 2500"
+  },
+  {
+    "id": 169,
+    "symbol": "STUDDS",
+    "condition": ">",
+    "trigger_price": 458.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 05:07:49",
+    "notes": ""
   }
 ]
