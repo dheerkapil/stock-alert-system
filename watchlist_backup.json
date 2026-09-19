@@ -843,7 +843,7 @@
     "id": 85,
     "symbol": "PROSTARM",
     "condition": ">",
-    "trigger_price": 145.0,
+    "trigger_price": 146.0,
     "is_active": 1,
     "is_triggered": 0,
     "added_at": "2026-09-12 17:24:00",
