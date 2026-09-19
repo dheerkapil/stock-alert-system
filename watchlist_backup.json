@@ -1858,5 +1858,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:56:44",
     "notes": ""
+  },
+  {
+    "id": 187,
+    "symbol": "INVENTURE",
+    "condition": ">",
+    "trigger_price": 1900.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 11:04:56",
+    "notes": ""
   }
 ]
