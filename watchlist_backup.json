@@ -1618,5 +1618,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:48:07",
     "notes": ""
+  },
+  {
+    "id": 163,
+    "symbol": "GSPCROP",
+    "condition": ">",
+    "trigger_price": 575.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:54:25",
+    "notes": ""
   }
 ]
