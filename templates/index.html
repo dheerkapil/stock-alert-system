@@ -191,7 +191,7 @@
         }
         .table-scroll table {
             width: 100%;
-            min-width: 1150px;
+            min-width: 1200px;
             margin-bottom: 0;
             border-collapse: collapse;
             background: var(--surface);
@@ -259,7 +259,7 @@
         .col-status  { width: 72px; }
         .col-added   { width: 148px; }
         /* .col-notes — no width, takes remainder */
-        .col-actions { width: 108px; }
+        .col-actions { width: 140px; }
 
         .text-left { text-align: left; }
         .text-right { text-align: right; }
@@ -473,7 +473,7 @@
             }
             .btn-tool { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
 
-            .table-scroll table { min-width: 1150px; }
+            .table-scroll table { min-width: 1200px; }
             .table-scroll thead th {
                 font-size: 0.65rem;
                 padding: 8px 4px;
@@ -1043,7 +1043,7 @@ function renderAlerts(data) {
             <td class="text-center col-status"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left col-added">${dateDisplay}</td>
             <td class="text-left col-notes">${notesCell}</td>
-            <td class="text-center col-actions" style="white-space:nowrap;">
+            <td class="text-center col-actions">
                 <button class="btn btn-sm btn-outline-primary" data-action="edit" title="Edit (E)">✏️</button>
                 ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning" data-action="reactivate" title="Reactivate (R)">🔄</button>` : ''}
                 <button class="btn btn-sm btn-outline-danger" data-action="delete" title="Delete (Delete)">🗑️</button>
