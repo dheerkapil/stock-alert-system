@@ -1738,5 +1738,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 07:15:04",
     "notes": ""
+  },
+  {
+    "id": 175,
+    "symbol": "PACEDIGITK",
+    "condition": ">",
+    "trigger_price": 228.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 07:16:19",
+    "notes": ""
   }
 ]
