@@ -1378,5 +1378,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:01:13",
     "notes": ""
+  },
+  {
+    "id": 139,
+    "symbol": "PRANAV",
+    "condition": ">",
+    "trigger_price": 123.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:01:53",
+    "notes": ""
   }
 ]
