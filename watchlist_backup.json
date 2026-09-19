@@ -1318,5 +1318,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-18 17:31:09",
     "notes": ""
+  },
+  {
+    "id": 133,
+    "symbol": "NOVAAGRI",
+    "condition": ">",
+    "trigger_price": 26.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 03:22:29",
+    "notes": ""
   }
 ]
