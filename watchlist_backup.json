@@ -1688,5 +1688,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 05:07:49",
     "notes": ""
+  },
+  {
+    "id": 170,
+    "symbol": "ORKLAINDIA",
+    "condition": ">",
+    "trigger_price": 656.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 05:08:54",
+    "notes": ""
   }
 ]
