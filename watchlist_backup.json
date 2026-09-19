@@ -1648,5 +1648,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 04:57:31",
     "notes": ""
+  },
+  {
+    "id": 166,
+    "symbol": "BHARATCOAL",
+    "condition": ">",
+    "trigger_price": 35.25,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 04:59:29",
+    "notes": ""
   }
 ]
