@@ -1153,7 +1153,7 @@
     "id": 116,
     "symbol": "URBANCO",
     "condition": "<",
-    "trigger_price": 155.0,
+    "trigger_price": 197.0,
     "is_active": 1,
     "is_triggered": 1,
     "added_at": "2026-09-13 09:46:00",
