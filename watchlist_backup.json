@@ -1338,5 +1338,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-19 03:51:28",
     "notes": ""
+  },
+  {
+    "id": 135,
+    "symbol": "MPIMANIPAL",
+    "condition": ">",
+    "trigger_price": 349.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-19 03:52:35",
+    "notes": ""
   }
 ]
