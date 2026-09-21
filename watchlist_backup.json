@@ -1120,16 +1120,6 @@
     "notes": ""
   },
   {
-    "id": 115,
-    "symbol": "UNIMECH",
-    "condition": "<",
-    "trigger_price": 1530.0,
-    "is_active": 1,
-    "is_triggered": 1,
-    "added_at": "2026-09-12 17:24:00",
-    "notes": ""
-  },
-  {
     "id": 116,
     "symbol": "URBANCO",
     "condition": ">",
