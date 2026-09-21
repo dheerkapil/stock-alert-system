@@ -1920,7 +1920,7 @@
     "notes": ""
   },
   {
-    "id": 194,
+    "id": 193,
     "symbol": "RKSWAMY",
     "condition": ">",
     "trigger_price": 115.0,
@@ -1930,7 +1930,7 @@
     "notes": ""
   },
   {
-    "id": 195,
+    "id": 194,
     "symbol": "VSTL",
     "condition": ">",
     "trigger_price": 137.5,
@@ -1940,7 +1940,7 @@
     "notes": ""
   },
   {
-    "id": 196,
+    "id": 195,
     "symbol": "PARKHOTELS",
     "condition": ">",
     "trigger_price": 133.0,
@@ -1950,7 +1950,7 @@
     "notes": ""
   },
   {
-    "id": 197,
+    "id": 196,
     "symbol": "MOMSBELIEF",
     "condition": ">",
     "trigger_price": 235.0,
@@ -1960,7 +1960,7 @@
     "notes": ""
   },
   {
-    "id": 198,
+    "id": 197,
     "symbol": "STEAMHOUSE",
     "condition": ">",
     "trigger_price": 104.5,
@@ -1970,13 +1970,23 @@
     "notes": ""
   },
   {
-    "id": 199,
+    "id": 198,
     "symbol": "VEEGALAND",
     "condition": ">",
     "trigger_price": 153.0,
     "is_active": 1,
     "is_triggered": 0,
     "added_at": "2026-09-19 14:11:14",
+    "notes": ""
+  },
+  {
+    "id": 199,
+    "symbol": "GAJA",
+    "condition": ">",
+    "trigger_price": 185.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-21 15:42:00",
     "notes": ""
   }
 ]
