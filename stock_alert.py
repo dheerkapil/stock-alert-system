@@ -13,13 +13,10 @@ logger = logging.getLogger(__name__)
 WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 
 # ------------------------------------------------------------------
-#  DAY-LEVEL CACHES
+#  DAY-LEVEL CACHE FOR PREVIOUS CLOSES
 # ------------------------------------------------------------------
 _PREV_CLOSE_CACHE = {}
 _PREV_CLOSE_DATE = None
-
-_AVG_VOLUME_CACHE = {}
-_AVG_VOLUME_DATE = None
 
 # ------------------------------------------------------------------
 #  HEARTBEAT STATE
@@ -78,8 +75,10 @@ def to_tradingview_symbol(symbol):
 
 def get_prices_with_volume(symbols):
     """
-    Fetch live price + current volume from TradingView scanner.
-    Returns {symbol: {"price": float|None, "volume": float|None}}.
+    Fetch live price + volume + 10-day avg volume + relative volume
+    from TradingView scanner. Returns:
+    {symbol: {"price": float|None, "volume": float|None,
+              "avg_vol_10d": float|None, "rvol": float|None}}
     """
     symbols = list(set(symbols))
     if not symbols:
@@ -89,7 +88,10 @@ def get_prices_with_volume(symbols):
     for i in range(0, len(symbols), config.TRADINGVIEW_CHUNK_SIZE):
         chunk = symbols[i:i + config.TRADINGVIEW_CHUNK_SIZE]
         tickers = [f"NSE:{to_tradingview_symbol(s)}" for s in chunk]
-        payload = {"symbols": {"tickers": tickers}, "columns": ["close", "volume"]}
+        payload = {
+            "symbols": {"tickers": tickers},
+            "columns": ["close", "volume", "average_volume_10d_calc", "relative_volume_10d_calc"]
+        }
         try:
             resp = requests.post(
                 "https://scanner.tradingview.com/india/scan",
@@ -100,14 +102,18 @@ def get_prices_with_volume(symbols):
             for entry in data.get('data', []):
                 tv_symbol = entry['s'].split(':')[1]
                 vals = entry['d']
-                price = vals[0] if len(vals) > 0 else None
-                volume = vals[1] if len(vals) > 1 else None
+                price       = vals[0] if len(vals) > 0 else None
+                volume      = vals[1] if len(vals) > 1 else None
+                avg_vol_10d = vals[2] if len(vals) > 2 else None
+                rvol        = vals[3] if len(vals) > 3 else None
                 tv_clean = tv_symbol.upper().replace('-', '_')
                 for original in chunk:
                     if to_tradingview_symbol(original) == tv_clean:
                         result[original] = {
-                            "price": float(price) if price is not None else None,
-                            "volume": float(volume) if volume is not None else None,
+                            "price":       float(price)       if price       is not None else None,
+                            "volume":      float(volume)      if volume      is not None else None,
+                            "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
+                            "rvol":        float(rvol)        if rvol        is not None else None,
                         }
                         break
         except Exception as e:
@@ -124,14 +130,19 @@ def get_prices_tradingview_chunked(symbols):
 #  PRICE FETCHING (Yahoo Finance fallback)
 # ------------------------------------------------------------------
 def get_prices_yfinance(symbols):
-    """Per-symbol Yahoo fallback. Returns {symbol: {"price": p, "volume": None}}."""
+    """Per-symbol Yahoo fallback. Returns {symbol: {"price": p, "volume": None, ...}}."""
     prices = {}
     for sym in symbols:
         try:
             ticker = yf.Ticker(f"{sym.upper()}.NS")
             data = ticker.history(period="1d", interval="1m")
             if not data.empty:
-                prices[sym] = {"price": float(data['Close'].iloc[-1]), "volume": None}
+                prices[sym] = {
+                    "price": float(data['Close'].iloc[-1]),
+                    "volume": None,
+                    "avg_vol_10d": None,
+                    "rvol": None,
+                }
         except Exception:
             pass
     return prices
@@ -140,7 +151,7 @@ def get_prices_yfinance(symbols):
 #  MASTER PRICE FETCHER
 # ------------------------------------------------------------------
 def get_prices(symbols):
-    """Return {symbol: price}. Uses TradingView first, Yahoo fallback."""
+    """Return {symbol: price}. TradingView first, Yahoo fallback."""
     pv = get_prices_with_volume(symbols)
     missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
     if missing and config.YAHOO_FINANCE_ENABLED:
@@ -153,16 +164,12 @@ def get_prices(symbols):
 #  PREVIOUS CLOSE - DAY-LEVEL CACHE
 # ------------------------------------------------------------------
 def _invalidate_cache_if_new_day():
-    global _PREV_CLOSE_CACHE, _PREV_CLOSE_DATE, _AVG_VOLUME_CACHE, _AVG_VOLUME_DATE
+    global _PREV_CLOSE_CACHE, _PREV_CLOSE_DATE
     today = date.today()
     if _PREV_CLOSE_DATE != today:
         _PREV_CLOSE_CACHE = {}
         _PREV_CLOSE_DATE = today
         logger.info(f"Previous-close cache invalidated for new day: {today}")
-    if _AVG_VOLUME_DATE != today:
-        _AVG_VOLUME_CACHE = {}
-        _AVG_VOLUME_DATE = today
-        logger.info(f"Avg-volume cache invalidated for new day: {today}")
 
 def batch_fetch_prev_closes(symbols):
     if not symbols:
@@ -228,7 +235,12 @@ def batch_fetch_prev_closes(symbols):
     return result
 
 def get_prev_closes(symbols):
-    """Cache-first fetch of prev closes. NOT safe inside request handlers."""
+    """
+    Cache-first fetch of prev closes. A cached None is treated as
+    missing, so failed fetches (e.g. Yahoo 429) get retried later in
+    the day instead of being stuck until tomorrow.
+    NOT safe inside request handlers.
+    """
     global _PREV_CLOSE_CACHE
     _invalidate_cache_if_new_day()
     if not symbols:
@@ -238,7 +250,7 @@ def get_prev_closes(symbols):
     result = {}
     missing = []
     for sym in symbols:
-        if sym in _PREV_CLOSE_CACHE:
+        if sym in _PREV_CLOSE_CACHE and _PREV_CLOSE_CACHE[sym] is not None:
             result[sym] = _PREV_CLOSE_CACHE[sym]
         else:
             missing.append(sym)
@@ -247,7 +259,10 @@ def get_prev_closes(symbols):
         fetched = batch_fetch_prev_closes(missing)
         for sym in missing:
             val = fetched.get(sym)
-            _PREV_CLOSE_CACHE[sym] = val
+            # Only cache successful fetches; keep None out of the cache
+            # so we retry next cycle.
+            if val is not None:
+                _PREV_CLOSE_CACHE[sym] = val
             result[sym] = val
         logger.info(f"Cached previous closes for {len(missing)} new symbols.")
 
@@ -264,111 +279,14 @@ def add_symbol_to_cache(symbol):
     global _PREV_CLOSE_CACHE
     _invalidate_cache_if_new_day()
     sym = symbol.upper()
-    if sym in _PREV_CLOSE_CACHE:
+    if sym in _PREV_CLOSE_CACHE and _PREV_CLOSE_CACHE[sym] is not None:
         return _PREV_CLOSE_CACHE[sym]
     fetched = batch_fetch_prev_closes([sym])
     val = fetched.get(sym)
-    _PREV_CLOSE_CACHE[sym] = val
+    if val is not None:
+        _PREV_CLOSE_CACHE[sym] = val
     logger.info(f"Added {sym} to prev-close cache: {val}")
     return val
-
-# ------------------------------------------------------------------
-#  20-DAY AVERAGE VOLUME - DAY-LEVEL CACHE
-# ------------------------------------------------------------------
-def batch_fetch_avg_volume(symbols):
-    """
-    Batch fetch 20-day average volume (excluding today's incomplete bar).
-    One Yahoo call for all symbols. Returns {symbol: avg_volume | None}.
-    """
-    if not symbols:
-        return {}
-    symbols = [s.upper() for s in symbols]
-    tickers = [f"{s}.NS" for s in symbols]
-
-    logger.info(f"Batch fetching 20-day avg volume for {len(symbols)} symbols...")
-    result = {}
-
-    try:
-        data = yf.download(
-            tickers=" ".join(tickers),
-            period="45d", interval="1d",
-            progress=False, group_by='ticker',
-            threads=True, auto_adjust=False
-        )
-    except Exception as e:
-        logger.error(f"Avg-volume batch download failed: {e}")
-        return {}
-
-    today_ist = datetime.now(config.TIMEZONE).date()
-
-    for sym, ticker in zip(symbols, tickers):
-        try:
-            df = None
-            if len(symbols) == 1:
-                df = data
-            else:
-                if hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
-                    df = data[ticker]
-                else:
-                    result[sym] = None
-                    continue
-
-            if df is None or df.empty or 'Volume' not in df.columns:
-                result[sym] = None
-                continue
-
-            volumes = df['Volume'].dropna()
-            completed = []
-            for i in range(len(volumes)):
-                idx = volumes.index[i]
-                bar_date = _extract_date_ist(idx)
-                if bar_date is not None and bar_date < today_ist:
-                    completed.append(float(volumes.iloc[i]))
-
-            if len(completed) >= 20:
-                result[sym] = sum(completed[-20:]) / 20
-            elif completed:
-                result[sym] = sum(completed) / len(completed)
-            else:
-                result[sym] = None
-        except Exception as e:
-            logger.warning(f"Avg-volume extract failed for {sym}: {e}")
-            result[sym] = None
-
-    return result
-
-def get_avg_volumes(symbols):
-    """Cache-first fetch of avg volumes. NOT safe inside request handlers."""
-    global _AVG_VOLUME_CACHE
-    _invalidate_cache_if_new_day()
-    if not symbols:
-        return {}
-
-    symbols = [s.upper() for s in symbols]
-    result = {}
-    missing = []
-    for sym in symbols:
-        if sym in _AVG_VOLUME_CACHE:
-            result[sym] = _AVG_VOLUME_CACHE[sym]
-        else:
-            missing.append(sym)
-
-    if missing:
-        fetched = batch_fetch_avg_volume(missing)
-        for sym in missing:
-            val = fetched.get(sym)
-            _AVG_VOLUME_CACHE[sym] = val
-            result[sym] = val
-        logger.info(f"Cached avg volumes for {len(missing)} new symbols.")
-
-    return result
-
-def get_avg_volumes_cached_only(symbols):
-    """Cache only. Safe inside request handlers."""
-    _invalidate_cache_if_new_day()
-    if not symbols:
-        return {}
-    return {s.upper(): _AVG_VOLUME_CACHE.get(s.upper()) for s in symbols}
 
 # ------------------------------------------------------------------
 #  END-OF-DAY SNAPSHOT
@@ -376,8 +294,7 @@ def get_avg_volumes_cached_only(symbols):
 def batch_fetch_eod(symbols):
     """
     Fetch today's completed OHLCV bar for each symbol in ONE Yahoo call.
-    Called around 4:30 PM IST. Returns:
-    {symbol: {"open":..,"high":..,"low":..,"close":..,"volume":..} | None}.
+    Called around 4:30 PM IST.
     """
     if not symbols:
         return {}

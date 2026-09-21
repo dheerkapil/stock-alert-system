@@ -315,7 +315,6 @@ def migrate_notes_column():
 #  EOD PERSISTENCE
 # ------------------------------------------------------------------
 def _persist_eod_snapshots(eod_data):
-    """Insert today's EOD bar per symbol. Safe to re-run (REPLACE)."""
     if not eod_data:
         return
     today_str = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
@@ -339,7 +338,6 @@ def _persist_eod_snapshots(eod_data):
         logger.error(f"EOD persist failed: {e}")
 
 def _prune_eod_snapshots():
-    """Delete EOD rows older than EOD_RETENTION_DAYS."""
     try:
         cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=EOD_RETENTION_DAYS)).strftime('%Y-%m-%d')
         conn = sqlite3.connect(config.DB_FILE)
@@ -615,17 +613,13 @@ def add_alert():
         conn.commit()
         conn.close()
 
-        def _warm_new_symbol(sym):
-            try:
-                stock_alert.add_symbol_to_cache(sym)
-            except Exception as e:
-                logger.warning(f"prev-close warm failed for {sym}: {e}")
-            try:
-                stock_alert.get_avg_volumes([sym])
-            except Exception as e:
-                logger.warning(f"avg-volume warm failed for {sym}: {e}")
+        # Only prev-close warm in background — avg-volume now comes from TradingView.
+        threading.Thread(
+            target=stock_alert.add_symbol_to_cache,
+            args=(symbol,),
+            daemon=True
+        ).start()
 
-        threading.Thread(target=_warm_new_symbol, args=(symbol,), daemon=True).start()
         schedule_backup()
         return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
     except Exception as e:
@@ -768,14 +762,18 @@ def get_alerts():
         if alerts_list:
             symbols = list(set(a['symbol'] for a in alerts_list))
             try:
+                # Live prices + volume + 10d avg + rvol — all from TradingView in one call.
                 pv = stock_alert.get_prices_with_volume(symbols)
+                # Prev close still from Yahoo cache (never blocks — refresher keeps it warm).
                 prev_closes = stock_alert.get_prev_closes_cached_only(symbols)
-                avg_volumes = stock_alert.get_avg_volumes_cached_only(symbols)
 
                 for alert in alerts_list:
                     entry = pv.get(alert['symbol'], {})
-                    cmp = entry.get('price')
-                    current_vol = entry.get('volume')
+                    cmp             = entry.get('price')
+                    current_vol     = entry.get('volume')
+                    avg_vol_10d     = entry.get('avg_vol_10d')
+                    rvol            = entry.get('rvol')
+
                     alert['cmp'] = cmp
 
                     prev_close = prev_closes.get(alert['symbol'])
@@ -784,11 +782,12 @@ def get_alerts():
                     else:
                         alert['pct_chg'] = None
 
-                    avg_vol = avg_volumes.get(alert['symbol'])
-                    if current_vol and avg_vol and avg_vol > 0:
-                        alert['vol_pct'] = (current_vol / avg_vol) * 100
+                    if current_vol and avg_vol_10d and avg_vol_10d > 0:
+                        alert['vol_pct'] = (current_vol / avg_vol_10d) * 100
                     else:
                         alert['vol_pct'] = None
+
+                    alert['rvol'] = rvol
 
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
                     if alert.get('notes') is None:
@@ -799,6 +798,7 @@ def get_alerts():
                     alert['cmp'] = None
                     alert['pct_chg'] = None
                     alert['vol_pct'] = None
+                    alert['rvol'] = None
                     alert['company_name'] = NSE_NAME_LOOKUP.get(alert['symbol'].upper(), '')
                     if alert.get('notes') is None:
                         alert['notes'] = ''
@@ -919,22 +919,17 @@ def import_alerts():
         conn.commit()
         conn.close()
 
-        def _warm_after_import(symbols):
-            try:
-                stock_alert.get_prev_closes(symbols)
-            except Exception as e:
-                logger.warning(f"prev-close warm after import failed: {e}")
-            try:
-                stock_alert.get_avg_volumes(symbols)
-            except Exception as e:
-                logger.warning(f"avg-volume warm after import failed: {e}")
-
+        # Warm prev-close cache in background (avg volume no longer cached — comes from TV).
         try:
             all_symbols = list(set([item.get('symbol', '').upper() for item in data if item.get('symbol')]))
             if all_symbols:
-                threading.Thread(target=_warm_after_import, args=(all_symbols,), daemon=True).start()
+                threading.Thread(
+                    target=stock_alert.get_prev_closes,
+                    args=(all_symbols,),
+                    daemon=True
+                ).start()
         except Exception as e:
-            logger.warning(f"Could not start warm after import: {e}")
+            logger.warning(f"Could not start prev-close warm after import: {e}")
 
         schedule_backup()
         return jsonify({'status': 'ok', 'count': len(data)})
@@ -945,17 +940,13 @@ def import_alerts():
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
 # ------------------------------------------------------------------
-def _warm_reference_data(symbols):
+def _warm_prev_closes(symbols):
     if not symbols:
         return
     try:
         stock_alert.get_prev_closes(symbols)
     except Exception as e:
         logger.error(f"prev-close warm failed: {e}")
-    try:
-        stock_alert.get_avg_volumes(symbols)
-    except Exception as e:
-        logger.error(f"avg-volume warm failed: {e}")
 
 def daily_cache_warmer():
     last_run_date = None
@@ -964,14 +955,14 @@ def daily_cache_warmer():
             now = datetime.now(config.TIMEZONE)
             today = now.date()
             if (now.hour == 8 and now.minute < 5 and last_run_date != today):
-                logger.info("🕗 8 AM: warming reference caches...")
+                logger.info("🕗 8 AM: warming prev-close cache...")
                 try:
                     conn = sqlite3.connect(config.DB_FILE)
                     rows = conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall()
                     conn.close()
                     symbols = [r[0].upper() for r in rows if r[0]]
                     if symbols:
-                        _warm_reference_data(symbols)
+                        _warm_prev_closes(symbols)
                         logger.info(f"✅ Cache warmed for {len(symbols)} symbols.")
                     last_run_date = today
                 except Exception as e:
@@ -981,8 +972,8 @@ def daily_cache_warmer():
             logger.error(f"Cache warmer error: {e}")
             time.sleep(60)
 
-def reference_data_refresher():
-    """Keeps prev-close + avg-volume caches warm. Never fetches already-cached symbols."""
+def prev_close_refresher():
+    """Keeps prev-close cache warm. Failed fetches get retried every 30 min."""
     time.sleep(60)
     while True:
         try:
@@ -991,18 +982,18 @@ def reference_data_refresher():
             conn.close()
             symbols = [r[0].upper() for r in rows if r[0]]
             if symbols:
-                logger.info(f"Reference refresher: warming {len(symbols)} symbols")
-                _warm_reference_data(symbols)
-                logger.info("Reference refresher: done")
+                logger.info(f"Prev-close refresher: warming {len(symbols)} symbols")
+                _warm_prev_closes(symbols)
+                logger.info("Prev-close refresher: done")
             time.sleep(1800)
         except Exception as e:
-            logger.exception(f"Reference refresher error: {e}")
+            logger.exception(f"Prev-close refresher error: {e}")
             time.sleep(300)
 
 def eod_fetcher():
     """
     Fires once per weekday at/after 4:30 PM IST.
-    Pulls today's completed OHLCV bar, refreshes caches, persists to SQLite, prunes old rows.
+    Pulls today's completed OHLCV bar, refreshes prev-close cache, persists, prunes.
     """
     last_run_date = None
     while True:
@@ -1066,7 +1057,7 @@ def start_worker():
 
 threading.Thread(target=start_worker, daemon=True).start()
 threading.Thread(target=daily_cache_warmer, daemon=True).start()
-threading.Thread(target=reference_data_refresher, daemon=True).start()
+threading.Thread(target=prev_close_refresher, daemon=True).start()
 threading.Thread(target=eod_fetcher, daemon=True).start()
 threading.Thread(target=cleanup_sessions, daemon=True).start()
 

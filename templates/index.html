@@ -191,7 +191,7 @@
         }
         .table-scroll table {
             width: 100%;
-            min-width: 1200px;
+            min-width: 1280px;
             margin-bottom: 0;
             border-collapse: collapse;
             background: var(--surface);
@@ -247,7 +247,10 @@
             }
         }
 
-        /* Column widths — pixel-based, notes absorbs remaining */
+        /* Column widths — pixel-based, Notes absorbs remaining.
+           Fixed sum: 110+48+82+82+76+72+88+82+78+72+148+140 = 1078px.
+           At 1280px min-width → Notes gets 202px.
+           At 1400px max-width → Notes gets 322px. */
         .col-symbol  { width: 110px; }
         .col-cond    { width: 48px; }
         .col-trigger { width: 82px; }
@@ -256,6 +259,7 @@
         .col-mgap    { width: 72px; }
         .col-chg     { width: 88px; }
         .col-vol     { width: 82px; }
+        .col-rvol    { width: 78px; }
         .col-status  { width: 72px; }
         .col-added   { width: 148px; }
         /* .col-notes — no width, takes remainder */
@@ -297,6 +301,10 @@
         .cmp-green, .gap-green, .pct-green { color: var(--success); font-weight: 600; }
         .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
         .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
+        .rvol-green { color: var(--success); font-weight: 600; }
+        .rvol-yellow { color: var(--warning); font-weight: 600; }
+        .rvol-red { color: var(--danger); font-weight: 600; }
+        .rvol-neutral { color: var(--text-muted); }
         .table .btn-sm {
             padding: 5px 7px;
             font-size: 0.7rem;
@@ -473,7 +481,7 @@
             }
             .btn-tool { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
 
-            .table-scroll table { min-width: 1200px; }
+            .table-scroll table { min-width: 1280px; }
             .table-scroll thead th {
                 font-size: 0.65rem;
                 padding: 8px 4px;
@@ -581,7 +589,8 @@
                         <th class="sortable text-right col-gap" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-mgap" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-chg" data-sort="pct_chg">% Chg <span class="sort-icon">↕</span></th>
-                        <th class="sortable text-right col-vol" data-sort="vol">%Vol <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right col-vol" data-sort="vol">% Vol_10d <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right col-rvol" data-sort="rvol">RVOL <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center col-status" data-sort="status">Status <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left col-added" data-sort="added">Added <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left col-notes" data-sort="notes">Notes <span class="sort-icon">↕</span></th>
@@ -947,6 +956,14 @@ function sortAlerts(data, column, direction) {
                 if (vB === null) return -1;
                 return direction * (vA - vB);
             }
+            case 'rvol': {
+                const vA = (a.rvol === null || a.rvol === undefined || !isFinite(a.rvol)) ? null : a.rvol;
+                const vB = (b.rvol === null || b.rvol === undefined || !isFinite(b.rvol)) ? null : b.rvol;
+                if (vA === null && vB === null) return 0;
+                if (vA === null) return 1;
+                if (vB === null) return -1;
+                return direction * (vA - vB);
+            }
             case 'status': {
                 const sv = (i) => i.is_triggered === 1 ? 2 : (i.is_active === 1 ? 0 : 1);
                 return direction * (sv(a) - sv(b));
@@ -984,7 +1001,7 @@ function escapeHtml(s) {
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         focusedRowIndex = -1;
         return;
     }
@@ -1016,6 +1033,13 @@ function renderAlerts(data) {
         if (a.vol_pct !== null && a.vol_pct !== undefined && isFinite(a.vol_pct)) {
             volPctDisplay = a.vol_pct.toFixed(1) + '%';
         }
+        let rvolDisplay = '-', rvolClass = 'rvol-neutral';
+        if (a.rvol !== null && a.rvol !== undefined && isFinite(a.rvol)) {
+            rvolDisplay = a.rvol.toFixed(1);
+            if (a.rvol > 1.5) rvolClass = 'rvol-green';
+            else if (a.rvol > 1.0) rvolClass = 'rvol-yellow';
+            else rvolClass = 'rvol-red';
+        }
         let statusClass = 'inactive', statusText = '⚪', disabled = '';
         if (a.is_triggered === 1) { statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled'; }
         else if (a.is_active === 1) { statusClass = 'active'; statusText = '🟢'; }
@@ -1040,6 +1064,7 @@ function renderAlerts(data) {
             <td class="text-right col-mgap">${mgapDisplay}</td>
             <td class="text-right col-chg ${pctChgClass}">${pctChgDisplay}</td>
             <td class="text-right col-vol">${volPctDisplay}</td>
+            <td class="text-right col-rvol ${rvolClass}">${rvolDisplay}</td>
             <td class="text-center col-status"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left col-added">${dateDisplay}</td>
             <td class="text-left col-notes">${notesCell}</td>
@@ -1453,7 +1478,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="12" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="13" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 
