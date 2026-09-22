@@ -4,7 +4,7 @@ import logging
 import requests
 import yfinance as yf
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime
 import config
 
 logging.basicConfig(level=config.LOG_LEVEL, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -13,28 +13,19 @@ logger = logging.getLogger(__name__)
 WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 
 # ------------------------------------------------------------------
-#  DAY-LEVEL CACHE FOR PREVIOUS CLOSES
-# ------------------------------------------------------------------
-_PREV_CLOSE_CACHE = {}
-_PREV_CLOSE_DATE = None
-
-# ------------------------------------------------------------------
 #  HEARTBEAT STATE
 # ------------------------------------------------------------------
 _last_heartbeat_hour = None
 
 # ------------------------------------------------------------------
-#  AUTH HEADER FOR WORKER ROUTES
-# ------------------------------------------------------------------
-def api_headers():
-    headers = {}
-    if config.WORKER_API_KEY:
-        headers['X-API-Key'] = config.WORKER_API_KEY
-    return headers
-
-# ------------------------------------------------------------------
 #  HELPERS
 # ------------------------------------------------------------------
+def api_headers():
+    h = {}
+    if config.WORKER_API_KEY:
+        h['X-API-Key'] = config.WORKER_API_KEY
+    return h
+
 def is_market_open(now):
     start = datetime.strptime(config.START_TIME, "%H:%M").time()
     stop  = datetime.strptime(config.STOP_TIME, "%H:%M").time()
@@ -49,13 +40,12 @@ def _extract_date_ist(idx):
             return idx.astimezone(config.TIMEZONE).date()
         elif hasattr(idx, 'date'):
             return idx.date()
-        else:
-            return idx
+        return idx
     except Exception:
         return None
 
 # ------------------------------------------------------------------
-#  FETCH ALERTS FROM WEB UI
+#  FETCH ACTIVE ALERTS FROM WEB UI
 # ------------------------------------------------------------------
 def get_active_alerts():
     try:
@@ -68,17 +58,16 @@ def get_active_alerts():
         return []
 
 # ------------------------------------------------------------------
-#  PRICE + VOLUME FETCHING (TradingView)
+#  TRADINGVIEW — live price + volume metrics
 # ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
 def get_prices_with_volume(symbols):
     """
-    Fetch live price + volume + 10-day avg volume + relative volume
-    from TradingView scanner. Returns:
-    {symbol: {"price": float|None, "volume": float|None,
-              "avg_vol_10d": float|None, "rvol": float|None}}
+    Fetch live price, volume, 10-day average volume, and relative volume
+    from TradingView's scanner in batched calls.
+    Returns {symbol: {price, volume, avg_vol_10d, rvol}}.
     """
     symbols = list(set(symbols))
     if not symbols:
@@ -98,8 +87,7 @@ def get_prices_with_volume(symbols):
                 json=payload, timeout=15
             )
             resp.raise_for_status()
-            data = resp.json()
-            for entry in data.get('data', []):
+            for entry in resp.json().get('data', []):
                 tv_symbol = entry['s'].split(':')[1]
                 vals = entry['d']
                 price       = vals[0] if len(vals) > 0 else None
@@ -121,251 +109,100 @@ def get_prices_with_volume(symbols):
         time.sleep(config.TRADINGVIEW_DELAY)
     return result
 
-def get_prices_tradingview_chunked(symbols):
-    """Backward-compat wrapper. Returns {symbol: price}."""
-    pv = get_prices_with_volume(symbols)
-    return {s: v.get("price") for s, v in pv.items()}
-
 # ------------------------------------------------------------------
-#  PRICE FETCHING (Yahoo Finance fallback)
+#  YAHOO FALLBACK — live price only
 # ------------------------------------------------------------------
 def get_prices_yfinance(symbols):
-    """Per-symbol Yahoo fallback. Returns {symbol: {"price": p, "volume": None, ...}}."""
+    """Per-symbol fallback used only if TradingView returns nothing."""
     prices = {}
     for sym in symbols:
         try:
-            ticker = yf.Ticker(f"{sym.upper()}.NS")
-            data = ticker.history(period="1d", interval="1m")
-            if not data.empty:
+            df = yf.Ticker(f"{sym.upper()}.NS").history(period="1d", interval="1m")
+            if not df.empty:
                 prices[sym] = {
-                    "price": float(data['Close'].iloc[-1]),
-                    "volume": None,
-                    "avg_vol_10d": None,
-                    "rvol": None,
+                    "price": float(df['Close'].iloc[-1]),
+                    "volume": None, "avg_vol_10d": None, "rvol": None,
                 }
         except Exception:
             pass
     return prices
 
-# ------------------------------------------------------------------
-#  MASTER PRICE FETCHER
-# ------------------------------------------------------------------
 def get_prices(symbols):
-    """Return {symbol: price}. TradingView first, Yahoo fallback."""
+    """Return {symbol: price}. TradingView primary, Yahoo fallback."""
     pv = get_prices_with_volume(symbols)
     missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
     if missing and config.YAHOO_FINANCE_ENABLED:
         logger.info(f"Yahoo fallback for {len(missing)} symbols.")
-        yf_pv = get_prices_yfinance(missing)
-        pv.update(yf_pv)
+        pv.update(get_prices_yfinance(missing))
     return {s: v.get("price") for s, v in pv.items()}
 
 # ------------------------------------------------------------------
-#  PREVIOUS CLOSE - DAY-LEVEL CACHE
+#  YAHOO — daily bars (EOD snapshot + startup backfill + new-symbol backfill)
 # ------------------------------------------------------------------
-def _invalidate_cache_if_new_day():
-    global _PREV_CLOSE_CACHE, _PREV_CLOSE_DATE
-    today = date.today()
-    if _PREV_CLOSE_DATE != today:
-        _PREV_CLOSE_CACHE = {}
-        _PREV_CLOSE_DATE = today
-        logger.info(f"Previous-close cache invalidated for new day: {today}")
-
-def batch_fetch_prev_closes(symbols):
+def batch_fetch_daily_bars(symbols, days=5, include_today=False):
+    """
+    ONE Yahoo call for all symbols. Returns a list of tuples:
+      (symbol, trade_date_str, open, high, low, close, volume)
+    Excludes today's incomplete bar unless include_today=True.
+    """
     if not symbols:
-        return {}
+        return []
     symbols = [s.upper() for s in symbols]
     tickers = [f"{s}.NS" for s in symbols]
 
-    logger.info(f"Batch fetching previous closes for {len(symbols)} symbols...")
-    result = {}
+    logger.info(f"Batch fetching {days}d bars for {len(symbols)} symbols...")
 
     try:
         data = yf.download(
             tickers=" ".join(tickers),
-            period="10d", interval="1d",
+            period=f"{days + 2}d", interval="1d",
             progress=False, group_by='ticker',
             threads=True, auto_adjust=False
         )
     except Exception as e:
         logger.error(f"Batch download failed: {e}")
-        return {}
+        return []
 
     today_ist = datetime.now(config.TIMEZONE).date()
+    rows = []
 
     for sym, ticker in zip(symbols, tickers):
         try:
-            df = None
             if len(symbols) == 1:
                 df = data
+            elif hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
+                df = data[ticker]
             else:
-                if hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
-                    df = data[ticker]
-                else:
-                    result[sym] = None
-                    continue
-
-            if df is None or df.empty:
-                result[sym] = None
                 continue
-
-            if 'Close' not in df.columns:
-                logger.warning(f"No 'Close' column for {sym} — skipping.")
-                result[sym] = None
-                continue
-
-            closes = df['Close'].dropna()
-            if closes.empty:
-                result[sym] = None
-                continue
-
-            prev_close = None
-            for i in range(len(closes) - 1, -1, -1):
-                idx = closes.index[i]
-                bar_date = _extract_date_ist(idx)
-                if bar_date is not None and bar_date < today_ist:
-                    prev_close = float(closes.iloc[i])
-                    break
-
-            result[sym] = prev_close
-        except Exception as e:
-            logger.warning(f"Failed to extract prev close for {sym}: {e}")
-            result[sym] = None
-
-    return result
-
-def get_prev_closes(symbols):
-    """
-    Cache-first fetch of prev closes. A cached None is treated as
-    missing, so failed fetches (e.g. Yahoo 429) get retried later in
-    the day instead of being stuck until tomorrow.
-    NOT safe inside request handlers.
-    """
-    global _PREV_CLOSE_CACHE
-    _invalidate_cache_if_new_day()
-    if not symbols:
-        return {}
-
-    symbols = [s.upper() for s in symbols]
-    result = {}
-    missing = []
-    for sym in symbols:
-        if sym in _PREV_CLOSE_CACHE and _PREV_CLOSE_CACHE[sym] is not None:
-            result[sym] = _PREV_CLOSE_CACHE[sym]
-        else:
-            missing.append(sym)
-
-    if missing:
-        fetched = batch_fetch_prev_closes(missing)
-        for sym in missing:
-            val = fetched.get(sym)
-            # Only cache successful fetches; keep None out of the cache
-            # so we retry next cycle.
-            if val is not None:
-                _PREV_CLOSE_CACHE[sym] = val
-            result[sym] = val
-        logger.info(f"Cached previous closes for {len(missing)} new symbols.")
-
-    return result
-
-def get_prev_closes_cached_only(symbols):
-    """Cache only. Safe inside request handlers."""
-    _invalidate_cache_if_new_day()
-    if not symbols:
-        return {}
-    return {s.upper(): _PREV_CLOSE_CACHE.get(s.upper()) for s in symbols}
-
-def add_symbol_to_cache(symbol):
-    global _PREV_CLOSE_CACHE
-    _invalidate_cache_if_new_day()
-    sym = symbol.upper()
-    if sym in _PREV_CLOSE_CACHE and _PREV_CLOSE_CACHE[sym] is not None:
-        return _PREV_CLOSE_CACHE[sym]
-    fetched = batch_fetch_prev_closes([sym])
-    val = fetched.get(sym)
-    if val is not None:
-        _PREV_CLOSE_CACHE[sym] = val
-    logger.info(f"Added {sym} to prev-close cache: {val}")
-    return val
-
-# ------------------------------------------------------------------
-#  END-OF-DAY SNAPSHOT
-# ------------------------------------------------------------------
-def batch_fetch_eod(symbols):
-    """
-    Fetch today's completed OHLCV bar for each symbol in ONE Yahoo call.
-    Called around 4:30 PM IST.
-    """
-    if not symbols:
-        return {}
-    symbols = [s.upper() for s in symbols]
-    tickers = [f"{s}.NS" for s in symbols]
-
-    logger.info(f"Batch fetching EOD data for {len(symbols)} symbols...")
-    result = {}
-
-    try:
-        data = yf.download(
-            tickers=" ".join(tickers),
-            period="5d", interval="1d",
-            progress=False, group_by='ticker',
-            threads=True, auto_adjust=False
-        )
-    except Exception as e:
-        logger.error(f"EOD batch download failed: {e}")
-        return {}
-
-    today_ist = datetime.now(config.TIMEZONE).date()
-
-    for sym, ticker in zip(symbols, tickers):
-        try:
-            df = None
-            if len(symbols) == 1:
-                df = data
-            else:
-                if hasattr(data.columns, 'levels') and ticker in data.columns.levels[0]:
-                    df = data[ticker]
-                else:
-                    result[sym] = None
-                    continue
 
             if df is None or df.empty or 'Close' not in df.columns:
-                result[sym] = None
                 continue
 
-            row = None
-            for i in range(len(df) - 1, -1, -1):
-                idx = df.index[i]
-                bar_date = _extract_date_ist(idx)
-                if bar_date == today_ist:
-                    row = df.iloc[i]
-                    break
+            for i in range(len(df)):
+                bar_date = _extract_date_ist(df.index[i])
+                if bar_date is None:
+                    continue
+                if not include_today and bar_date >= today_ist:
+                    continue
 
-            if row is None:
-                result[sym] = None
-                continue
+                def _fv(col):
+                    if col not in df.columns:
+                        return None
+                    v = df[col].iloc[i]
+                    return None if pd.isna(v) else float(v)
 
-            def _fv(col):
-                if col not in df.columns:
-                    return None
-                v = row[col]
-                return None if pd.isna(v) else float(v)
-
-            result[sym] = {
-                "open":   _fv('Open'),
-                "high":   _fv('High'),
-                "low":    _fv('Low'),
-                "close":  _fv('Close'),
-                "volume": _fv('Volume'),
-            }
+                rows.append((
+                    sym,
+                    bar_date.strftime('%Y-%m-%d'),
+                    _fv('Open'), _fv('High'), _fv('Low'), _fv('Close'), _fv('Volume')
+                ))
         except Exception as e:
-            logger.warning(f"EOD extract failed for {sym}: {e}")
-            result[sym] = None
+            logger.warning(f"Extract failed for {sym}: {e}")
 
-    return result
+    return rows
 
 # ------------------------------------------------------------------
-#  TELEGRAM (with retry)
+#  TELEGRAM (retry)
 # ------------------------------------------------------------------
 def send_telegram(message, retries=3):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
@@ -390,7 +227,7 @@ def send_telegram(message, retries=3):
     return False
 
 # ------------------------------------------------------------------
-#  MAIN LOOP (supervised + heartbeat)
+#  MAIN LOOP — supervised, with hourly heartbeat
 # ------------------------------------------------------------------
 def main():
     global _last_heartbeat_hour
@@ -425,23 +262,20 @@ def main():
             prices = get_prices(symbols)
 
             for alert in alerts:
-                symbol = alert['symbol']
-                cond = alert['condition']
-                trigger = alert['trigger_price']
-                current = prices.get(symbol)
+                current = prices.get(alert['symbol'])
                 if current is None:
                     continue
 
-                triggered = False
-                if cond == '>' and current > trigger:
-                    triggered = True
-                elif cond == '<' and current < trigger:
-                    triggered = True
+                triggered = (
+                    (alert['condition'] == '>' and current > alert['trigger_price']) or
+                    (alert['condition'] == '<' and current < alert['trigger_price'])
+                )
 
                 if triggered:
-                    msg = (f"🔔 ALERT\n{symbol} {cond} {trigger}\n"
-                           f"Current: {current}\n{now.strftime('%H:%M:%S')} IST")
-                    send_telegram(msg)
+                    send_telegram(
+                        f"🔔 ALERT\n{alert['symbol']} {alert['condition']} {alert['trigger_price']}\n"
+                        f"Current: {current}\n{now.strftime('%H:%M:%S')} IST"
+                    )
                     try:
                         requests.post(
                             f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
