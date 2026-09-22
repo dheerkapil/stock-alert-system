@@ -883,18 +883,18 @@ def cleanup_sessions():
         except Exception:
             time.sleep(300)
 
-threading.Thread(target=start_worker,     daemon=True).start()
-threading.Thread(target=eod_fetcher,      daemon=True).start()
-threading.Thread(target=cleanup_sessions, daemon=True).start()
-
 # ------------------------------------------------------------------
-#  INIT
+#  INIT  (must run before threads start)
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
 restore_from_github()
 ensure_eod_backfill()
+
+threading.Thread(target=start_worker,     daemon=True).start()
+threading.Thread(target=eod_fetcher,      daemon=True).start()
+threading.Thread(target=cleanup_sessions, daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
