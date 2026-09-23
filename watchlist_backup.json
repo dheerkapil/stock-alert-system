@@ -1055,7 +1055,7 @@
     "condition": ">",
     "trigger_price": 123.75,
     "is_active": 1,
-    "is_triggered": 0,
+    "is_triggered": 1,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
