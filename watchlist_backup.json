@@ -520,16 +520,6 @@
     "notes": ""
   },
   {
-    "id": 53,
-    "symbol": "JTLIND",
-    "condition": ">",
-    "trigger_price": 84.1,
-    "is_active": 1,
-    "is_triggered": 1,
-    "added_at": "2026-09-15 22:16:00",
-    "notes": ""
-  },
-  {
     "id": 54,
     "symbol": "JYOTHYLAB",
     "condition": ">",
