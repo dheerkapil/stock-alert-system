@@ -1172,12 +1172,12 @@
   {
     "id": 118,
     "symbol": "WHIRLPOOL",
-    "condition": ">",
-    "trigger_price": 750.0,
+    "condition": "<",
+    "trigger_price": 725.0,
     "is_active": 1,
-    "is_triggered": 1,
+    "is_triggered": 0,
     "added_at": "2026-09-13 07:37:00",
-    "notes": ""
+    "notes": "rumour tracking"
   },
   {
     "id": 119,
