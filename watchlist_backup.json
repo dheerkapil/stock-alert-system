@@ -613,7 +613,7 @@
     "id": 62,
     "symbol": "LOTUSDEV",
     "condition": "<",
-    "trigger_price": 220.0,
+    "trigger_price": 219.1,
     "is_active": 1,
     "is_triggered": 1,
     "added_at": "2026-09-12 17:24:00",
