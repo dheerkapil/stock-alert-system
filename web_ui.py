@@ -26,12 +26,14 @@ SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long
 # ------------------------------------------------------------------
 #  GITHUB BACKUP
 # ------------------------------------------------------------------
-GITHUB_TOKEN = os.environ.get("GITHUB_BACKUP_TOKEN", "")
-GITHUB_REPO = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
-GITHUB_BACKUP_FILE = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
-GITHUB_API = "https://api.github.com"
-BACKUP_DEBOUNCE_SECONDS = 5
+GITHUB_TOKEN         = os.environ.get("GITHUB_BACKUP_TOKEN", "")
+GITHUB_REPO          = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
+GITHUB_BACKUP_FILE   = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
+GITHUB_EOD_FILE      = os.environ.get("GITHUB_EOD_FILE", "eod_backup.json")
+GITHUB_API           = "https://api.github.com"
+BACKUP_DEBOUNCE_SECONDS       = 5
 BACKUP_FAILURE_ALERT_THRESHOLD = 3
+EOD_BACKUP_DAYS               = 10
 
 _backup_timer = None
 _backup_lock = threading.Lock()
@@ -325,7 +327,6 @@ def get_prev_closes_from_db(symbols):
 #  EOD PERSISTENCE + BACKFILL
 # ------------------------------------------------------------------
 def _persist_bars(rows):
-    """Insert tuples from batch_fetch_daily_bars (INSERT OR REPLACE)."""
     if not rows:
         return 0
     conn = sqlite3.connect(config.DB_FILE)
@@ -358,26 +359,32 @@ def backfill_symbols(symbols):
         return
     n = _persist_bars(rows)
     logger.info(f"✅ Backfilled {n} bars for {len(symbols)} symbols.")
+    _push_eod_to_github()
 
 def ensure_eod_backfill():
-    """On startup: if eod_snapshots is empty, fetch history for the watchlist."""
+    """If eod_snapshots is empty or stale, backfill from Yahoo."""
     conn = sqlite3.connect(config.DB_FILE)
-    count = conn.execute('SELECT COUNT(*) FROM eod_snapshots').fetchone()[0]
+    row = conn.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
+    max_date = row[0] if row else None
     symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
     conn.close()
 
-    if count > 0:
-        logger.info(f"EOD table has {count} rows. Skipping startup backfill.")
-        return
     if not symbols:
         logger.info("Watchlist empty. Nothing to backfill.")
         return
 
-    logger.info(f"EOD table empty — backfilling {len(symbols)} symbols...")
+    today = datetime.now(config.TIMEZONE).date()
+    cutoff = (today - timedelta(days=5)).strftime('%Y-%m-%d')
+
+    if max_date and max_date >= cutoff:
+        logger.info(f"EOD table is fresh (max={max_date}). Skipping backfill.")
+        return
+
+    logger.info(f"EOD table stale or empty (max={max_date}). Backfilling {len(symbols)} symbols...")
     backfill_symbols(symbols)
 
 # ------------------------------------------------------------------
-#  GITHUB BACKUP
+#  GITHUB BACKUP — WATCHLIST + EOD
 # ------------------------------------------------------------------
 def schedule_backup():
     global _backup_timer
@@ -417,14 +424,18 @@ def _alert_backup_failure(reason):
         f"Reason: {reason}\nConsecutive failures: {_backup_failures}"
     )
 
-def _push_to_github(content):
-    global _backup_failures, _backup_alert_sent
-    url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
-    headers = {
+def _github_headers():
+    return {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
         "User-Agent": "stock-alert-backup",
     }
+
+def _github_put(filename, content, message):
+    """Push content to a file in the GitHub repo. Returns True on success."""
+    global _backup_failures, _backup_alert_sent
+    url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{filename}"
+    headers = _github_headers()
 
     sha = None
     try:
@@ -434,21 +445,16 @@ def _push_to_github(content):
         elif r.status_code != 404:
             _backup_failures += 1
             if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-                _alert_backup_failure(f"HTTP {r.status_code} on GET")
-            return
+                _alert_backup_failure(f"HTTP {r.status_code} on GET {filename}")
+            return False
     except Exception as e:
         _backup_failures += 1
         if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(f"GET: {e}")
-        return
-
-    try:
-        count = len(json.loads(content))
-    except Exception:
-        count = 0
+            _alert_backup_failure(f"GET {filename}: {e}")
+        return False
 
     body = {
-        "message": f"Auto-backup: {count} alerts",
+        "message": message,
         "content": base64.b64encode(content.encode('utf-8')).decode('ascii'),
     }
     if sha:
@@ -457,17 +463,95 @@ def _push_to_github(content):
     try:
         r = requests.put(url, headers=headers, json=body, timeout=15)
         if r.status_code in (200, 201):
-            logger.info(f"Backed up {count} alerts to GitHub.")
             _backup_failures = 0
             _backup_alert_sent = False
-        else:
-            _backup_failures += 1
-            if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-                _alert_backup_failure(f"HTTP {r.status_code} on PUT")
+            return True
+        _backup_failures += 1
+        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
+            _alert_backup_failure(f"HTTP {r.status_code} on PUT {filename}")
+        return False
     except Exception as e:
         _backup_failures += 1
         if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(f"PUT: {e}")
+            _alert_backup_failure(f"PUT {filename}: {e}")
+        return False
+
+def _push_to_github(content):
+    try:
+        count = len(json.loads(content))
+    except Exception:
+        count = 0
+    if _github_put(GITHUB_BACKUP_FILE, content, f"Auto-backup: {count} alerts"):
+        logger.info(f"Backed up {count} alerts to GitHub.")
+
+def _push_eod_to_github():
+    """Push the last EOD_BACKUP_DAYS days of eod_snapshots to GitHub."""
+    if not GITHUB_TOKEN:
+        return
+    try:
+        cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=EOD_BACKUP_DAYS)).strftime('%Y-%m-%d')
+        conn = sqlite3.connect(config.DB_FILE)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            'SELECT symbol, trade_date, open, high, low, close, volume '
+            'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
+            (cutoff,)
+        ).fetchall()
+        conn.close()
+
+        if not rows:
+            return
+
+        payload = json.dumps([dict(r) for r in rows], default=str)
+        if _github_put(GITHUB_EOD_FILE, payload, f"EOD backup: {len(rows)} rows"):
+            logger.info(f"Backed up {len(rows)} EOD rows to GitHub.")
+    except Exception as e:
+        logger.error(f"EOD backup failed: {e}")
+
+def _restore_eod_from_github():
+    """Read eod_backup.json from GitHub and load rows into eod_snapshots."""
+    if not GITHUB_TOKEN:
+        return
+    try:
+        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_EOD_FILE}"
+        r = requests.get(url, headers=_github_headers(), timeout=15)
+        if r.status_code == 404:
+            logger.info("No EOD backup on GitHub yet.")
+            return
+        if r.status_code != 200:
+            logger.warning(f"EOD restore: GitHub returned {r.status_code}.")
+            return
+
+        decoded = base64.b64decode(r.json().get("content", "")).decode('utf-8')
+        data = json.loads(decoded)
+        if not isinstance(data, list):
+            return
+
+        conn = sqlite3.connect(config.DB_FILE)
+        inserted = 0
+        for item in data:
+            try:
+                conn.execute('''
+                    INSERT OR REPLACE INTO eod_snapshots
+                    (symbol, trade_date, open, high, low, close, volume)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    item.get('symbol'),
+                    item.get('trade_date'),
+                    item.get('open'),
+                    item.get('high'),
+                    item.get('low'),
+                    item.get('close'),
+                    item.get('volume'),
+                ))
+                inserted += 1
+            except Exception as e:
+                logger.warning(f"EOD restore skip {item.get('symbol')}/{item.get('trade_date')}: {e}")
+        conn.commit()
+        conn.close()
+        logger.info(f"✅ Restored {inserted} EOD rows from GitHub backup.")
+    except Exception as e:
+        logger.error(f"EOD restore failed: {e}")
 
 def restore_from_github():
     if not GITHUB_TOKEN:
@@ -478,12 +562,7 @@ def restore_from_github():
         conn.close()
 
         url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
-        headers = {
-            "Authorization": f"Bearer {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "stock-alert-backup",
-        }
-        r = requests.get(url, headers=headers, timeout=15)
+        r = requests.get(url, headers=_github_headers(), timeout=15)
 
         if r.status_code == 401:
             stock_alert.send_telegram("🚨 GitHub backup token is invalid (401). Backups will fail.")
@@ -844,7 +923,7 @@ def start_worker():
             time.sleep(30)
 
 def eod_fetcher():
-    """Once per weekday at/after 4:30 PM IST: fetch today's bar and refresh history."""
+    """Once per weekday at/after 4:30 PM IST: fetch today's bar, persist, backup."""
     last_run_date = None
     while True:
         try:
@@ -864,6 +943,7 @@ def eod_fetcher():
                         n = _persist_bars(rows)
                         logger.info(f"✅ EOD: stored {n} rows for {len(symbols)} symbols.")
                         _prune_eod_snapshots()
+                        _push_eod_to_github()
                     last_run_date = today
                 except Exception as e:
                     logger.error(f"EOD fetch failed: {e}")
@@ -884,17 +964,18 @@ def cleanup_sessions():
             time.sleep(300)
 
 # ------------------------------------------------------------------
-#  INIT  (must run before threads start)
+#  INIT  — synchronous DB setup, then background threads
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
 restore_from_github()
-ensure_eod_backfill()
+_restore_eod_from_github()
 
-threading.Thread(target=start_worker,     daemon=True).start()
-threading.Thread(target=eod_fetcher,      daemon=True).start()
-threading.Thread(target=cleanup_sessions, daemon=True).start()
+threading.Thread(target=ensure_eod_backfill, daemon=True).start()
+threading.Thread(target=start_worker,        daemon=True).start()
+threading.Thread(target=eod_fetcher,         daemon=True).start()
+threading.Thread(target=cleanup_sessions,    daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
