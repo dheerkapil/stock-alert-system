@@ -1948,5 +1948,15 @@
     "is_triggered": 1,
     "added_at": "2026-09-22 15:19:53",
     "notes": ""
+  },
+  {
+    "id": 196,
+    "symbol": "UNITECH",
+    "condition": ">",
+    "trigger_price": 4.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 07:09:58",
+    "notes": ""
   }
 ]
