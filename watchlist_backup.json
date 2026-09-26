@@ -1988,5 +1988,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 07:29:14",
     "notes": ""
+  },
+  {
+    "id": 200,
+    "symbol": "AEGISVOPAK",
+    "condition": ">",
+    "trigger_price": 308.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 07:36:17",
+    "notes": ""
   }
 ]
