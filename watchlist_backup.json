@@ -1958,5 +1958,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 07:09:58",
     "notes": ""
+  },
+  {
+    "id": 197,
+    "symbol": "CMSINFO",
+    "condition": ">",
+    "trigger_price": 250.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 07:24:08",
+    "notes": ""
   }
 ]
