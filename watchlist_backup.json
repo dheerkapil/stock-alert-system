@@ -1998,5 +1998,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 07:36:17",
     "notes": ""
+  },
+  {
+    "id": 201,
+    "symbol": "DISHTV",
+    "condition": ">",
+    "trigger_price": 4.25,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 07:38:05",
+    "notes": ""
   }
 ]
