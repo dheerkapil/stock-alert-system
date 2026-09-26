@@ -2038,5 +2038,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 08:15:51",
     "notes": ""
+  },
+  {
+    "id": 205,
+    "symbol": "BLKASHYAP",
+    "condition": ">",
+    "trigger_price": 61.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 09:46:17",
+    "notes": ""
   }
 ]
