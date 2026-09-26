@@ -2108,5 +2108,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 10:32:58",
     "notes": ""
+  },
+  {
+    "id": 212,
+    "symbol": "JAINREC",
+    "condition": ">",
+    "trigger_price": 303.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 10:33:59",
+    "notes": ""
   }
 ]
