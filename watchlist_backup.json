@@ -2048,5 +2048,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 09:46:17",
     "notes": ""
+  },
+  {
+    "id": 206,
+    "symbol": "TATACHEM",
+    "condition": ">",
+    "trigger_price": 830.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 09:49:34",
+    "notes": ""
   }
 ]
