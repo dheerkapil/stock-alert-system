@@ -2018,5 +2018,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 07:55:24",
     "notes": ""
+  },
+  {
+    "id": 203,
+    "symbol": "GENESYS",
+    "condition": ">",
+    "trigger_price": 315.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 08:13:48",
+    "notes": ""
   }
 ]
