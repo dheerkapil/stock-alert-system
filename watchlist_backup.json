@@ -1978,5 +1978,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 07:24:48",
     "notes": ""
+  },
+  {
+    "id": 199,
+    "symbol": "DAVANGERE",
+    "condition": ">",
+    "trigger_price": 3.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 07:29:14",
+    "notes": ""
   }
 ]
