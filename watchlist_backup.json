@@ -2118,5 +2118,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 10:33:59",
     "notes": ""
+  },
+  {
+    "id": 213,
+    "symbol": "KWIL",
+    "condition": ">",
+    "trigger_price": 42.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 10:38:34",
+    "notes": ""
   }
 ]
