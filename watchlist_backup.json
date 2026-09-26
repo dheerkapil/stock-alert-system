@@ -2098,5 +2098,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 10:30:22",
     "notes": ""
+  },
+  {
+    "id": 211,
+    "symbol": "NOCIL",
+    "condition": ">",
+    "trigger_price": 210.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-26 10:32:58",
+    "notes": ""
   }
 ]
