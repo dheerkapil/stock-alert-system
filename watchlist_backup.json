@@ -2138,5 +2138,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-27 05:29:08",
     "notes": ""
+  },
+  {
+    "id": 215,
+    "symbol": "DEEPAKNTR",
+    "condition": ">",
+    "trigger_price": 1850.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-27 05:30:39",
+    "notes": ""
   }
 ]
