@@ -2128,5 +2128,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-26 10:38:34",
     "notes": ""
+  },
+  {
+    "id": 214,
+    "symbol": "FINEORG",
+    "condition": ">",
+    "trigger_price": 5375.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-09-27 05:29:08",
+    "notes": ""
   }
 ]
