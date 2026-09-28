@@ -943,7 +943,7 @@
     "id": 96,
     "symbol": "SMCGLOBAL",
     "condition": "<",
-    "trigger_price": 82.0,
+    "trigger_price": 92.0,
     "is_active": 1,
     "is_triggered": 0,
     "added_at": "2026-09-12 17:24:00",
