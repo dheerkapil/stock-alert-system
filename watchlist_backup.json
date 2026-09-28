@@ -1893,9 +1893,9 @@
     "id": 192,
     "symbol": "STEAMHOUSE",
     "condition": ">",
-    "trigger_price": 114.0,
+    "trigger_price": 109.0,
     "is_active": 1,
-    "is_triggered": 1,
+    "is_triggered": 0,
     "added_at": "2026-09-19 14:10:11",
     "notes": ""
   },
