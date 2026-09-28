@@ -55,7 +55,7 @@ MAX_OTP_ATTEMPTS = 5
 EOD_RETENTION_DAYS = 365
 
 # ------------------------------------------------------------------
-#  NSE SYMBOL CACHE
+#  NSE SYMBOL CACHE  (populated by background thread)
 # ------------------------------------------------------------------
 NSE_SYMBOLS = []
 NSE_NAME_LOOKUP = {}
@@ -84,8 +84,6 @@ def refresh_nse_symbols():
         logger.info(f"Cached {len(NSE_SYMBOLS)} symbols.")
     except Exception as e:
         logger.error(f"NSE symbols fetch failed: {e}")
-
-refresh_nse_symbols()
 
 # ------------------------------------------------------------------
 #  AUTH HELPERS
@@ -298,10 +296,6 @@ def migrate_notes_column():
 #  PREV CLOSE — read from eod_snapshots (SQL)
 # ------------------------------------------------------------------
 def get_prev_closes_from_db(symbols):
-    """
-    Most recent completed close before today, per symbol.
-    Returns {symbol: close}. Missing symbols simply absent from result.
-    """
     if not symbols:
         return {}
     symbols = [s.upper() for s in symbols]
@@ -350,7 +344,6 @@ def _prune_eod_snapshots():
         logger.info(f"🧹 Pruned {removed} EOD rows older than {cutoff}.")
 
 def backfill_symbols(symbols):
-    """Fetch and store last 5 days of bars for the given symbols."""
     if not symbols:
         return
     rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
@@ -362,7 +355,6 @@ def backfill_symbols(symbols):
     _push_eod_to_github()
 
 def ensure_eod_backfill():
-    """If eod_snapshots is empty or stale, backfill from Yahoo."""
     conn = sqlite3.connect(config.DB_FILE)
     row = conn.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
     max_date = row[0] if row else None
@@ -432,7 +424,6 @@ def _github_headers():
     }
 
 def _github_put(filename, content, message):
-    """Push content to a file in the GitHub repo. Returns True on success."""
     global _backup_failures, _backup_alert_sent
     url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{filename}"
     headers = _github_headers()
@@ -485,7 +476,6 @@ def _push_to_github(content):
         logger.info(f"Backed up {count} alerts to GitHub.")
 
 def _push_eod_to_github():
-    """Push the last EOD_BACKUP_DAYS days of eod_snapshots to GitHub."""
     if not GITHUB_TOKEN:
         return
     try:
@@ -509,7 +499,6 @@ def _push_eod_to_github():
         logger.error(f"EOD backup failed: {e}")
 
 def _restore_eod_from_github():
-    """Read eod_backup.json from GitHub and load rows into eod_snapshots."""
     if not GITHUB_TOKEN:
         return
     try:
@@ -923,8 +912,18 @@ def start_worker():
             time.sleep(30)
 
 def eod_fetcher():
-    """Once per weekday at/after 4:30 PM IST: fetch today's bar, persist, backup."""
-    last_run_date = None
+    """
+    Fires once per weekday at/after 4:30 PM IST.
+    Skips firing on startup if we're already past 4:30 PM — assumes
+    the previous run (before restart) already handled today.
+    """
+    now = datetime.now(config.TIMEZONE)
+    if now.weekday() < 5 and now.hour >= 16 and now.minute >= 30:
+        last_run_date = now.date()
+        logger.info(f"EOD fetcher: starting after cutoff, skipping today ({last_run_date}).")
+    else:
+        last_run_date = None
+
     while True:
         try:
             now = datetime.now(config.TIMEZONE)
@@ -963,19 +962,29 @@ def cleanup_sessions():
         except Exception:
             time.sleep(300)
 
+def background_startup():
+    """All network-dependent startup work runs here, off the import path."""
+    logger.info("Background startup: fetching NSE symbols...")
+    refresh_nse_symbols()
+    logger.info("Background startup: restoring watchlist from GitHub...")
+    restore_from_github()
+    logger.info("Background startup: restoring EOD from GitHub...")
+    _restore_eod_from_github()
+    logger.info("Background startup: checking EOD freshness...")
+    ensure_eod_backfill()
+    logger.info("Background startup: done.")
+
 # ------------------------------------------------------------------
-#  INIT  — synchronous DB setup, then background threads
+#  INIT  — fast, synchronous DB setup. Everything else runs in threads.
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
-restore_from_github()
-_restore_eod_from_github()
 
-threading.Thread(target=ensure_eod_backfill, daemon=True).start()
-threading.Thread(target=start_worker,        daemon=True).start()
-threading.Thread(target=eod_fetcher,         daemon=True).start()
-threading.Thread(target=cleanup_sessions,    daemon=True).start()
+threading.Thread(target=background_startup, daemon=True).start()
+threading.Thread(target=start_worker,       daemon=True).start()
+threading.Thread(target=eod_fetcher,        daemon=True).start()
+threading.Thread(target=cleanup_sessions,   daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
