@@ -1403,9 +1403,9 @@
     "id": 141,
     "symbol": "AUGMONT",
     "condition": ">",
-    "trigger_price": 970.0,
+    "trigger_price": 1065.0,
     "is_active": 1,
-    "is_triggered": 1,
+    "is_triggered": 0,
     "added_at": "2026-09-19 04:32:14",
     "notes": ""
   },
