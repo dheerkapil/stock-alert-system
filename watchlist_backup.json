@@ -1883,9 +1883,9 @@
     "id": 189,
     "symbol": "MOMSBELIEF",
     "condition": ">",
-    "trigger_price": 227.0,
+    "trigger_price": 256.0,
     "is_active": 1,
-    "is_triggered": 1,
+    "is_triggered": 0,
     "added_at": "2026-09-19 14:09:29",
     "notes": ""
   },
