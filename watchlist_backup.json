@@ -2148,5 +2148,15 @@
     "is_triggered": 0,
     "added_at": "2026-09-27 16:38:22",
     "notes": ""
+  },
+  {
+    "id": 216,
+    "symbol": "ONEPOINT",
+    "condition": ">",
+    "trigger_price": 78.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-01 16:17:39",
+    "notes": ""
   }
 ]
