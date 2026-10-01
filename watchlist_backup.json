@@ -2158,5 +2158,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-01 16:17:39",
     "notes": ""
+  },
+  {
+    "id": 217,
+    "symbol": "IBULLSLTD",
+    "condition": ">",
+    "trigger_price": 31.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-01 16:20:36",
+    "notes": ""
   }
 ]
