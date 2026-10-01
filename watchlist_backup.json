@@ -183,7 +183,7 @@
     "id": 19,
     "symbol": "CLEAN",
     "condition": ">",
-    "trigger_price": 912.0,
+    "trigger_price": 870.0,
     "is_active": 1,
     "is_triggered": 0,
     "added_at": "2026-09-12 17:24:00",
