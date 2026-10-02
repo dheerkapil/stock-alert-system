@@ -2548,5 +2548,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 14:00:38",
     "notes": ""
+  },
+  {
+    "id": 256,
+    "symbol": "KRSNAA",
+    "condition": ">",
+    "trigger_price": 625.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 14:03:56",
+    "notes": ""
   }
 ]
