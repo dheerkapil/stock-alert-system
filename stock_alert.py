@@ -13,9 +13,21 @@ logger = logging.getLogger(__name__)
 WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 
 # ------------------------------------------------------------------
-#  HEARTBEAT STATE
+#  WORKER TICK — for /api/health liveness checks
 # ------------------------------------------------------------------
-_last_heartbeat_hour = None
+_last_worker_tick = time.time()
+
+def get_last_worker_tick():
+    return _last_worker_tick
+
+# ------------------------------------------------------------------
+#  DATA-SOURCE HEALTH MONITORING
+# ------------------------------------------------------------------
+TV_FAILURE_THRESHOLD = 3
+TV_MIN_COVERAGE      = 0.10
+
+_tv_failure_streak = 0
+_tv_alert_sent     = False
 
 # ------------------------------------------------------------------
 #  HELPERS
@@ -64,11 +76,6 @@ def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
 def get_prices_with_volume(symbols):
-    """
-    Fetch live price, volume, 10d avg volume, relative volume, and prev close
-    from TradingView's scanner in batched calls.
-    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}.
-    """
     symbols = list(set(symbols))
     if not symbols:
         return {}
@@ -121,7 +128,6 @@ def get_prices_with_volume(symbols):
 #  YAHOO FALLBACK — live price only
 # ------------------------------------------------------------------
 def get_prices_yfinance(symbols):
-    """Per-symbol fallback used only if TradingView returns nothing."""
     prices = {}
     for sym in symbols:
         try:
@@ -137,7 +143,6 @@ def get_prices_yfinance(symbols):
     return prices
 
 def get_prices(symbols):
-    """Return {symbol: price}. TradingView primary, Yahoo fallback."""
     pv = get_prices_with_volume(symbols)
     missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
     if missing and config.YAHOO_FINANCE_ENABLED:
@@ -149,11 +154,6 @@ def get_prices(symbols):
 #  YAHOO — daily bars (EOD snapshot + backfill)
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
-    """
-    ONE Yahoo call for all symbols. Returns a list of tuples:
-      (symbol, trade_date_str, open, high, low, close, volume)
-    Excludes today's incomplete bar unless include_today=True.
-    """
     if not symbols:
         return []
     symbols = [s.upper() for s in symbols]
@@ -236,39 +236,108 @@ def send_telegram(message, retries=3):
     return False
 
 # ------------------------------------------------------------------
-#  MAIN LOOP — supervised, with hourly heartbeat
+#  ALERT MESSAGE FORMATTER
+# ------------------------------------------------------------------
+def format_alert_message(alert, cmp_price):
+    """
+    Format matches user's spec exactly:
+
+        RELIANCE
+
+        Price > 2900
+
+        Day Chg: +1.2%
+
+        RVol: 2.45
+
+        Note: buy 2500
+    """
+    symbol    = alert['symbol']
+    condition = alert['condition']
+    trigger   = alert['trigger_price']
+    pct_chg   = alert.get('pct_chg')
+    rvol      = alert.get('rvol')
+    notes     = (alert.get('notes') or '').strip()
+
+    day_chg_str = f"{pct_chg:+.2f}%" if pct_chg is not None else "-"
+    rvol_str    = f"{rvol:.2f}"    if rvol    is not None else "-"
+
+    lines = [
+        symbol,
+        "",
+        f"Price {condition} {trigger}",
+        "",
+        f"Day Chg: {day_chg_str}",
+        "",
+        f"RVol: {rvol_str}",
+    ]
+    if notes:
+        lines.append("")
+        lines.append(f"Note: {notes}")
+
+    return "\n".join(lines)
+
+# ------------------------------------------------------------------
+#  MAIN LOOP — supervised. No hourly heartbeat. Anomaly detection.
 # ------------------------------------------------------------------
 def main():
-    global _last_heartbeat_hour
+    global _last_worker_tick, _tv_failure_streak, _tv_alert_sent
 
     logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
     logger.info(f"Market hours: {config.START_TIME} - {config.STOP_TIME} IST. Weekdays only.")
 
+    send_telegram(
+        f"🟢 System online — "
+        f"{datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')}"
+    )
+
     while True:
         try:
+            _last_worker_tick = time.time()
             now = datetime.now(config.TIMEZONE)
 
             while not is_weekday(now) or not is_market_open(now):
                 time.sleep(60)
+                _last_worker_tick = time.time()
                 now = datetime.now(config.TIMEZONE)
 
+            _last_worker_tick = time.time()
             alerts = get_active_alerts()
-
-            if now.hour != _last_heartbeat_hour:
-                send_telegram(
-                    f"💓 Alive — {now.strftime('%H:%M')} IST\n"
-                    f"Active alerts: {len(alerts)}"
-                )
-                _last_heartbeat_hour = now.hour
 
             if not alerts:
                 logger.info("No active alerts.")
+                _tv_failure_streak = 0
+                if _tv_alert_sent:
+                    send_telegram("✅ Market data recovered")
+                    _tv_alert_sent = False
                 time.sleep(config.POLL_INTERVAL)
                 continue
 
             symbols = list(set(a['symbol'] for a in alerts))
             logger.info(f"Fetching prices for {len(symbols)} symbols...")
             prices = get_prices(symbols)
+
+            coverage = len(prices) / len(symbols) if symbols else 1.0
+            if coverage < TV_MIN_COVERAGE:
+                _tv_failure_streak += 1
+                logger.warning(f"Low data coverage: {int(coverage*100)}% "
+                               f"(streak={_tv_failure_streak})")
+                if _tv_failure_streak >= TV_FAILURE_THRESHOLD and not _tv_alert_sent:
+                    send_telegram(
+                        f"⚠️ Market data degraded\n"
+                        f"Coverage: {int(coverage*100)}% of {len(symbols)} symbols\n"
+                        f"Streak: {_tv_failure_streak} cycles\n"
+                        f"Since: {now.strftime('%H:%M')} IST"
+                    )
+                    _tv_alert_sent = True
+            else:
+                if _tv_alert_sent:
+                    send_telegram(
+                        f"✅ Market data recovered\n"
+                        f"Coverage: {int(coverage*100)}% of {len(symbols)} symbols"
+                    )
+                    _tv_alert_sent = False
+                _tv_failure_streak = 0
 
             for alert in alerts:
                 current = prices.get(alert['symbol'])
@@ -281,17 +350,7 @@ def main():
                 )
 
                 if triggered:
-                    notes = (alert.get('notes') or '').strip()
-                    lines = [
-                        "🔔 ALERT",
-                        f"{alert['symbol']} {alert['condition']} {alert['trigger_price']}",
-                        f"Current: {current}",
-                        now.strftime('%H:%M:%S') + ' IST',
-                    ]
-                    if notes:
-                        lines.append(f"📝 {notes}")
-                    send_telegram("\n".join(lines))
-
+                    send_telegram(format_alert_message(alert, current))
                     try:
                         requests.post(
                             f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
@@ -304,6 +363,7 @@ def main():
             time.sleep(config.POLL_INTERVAL)
 
         except Exception as e:
+            _last_worker_tick = time.time()
             logger.exception(f"Worker error: {e}. Restarting in 30s.")
             time.sleep(30)
 

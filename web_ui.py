@@ -41,6 +41,8 @@ _backup_lock = threading.Lock()
 _backup_failures = 0
 _backup_alert_sent = False
 
+_eod_failure_alerted = False
+
 # ------------------------------------------------------------------
 #  AUTH CONSTANTS
 # ------------------------------------------------------------------
@@ -168,7 +170,7 @@ def is_valid_worker_key():
 @app.before_request
 def check_auth():
     path = request.path
-    if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico'):
+    if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico', '/api/health'):
         return None
     if path.startswith('/static/'):
         return None
@@ -248,6 +250,21 @@ def logout():
     resp = make_response(jsonify({'status': 'ok'}))
     resp.set_cookie('session_id', '', max_age=0, path='/')
     return resp
+
+# ------------------------------------------------------------------
+#  HEALTH ENDPOINT — for UptimeRobot
+# ------------------------------------------------------------------
+@app.route('/api/health')
+def health():
+    try:
+        last_tick = stock_alert.get_last_worker_tick()
+    except Exception:
+        last_tick = 0
+    age = time.time() - last_tick
+    if age > 900:
+        logger.warning(f"Health check failed: worker age {int(age)}s")
+        return jsonify({'status': 'error', 'worker_age_seconds': int(age)}), 503
+    return jsonify({'status': 'ok', 'worker_age_seconds': int(age)}), 200
 
 # ------------------------------------------------------------------
 #  DATABASE
@@ -462,8 +479,7 @@ def _alert_backup_failure(reason):
         return
     _backup_alert_sent = True
     stock_alert.send_telegram(
-        f"⚠️ <b>GitHub Backup Failing</b>\n"
-        f"Reason: {reason}\nConsecutive failures: {_backup_failures}"
+        f"⚠️ GitHub Backup Failing\nReason: {reason}"
     )
 
 def _github_headers():
@@ -779,12 +795,17 @@ def update_alert(alert_id):
             conn2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (alert_id,))
             notes = (final['notes'] or '').strip()
             lines = [
-                "🔔 ALERT (Edited)",
-                f"{symbol} {final['condition']} {final['trigger_price']}",
-                f"Current: {current_price}",
+                symbol,
+                "",
+                f"Price {final['condition']} {final['trigger_price']}",
+                "",
+                "Day Chg: -",
+                "",
+                "RVol: -",
             ]
             if notes:
-                lines.append(f"📝 {notes}")
+                lines.append("")
+                lines.append(f"Note: {notes}")
             stock_alert.send_telegram("\n".join(lines))
             triggered_now = True
         else:
@@ -840,12 +861,17 @@ def reactivate_alert(alert_id):
     if would_trigger:
         notes = (alert['notes'] or '').strip()
         lines = [
-            "🔔 ALERT (Reactivated)",
-            f"{alert['symbol']} {alert['condition']} {alert['trigger_price']}",
-            f"Current: {current_price}",
+            alert['symbol'],
+            "",
+            f"Price {alert['condition']} {alert['trigger_price']}",
+            "",
+            "Day Chg: -",
+            "",
+            "RVol: -",
         ]
         if notes:
-            lines.append(f"📝 {notes}")
+            lines.append("")
+            lines.append(f"Note: {notes}")
         stock_alert.send_telegram("\n".join(lines))
 
     schedule_backup()
@@ -983,10 +1009,6 @@ def start_worker():
             time.sleep(30)
 
 def nse_symbols_refresher():
-    """
-    Fetch NSE symbols once per calendar day. On failure, retry every 30 minutes
-    until success, then wait until the next day.
-    """
     time.sleep(5)
 
     last_success_date = None
@@ -1012,6 +1034,8 @@ def nse_symbols_refresher():
             time.sleep(600)
 
 def eod_fetcher():
+    global _eod_failure_alerted
+
     now = datetime.now(config.TIMEZONE)
     if now.weekday() < 5 and now.hour >= 16 and now.minute >= 30:
         last_run_date = now.date()
@@ -1042,6 +1066,17 @@ def eod_fetcher():
                             rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=True)
                             n = _persist_bars(rows)
                             logger.info(f"✅ EOD: stored {n} rows for {len(symbols)} symbols.")
+
+                            if n == 0 and not _eod_failure_alerted:
+                                stock_alert.send_telegram(
+                                    f"⚠️ EOD fetch returned no data\n"
+                                    f"Date: {today_str} ({today.strftime('%A')})\n"
+                                    f"Symbols requested: {len(symbols)}"
+                                )
+                                _eod_failure_alerted = True
+                            elif n > 0:
+                                _eod_failure_alerted = False
+
                             _prune_eod_snapshots()
                             _push_eod_to_github()
                         last_run_date = today
@@ -1064,7 +1099,6 @@ def cleanup_sessions():
             time.sleep(300)
 
 def background_startup():
-    """Load persisted data first (fast), then network refresh happens in other threads."""
     logger.info("Background startup: restoring NSE symbols from GitHub...")
     _restore_nse_from_github()
     logger.info("Background startup: restoring watchlist from GitHub...")
