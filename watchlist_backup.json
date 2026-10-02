@@ -2228,5 +2228,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 03:01:44",
     "notes": ""
+  },
+  {
+    "id": 224,
+    "symbol": "KESORAMIND",
+    "condition": ">",
+    "trigger_price": 13.25,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 03:03:22",
+    "notes": "2500"
   }
 ]
