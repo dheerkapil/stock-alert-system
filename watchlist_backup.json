@@ -2498,5 +2498,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 13:26:20",
     "notes": ""
+  },
+  {
+    "id": 251,
+    "symbol": "ELIN",
+    "condition": "<",
+    "trigger_price": 93.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 13:43:37",
+    "notes": ""
   }
 ]
