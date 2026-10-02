@@ -2348,5 +2348,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 09:54:18",
     "notes": ""
+  },
+  {
+    "id": 236,
+    "symbol": "CAPILLARY",
+    "condition": ">",
+    "trigger_price": 600.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:57:24",
+    "notes": ""
   }
 ]
