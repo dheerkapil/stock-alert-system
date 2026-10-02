@@ -58,16 +58,16 @@ def get_active_alerts():
         return []
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW — live price + volume metrics
+#  TRADINGVIEW — price, volume metrics, prev close
 # ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
 def get_prices_with_volume(symbols):
     """
-    Fetch live price, volume, 10-day average volume, and relative volume
+    Fetch live price, volume, 10d avg volume, relative volume, and prev close
     from TradingView's scanner in batched calls.
-    Returns {symbol: {price, volume, avg_vol_10d, rvol}}.
+    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}.
     """
     symbols = list(set(symbols))
     if not symbols:
@@ -79,7 +79,13 @@ def get_prices_with_volume(symbols):
         tickers = [f"NSE:{to_tradingview_symbol(s)}" for s in chunk]
         payload = {
             "symbols": {"tickers": tickers},
-            "columns": ["close", "volume", "average_volume_10d_calc", "relative_volume_10d_calc"]
+            "columns": [
+                "close",
+                "volume",
+                "average_volume_10d_calc",
+                "relative_volume_10d_calc",
+                "prev_close_price",
+            ]
         }
         try:
             resp = requests.post(
@@ -94,6 +100,7 @@ def get_prices_with_volume(symbols):
                 volume      = vals[1] if len(vals) > 1 else None
                 avg_vol_10d = vals[2] if len(vals) > 2 else None
                 rvol        = vals[3] if len(vals) > 3 else None
+                prev_close  = vals[4] if len(vals) > 4 else None
                 tv_clean = tv_symbol.upper().replace('-', '_')
                 for original in chunk:
                     if to_tradingview_symbol(original) == tv_clean:
@@ -102,6 +109,7 @@ def get_prices_with_volume(symbols):
                             "volume":      float(volume)      if volume      is not None else None,
                             "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
                             "rvol":        float(rvol)        if rvol        is not None else None,
+                            "prev_close":  float(prev_close)  if prev_close  is not None else None,
                         }
                         break
         except Exception as e:
@@ -121,7 +129,8 @@ def get_prices_yfinance(symbols):
             if not df.empty:
                 prices[sym] = {
                     "price": float(df['Close'].iloc[-1]),
-                    "volume": None, "avg_vol_10d": None, "rvol": None,
+                    "volume": None, "avg_vol_10d": None,
+                    "rvol": None, "prev_close": None,
                 }
         except Exception:
             pass
@@ -137,7 +146,7 @@ def get_prices(symbols):
     return {s: v.get("price") for s, v in pv.items()}
 
 # ------------------------------------------------------------------
-#  YAHOO — daily bars (EOD snapshot + startup backfill + new-symbol backfill)
+#  YAHOO — daily bars (EOD snapshot + backfill)
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
     """

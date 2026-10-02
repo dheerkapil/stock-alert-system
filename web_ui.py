@@ -31,9 +31,9 @@ GITHUB_REPO          = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-sys
 GITHUB_BACKUP_FILE   = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
 GITHUB_EOD_FILE      = os.environ.get("GITHUB_EOD_FILE", "eod_backup.json")
 GITHUB_API           = "https://api.github.com"
-BACKUP_DEBOUNCE_SECONDS       = 5
+BACKUP_DEBOUNCE_SECONDS        = 5
 BACKUP_FAILURE_ALERT_THRESHOLD = 3
-EOD_BACKUP_DAYS               = 10
+EOD_BACKUP_DAYS                = 10
 
 _backup_timer = None
 _backup_lock = threading.Lock()
@@ -293,7 +293,7 @@ def migrate_notes_column():
     conn.close()
 
 # ------------------------------------------------------------------
-#  PREV CLOSE — read from eod_snapshots (SQL)
+#  PREV CLOSE — SQL fallback (only used if TradingView doesn't return one)
 # ------------------------------------------------------------------
 def get_prev_closes_from_db(symbols):
     if not symbols:
@@ -794,7 +794,8 @@ def get_alerts():
 
     symbols = list({a['symbol'] for a in alerts})
     pv = stock_alert.get_prices_with_volume(symbols)
-    prev_closes = get_prev_closes_from_db(symbols)
+    # SQL fallback — only used if TradingView returns no prev_close for a symbol
+    prev_closes_db = get_prev_closes_from_db(symbols)
 
     for a in alerts:
         entry = pv.get(a['symbol'], {})
@@ -802,11 +803,15 @@ def get_alerts():
         a['cmp'] = cmp
         a['rvol'] = entry.get('rvol')
 
-        vol      = entry.get('volume')
-        avg_vol  = entry.get('avg_vol_10d')
+        vol     = entry.get('volume')
+        avg_vol = entry.get('avg_vol_10d')
         a['vol_pct'] = (vol / avg_vol * 100) if (vol and avg_vol and avg_vol > 0) else None
 
-        prev_close = prev_closes.get(a['symbol'])
+        # Prefer TradingView's prev_close; fall back to SQL
+        prev_close = entry.get('prev_close')
+        if prev_close is None:
+            prev_close = prev_closes_db.get(a['symbol'])
+
         a['pct_chg'] = ((cmp - prev_close) / prev_close * 100) if (cmp is not None and prev_close) else None
 
         a['company_name'] = NSE_NAME_LOOKUP.get(a['symbol'].upper(), '')
@@ -914,8 +919,8 @@ def start_worker():
 def eod_fetcher():
     """
     Fires once per weekday at/after 4:30 PM IST.
-    Skips firing on startup if we're already past 4:30 PM — assumes
-    the previous run (before restart) already handled today.
+    Skips holidays (config.NSE_HOLIDAYS).
+    Skips firing on startup if we're already past 4:30 PM.
     """
     now = datetime.now(config.TIMEZONE)
     if now.weekday() < 5 and now.hour >= 16 and now.minute >= 30:
@@ -931,21 +936,27 @@ def eod_fetcher():
 
             if (now.weekday() < 5 and now.hour >= 16 and now.minute >= 30
                     and last_run_date != today):
-                logger.info("🕟 4:30 PM EOD fetch starting...")
-                try:
-                    conn = sqlite3.connect(config.DB_FILE)
-                    symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
-                    conn.close()
+                today_str = today.strftime('%Y-%m-%d')
 
-                    if symbols:
-                        rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=True)
-                        n = _persist_bars(rows)
-                        logger.info(f"✅ EOD: stored {n} rows for {len(symbols)} symbols.")
-                        _prune_eod_snapshots()
-                        _push_eod_to_github()
+                if today_str in config.NSE_HOLIDAYS:
+                    logger.info(f"🕟 EOD skip: {today_str} is an NSE holiday.")
                     last_run_date = today
-                except Exception as e:
-                    logger.error(f"EOD fetch failed: {e}")
+                else:
+                    logger.info("🕟 4:30 PM EOD fetch starting...")
+                    try:
+                        conn = sqlite3.connect(config.DB_FILE)
+                        symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
+                        conn.close()
+
+                        if symbols:
+                            rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=True)
+                            n = _persist_bars(rows)
+                            logger.info(f"✅ EOD: stored {n} rows for {len(symbols)} symbols.")
+                            _prune_eod_snapshots()
+                            _push_eod_to_github()
+                        last_run_date = today
+                    except Exception as e:
+                        logger.error(f"EOD fetch failed: {e}")
 
             time.sleep(60)
         except Exception as e:
@@ -975,7 +986,7 @@ def background_startup():
     logger.info("Background startup: done.")
 
 # ------------------------------------------------------------------
-#  INIT  — fast, synchronous DB setup. Everything else runs in threads.
+#  INIT — fast, synchronous DB setup. Everything else runs in threads.
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()

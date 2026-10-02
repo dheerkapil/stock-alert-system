@@ -31,5 +31,17 @@ LOG_LEVEL = "INFO"
 # ---- User-Agent ----
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# ---- Worker API Key (for stock_alert.py to authenticate to web_ui.py) ----
+# ---- Worker API Key ----
 WORKER_API_KEY = os.environ.get("WORKER_API_KEY", "")
+
+# ---- NSE Trading Holidays ----
+# Fixed-date holidays only. Variable-date holidays (Holi, Diwali, Eid, etc.)
+# change yearly. Update this set annually from NSE's official calendar:
+# https://www.nseindia.com/resources/exchange-communication-holidays
+NSE_HOLIDAYS = {
+    "2026-01-26",  # Republic Day
+    "2026-05-01",  # Maharashtra Day
+    "2026-08-15",  # Independence Day
+    "2026-10-02",  # Gandhi Jayanti
+    "2026-12-25",  # Christmas
+}
