@@ -2238,5 +2238,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 03:03:22",
     "notes": "2500"
+  },
+  {
+    "id": 225,
+    "symbol": "TFCILTD",
+    "condition": ">",
+    "trigger_price": 148.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 03:13:31",
+    "notes": ""
   }
 ]
