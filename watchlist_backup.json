@@ -2248,5 +2248,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 03:13:31",
     "notes": "gtt 150"
+  },
+  {
+    "id": 226,
+    "symbol": "ZEEMEDIA",
+    "condition": ">",
+    "trigger_price": 9.75,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 08:41:23",
+    "notes": ""
   }
 ]
