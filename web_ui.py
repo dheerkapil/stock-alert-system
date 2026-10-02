@@ -24,6 +24,11 @@ app = Flask(__name__)
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long-random-string")
 
 # ------------------------------------------------------------------
+#  HEALTHCHECK.IO — dead man's switch (Telegram alerts on silence)
+# ------------------------------------------------------------------
+HEALTHCHECK_PING_URL = os.environ.get("HEALTHCHECK_PING_URL", "")
+
+# ------------------------------------------------------------------
 #  GITHUB BACKUP
 # ------------------------------------------------------------------
 GITHUB_TOKEN         = os.environ.get("GITHUB_BACKUP_TOKEN", "")
@@ -252,7 +257,7 @@ def logout():
     return resp
 
 # ------------------------------------------------------------------
-#  HEALTH ENDPOINT — for UptimeRobot
+#  HEALTH ENDPOINT — for UptimeRobot keep-alive
 # ------------------------------------------------------------------
 @app.route('/api/health')
 def health():
@@ -1098,6 +1103,40 @@ def cleanup_sessions():
         except Exception:
             time.sleep(300)
 
+def healthcheck_pinger():
+    """
+    Dead-man's-switch. Pings Healthchecks.io every 5 minutes IFF the worker
+    is still ticking. If the worker stalls or the container dies, pings stop
+    and Healthchecks.io alerts via Telegram.
+    """
+    if not HEALTHCHECK_PING_URL:
+        logger.info("Healthcheck pinger disabled (HEALTHCHECK_PING_URL not set).")
+        return
+
+    time.sleep(60)   # let the worker spin up
+
+    while True:
+        try:
+            last_tick = stock_alert.get_last_worker_tick()
+            age = time.time() - last_tick
+
+            if age < 900:
+                try:
+                    r = requests.get(HEALTHCHECK_PING_URL, timeout=10)
+                    if r.status_code == 200:
+                        logger.debug("Healthcheck ping sent.")
+                    else:
+                        logger.warning(f"Healthcheck ping returned {r.status_code}")
+                except Exception as e:
+                    logger.warning(f"Healthcheck ping failed: {e}")
+            else:
+                logger.warning(f"Skipping healthcheck ping — worker age {int(age)}s")
+
+            time.sleep(300)
+        except Exception as e:
+            logger.error(f"Healthcheck pinger error: {e}")
+            time.sleep(300)
+
 def background_startup():
     logger.info("Background startup: restoring NSE symbols from GitHub...")
     _restore_nse_from_github()
@@ -1121,6 +1160,7 @@ threading.Thread(target=nse_symbols_refresher,  daemon=True).start()
 threading.Thread(target=start_worker,           daemon=True).start()
 threading.Thread(target=eod_fetcher,            daemon=True).start()
 threading.Thread(target=cleanup_sessions,       daemon=True).start()
+threading.Thread(target=healthcheck_pinger,     daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
