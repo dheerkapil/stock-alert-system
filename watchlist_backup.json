@@ -2328,5 +2328,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 09:22:29",
     "notes": ""
+  },
+  {
+    "id": 234,
+    "symbol": "CLEANMAX",
+    "condition": ">",
+    "trigger_price": 1440.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:25:39",
+    "notes": ""
   }
 ]
