@@ -2318,5 +2318,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 09:21:05",
     "notes": ""
+  },
+  {
+    "id": 233,
+    "symbol": "HEXAGON",
+    "condition": ">",
+    "trigger_price": 74.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:22:29",
+    "notes": ""
   }
 ]
