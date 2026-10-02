@@ -2558,5 +2558,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 14:03:56",
     "notes": ""
+  },
+  {
+    "id": 257,
+    "symbol": "WINDLAS",
+    "condition": ">",
+    "trigger_price": 1150.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 14:04:49",
+    "notes": ""
   }
 ]
