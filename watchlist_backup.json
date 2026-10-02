@@ -2508,5 +2508,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 13:43:37",
     "notes": ""
+  },
+  {
+    "id": 252,
+    "symbol": "MEDANTA",
+    "condition": ">",
+    "trigger_price": 1475.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 13:45:57",
+    "notes": ""
   }
 ]
