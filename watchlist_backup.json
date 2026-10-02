@@ -2458,5 +2458,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 12:35:34",
     "notes": ""
+  },
+  {
+    "id": 247,
+    "symbol": "FLAIR",
+    "condition": ">",
+    "trigger_price": 334.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 12:39:24",
+    "notes": ""
   }
 ]
