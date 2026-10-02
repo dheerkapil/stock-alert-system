@@ -2298,5 +2298,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 09:03:56",
     "notes": ""
+  },
+  {
+    "id": 231,
+    "symbol": "MANIPALHOS",
+    "condition": ">",
+    "trigger_price": 765.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:16:46",
+    "notes": ""
   }
 ]
