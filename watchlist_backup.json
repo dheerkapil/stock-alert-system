@@ -2388,5 +2388,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
+  },
+  {
+    "id": 240,
+    "symbol": "LAXMIDENTL",
+    "condition": ">",
+    "trigger_price": 210.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 10:21:28",
+    "notes": ""
   }
 ]
