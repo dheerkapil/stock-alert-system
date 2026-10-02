@@ -281,10 +281,17 @@ def main():
                 )
 
                 if triggered:
-                    send_telegram(
-                        f"🔔 ALERT\n{alert['symbol']} {alert['condition']} {alert['trigger_price']}\n"
-                        f"Current: {current}\n{now.strftime('%H:%M:%S')} IST"
-                    )
+                    notes = (alert.get('notes') or '').strip()
+                    lines = [
+                        "🔔 ALERT",
+                        f"{alert['symbol']} {alert['condition']} {alert['trigger_price']}",
+                        f"Current: {current}",
+                        now.strftime('%H:%M:%S') + ' IST',
+                    ]
+                    if notes:
+                        lines.append(f"📝 {notes}")
+                    send_telegram("\n".join(lines))
+
                     try:
                         requests.post(
                             f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",

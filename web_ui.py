@@ -63,11 +63,6 @@ NSE_NAME_LOOKUP = {}
 _NSE_LAST_FETCH_SUCCESS = None
 
 def refresh_nse_symbols():
-    """
-    Fetch the NSE equity list. On success, updates NSE_SYMBOLS and NSE_NAME_LOOKUP
-    and pushes a copy to GitHub. On failure, leaves existing data untouched.
-    Returns True on success.
-    """
     global NSE_SYMBOLS, NSE_NAME_LOOKUP, _NSE_LAST_FETCH_SUCCESS
     url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
     try:
@@ -114,7 +109,6 @@ def _push_nse_to_github():
         logger.error(f"NSE backup failed: {e}")
 
 def _restore_nse_from_github():
-    """Load NSE symbol list from GitHub. Returns True if any data was loaded."""
     global NSE_SYMBOLS, NSE_NAME_LOOKUP
     if not GITHUB_TOKEN:
         return False
@@ -662,7 +656,6 @@ def search_symbols():
     if not q:
         return jsonify([])
 
-    # Lazy load fallback: only if the symbols never arrived (e.g. GitHub + NSE both down at boot).
     if not NSE_SYMBOLS:
         logger.info("Search hit with empty NSE_SYMBOLS — attempting lazy load.")
         refresh_nse_symbols()
@@ -784,9 +777,15 @@ def update_alert(alert_id):
         conn2 = get_db()
         if cond_met:
             conn2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (alert_id,))
-            stock_alert.send_telegram(
-                f"🔔 ALERT (Edited)\n{symbol} {final['condition']} {final['trigger_price']}\nCurrent: {current_price}"
-            )
+            notes = (final['notes'] or '').strip()
+            lines = [
+                "🔔 ALERT (Edited)",
+                f"{symbol} {final['condition']} {final['trigger_price']}",
+                f"Current: {current_price}",
+            ]
+            if notes:
+                lines.append(f"📝 {notes}")
+            stock_alert.send_telegram("\n".join(lines))
             triggered_now = True
         else:
             conn2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
@@ -807,7 +806,7 @@ def reactivate_alert(alert_id):
     dry_run = data.get('dry_run', False)
 
     conn = get_db()
-    alert = conn.execute('SELECT symbol, condition, trigger_price FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
+    alert = conn.execute('SELECT symbol, condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
     if not alert:
         conn.close()
         return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
@@ -839,9 +838,16 @@ def reactivate_alert(alert_id):
     conn.close()
 
     if would_trigger:
-        stock_alert.send_telegram(
-            f"🔔 ALERT (Reactivated)\n{alert['symbol']} {alert['condition']} {alert['trigger_price']}\nCurrent: {current_price}"
-        )
+        notes = (alert['notes'] or '').strip()
+        lines = [
+            "🔔 ALERT (Reactivated)",
+            f"{alert['symbol']} {alert['condition']} {alert['trigger_price']}",
+            f"Current: {current_price}",
+        ]
+        if notes:
+            lines.append(f"📝 {notes}")
+        stock_alert.send_telegram("\n".join(lines))
+
     schedule_backup()
     return jsonify({'status': 'ok', 'triggered': would_trigger})
 
@@ -981,7 +987,7 @@ def nse_symbols_refresher():
     Fetch NSE symbols once per calendar day. On failure, retry every 30 minutes
     until success, then wait until the next day.
     """
-    time.sleep(5)   # let the app bind the port first
+    time.sleep(5)
 
     last_success_date = None
 
