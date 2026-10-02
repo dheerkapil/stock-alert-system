@@ -30,6 +30,7 @@ GITHUB_TOKEN         = os.environ.get("GITHUB_BACKUP_TOKEN", "")
 GITHUB_REPO          = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
 GITHUB_BACKUP_FILE   = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
 GITHUB_EOD_FILE      = os.environ.get("GITHUB_EOD_FILE", "eod_backup.json")
+GITHUB_NSE_FILE      = os.environ.get("GITHUB_NSE_FILE", "nse_symbols.json")
 GITHUB_API           = "https://api.github.com"
 BACKUP_DEBOUNCE_SECONDS        = 5
 BACKUP_FAILURE_ALERT_THRESHOLD = 3
@@ -55,13 +56,19 @@ MAX_OTP_ATTEMPTS = 5
 EOD_RETENTION_DAYS = 365
 
 # ------------------------------------------------------------------
-#  NSE SYMBOL CACHE  (populated by background thread)
+#  NSE SYMBOL CACHE
 # ------------------------------------------------------------------
 NSE_SYMBOLS = []
 NSE_NAME_LOOKUP = {}
+_NSE_LAST_FETCH_SUCCESS = None
 
 def refresh_nse_symbols():
-    global NSE_SYMBOLS, NSE_NAME_LOOKUP
+    """
+    Fetch the NSE equity list. On success, updates NSE_SYMBOLS and NSE_NAME_LOOKUP
+    and pushes a copy to GitHub. On failure, leaves existing data untouched.
+    Returns True on success.
+    """
+    global NSE_SYMBOLS, NSE_NAME_LOOKUP, _NSE_LAST_FETCH_SUCCESS
     url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
     try:
         resp = requests.get(url, headers={"User-Agent": config.USER_AGENT}, timeout=30)
@@ -71,19 +78,68 @@ def refresh_nse_symbols():
         name_col   = next((c for c in df.columns if 'NAME'   in c.upper()), None)
         series_col = next((c for c in df.columns if 'SERIES' in c.upper()), None)
         if not sym_col or not name_col:
-            logger.error("NSE CSV: missing columns")
-            return
+            logger.error("NSE CSV: missing expected columns")
+            return False
         if series_col:
             df[series_col] = df[series_col].str.strip()
             df = df[df[series_col].isin(['EQ', 'BE'])]
-        NSE_SYMBOLS = [
+
+        new_symbols = [
             {"symbol": r[sym_col].strip(), "name": r[name_col].strip()}
             for _, r in df.iterrows()
         ]
+        if not new_symbols:
+            logger.warning("NSE CSV parsed to empty list — keeping existing data.")
+            return False
+
+        NSE_SYMBOLS = new_symbols
         NSE_NAME_LOOKUP = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS}
-        logger.info(f"Cached {len(NSE_SYMBOLS)} symbols.")
+        _NSE_LAST_FETCH_SUCCESS = datetime.now(config.TIMEZONE)
+        logger.info(f"✅ Cached {len(NSE_SYMBOLS)} symbols from NSE.")
+
+        threading.Thread(target=_push_nse_to_github, daemon=True).start()
+        return True
     except Exception as e:
         logger.error(f"NSE symbols fetch failed: {e}")
+        return False
+
+def _push_nse_to_github():
+    if not GITHUB_TOKEN or not NSE_SYMBOLS:
+        return
+    try:
+        payload = json.dumps(NSE_SYMBOLS, default=str)
+        if _github_put(GITHUB_NSE_FILE, payload, f"NSE symbols: {len(NSE_SYMBOLS)} entries"):
+            logger.info(f"Backed up {len(NSE_SYMBOLS)} NSE symbols to GitHub.")
+    except Exception as e:
+        logger.error(f"NSE backup failed: {e}")
+
+def _restore_nse_from_github():
+    """Load NSE symbol list from GitHub. Returns True if any data was loaded."""
+    global NSE_SYMBOLS, NSE_NAME_LOOKUP
+    if not GITHUB_TOKEN:
+        return False
+    try:
+        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_NSE_FILE}"
+        r = requests.get(url, headers=_github_headers(), timeout=15)
+        if r.status_code == 404:
+            logger.info("No NSE symbol backup on GitHub yet.")
+            return False
+        if r.status_code != 200:
+            logger.warning(f"NSE restore: GitHub returned {r.status_code}.")
+            return False
+
+        decoded = base64.b64decode(r.json().get("content", "")).decode('utf-8')
+        data = json.loads(decoded)
+        if not isinstance(data, list) or not data:
+            return False
+
+        NSE_SYMBOLS = data
+        NSE_NAME_LOOKUP = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS if i.get('symbol')}
+        logger.info(f"✅ Restored {len(NSE_SYMBOLS)} NSE symbols from GitHub backup.")
+        return True
+    except Exception as e:
+        logger.error(f"NSE restore failed: {e}")
+        return False
 
 # ------------------------------------------------------------------
 #  AUTH HELPERS
@@ -293,7 +349,7 @@ def migrate_notes_column():
     conn.close()
 
 # ------------------------------------------------------------------
-#  PREV CLOSE — SQL fallback (only used if TradingView doesn't return one)
+#  PREV CLOSE — SQL fallback
 # ------------------------------------------------------------------
 def get_prev_closes_from_db(symbols):
     if not symbols:
@@ -376,7 +432,7 @@ def ensure_eod_backfill():
     backfill_symbols(symbols)
 
 # ------------------------------------------------------------------
-#  GITHUB BACKUP — WATCHLIST + EOD
+#  GITHUB BACKUP — shared helpers
 # ------------------------------------------------------------------
 def schedule_backup():
     global _backup_timer
@@ -605,6 +661,12 @@ def search_symbols():
     q = request.args.get('q', '').strip().upper()
     if not q:
         return jsonify([])
+
+    # Lazy load fallback: only if the symbols never arrived (e.g. GitHub + NSE both down at boot).
+    if not NSE_SYMBOLS:
+        logger.info("Search hit with empty NSE_SYMBOLS — attempting lazy load.")
+        refresh_nse_symbols()
+
     out = []
     for item in NSE_SYMBOLS:
         if q in item['symbol'] or q in item['name'].upper():
@@ -794,7 +856,6 @@ def get_alerts():
 
     symbols = list({a['symbol'] for a in alerts})
     pv = stock_alert.get_prices_with_volume(symbols)
-    # SQL fallback — only used if TradingView returns no prev_close for a symbol
     prev_closes_db = get_prev_closes_from_db(symbols)
 
     for a in alerts:
@@ -807,7 +868,6 @@ def get_alerts():
         avg_vol = entry.get('avg_vol_10d')
         a['vol_pct'] = (vol / avg_vol * 100) if (vol and avg_vol and avg_vol > 0) else None
 
-        # Prefer TradingView's prev_close; fall back to SQL
         prev_close = entry.get('prev_close')
         if prev_close is None:
             prev_close = prev_closes_db.get(a['symbol'])
@@ -916,12 +976,36 @@ def start_worker():
             logger.exception(f"Worker died, restarting in 30s: {e}")
             time.sleep(30)
 
+def nse_symbols_refresher():
+    """
+    Fetch NSE symbols once per calendar day. On failure, retry every 30 minutes
+    until success, then wait until the next day.
+    """
+    time.sleep(5)   # let the app bind the port first
+
+    last_success_date = None
+
+    while True:
+        try:
+            today = datetime.now(config.TIMEZONE).date()
+
+            if last_success_date == today:
+                time.sleep(1800)
+                continue
+
+            logger.info(f"NSE symbols fetch (last success: {last_success_date})...")
+            if refresh_nse_symbols():
+                last_success_date = today
+                logger.info(f"✅ NSE symbols refresh complete for {today}.")
+            else:
+                logger.warning("NSE fetch failed — will retry in 30 minutes.")
+
+            time.sleep(1800)
+        except Exception as e:
+            logger.error(f"NSE refresher error: {e}")
+            time.sleep(600)
+
 def eod_fetcher():
-    """
-    Fires once per weekday at/after 4:30 PM IST.
-    Skips holidays (config.NSE_HOLIDAYS).
-    Skips firing on startup if we're already past 4:30 PM.
-    """
     now = datetime.now(config.TIMEZONE)
     if now.weekday() < 5 and now.hour >= 16 and now.minute >= 30:
         last_run_date = now.date()
@@ -974,9 +1058,9 @@ def cleanup_sessions():
             time.sleep(300)
 
 def background_startup():
-    """All network-dependent startup work runs here, off the import path."""
-    logger.info("Background startup: fetching NSE symbols...")
-    refresh_nse_symbols()
+    """Load persisted data first (fast), then network refresh happens in other threads."""
+    logger.info("Background startup: restoring NSE symbols from GitHub...")
+    _restore_nse_from_github()
     logger.info("Background startup: restoring watchlist from GitHub...")
     restore_from_github()
     logger.info("Background startup: restoring EOD from GitHub...")
@@ -986,16 +1070,17 @@ def background_startup():
     logger.info("Background startup: done.")
 
 # ------------------------------------------------------------------
-#  INIT — fast, synchronous DB setup. Everything else runs in threads.
+#  INIT
 # ------------------------------------------------------------------
 init_db()
 migrate_conditions()
 migrate_notes_column()
 
-threading.Thread(target=background_startup, daemon=True).start()
-threading.Thread(target=start_worker,       daemon=True).start()
-threading.Thread(target=eod_fetcher,        daemon=True).start()
-threading.Thread(target=cleanup_sessions,   daemon=True).start()
+threading.Thread(target=background_startup,     daemon=True).start()
+threading.Thread(target=nse_symbols_refresher,  daemon=True).start()
+threading.Thread(target=start_worker,           daemon=True).start()
+threading.Thread(target=eod_fetcher,            daemon=True).start()
+threading.Thread(target=cleanup_sessions,       daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
