@@ -2278,5 +2278,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 08:52:12",
     "notes": ""
+  },
+  {
+    "id": 229,
+    "symbol": "ABLBL",
+    "condition": ">",
+    "trigger_price": 187.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:01:46",
+    "notes": ""
   }
 ]
