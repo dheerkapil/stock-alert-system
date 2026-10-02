@@ -2538,5 +2538,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 13:55:40",
     "notes": ""
+  },
+  {
+    "id": 255,
+    "symbol": "TEGA",
+    "condition": ">",
+    "trigger_price": 2275.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 14:00:38",
+    "notes": ""
   }
 ]
