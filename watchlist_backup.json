@@ -2358,5 +2358,15 @@
     "is_triggered": 0,
     "added_at": "2026-10-02 09:57:24",
     "notes": ""
+  },
+  {
+    "id": 237,
+    "symbol": "PINELABS",
+    "condition": ">",
+    "trigger_price": 170.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "added_at": "2026-10-02 09:58:57",
+    "notes": ""
   }
 ]
