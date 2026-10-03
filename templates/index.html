@@ -1535,16 +1535,32 @@ function bulkAdd(list) {
 }
 
 document.getElementById('exportBtn').addEventListener('click', function() {
-    fetch('/api/export').then(res => res.json()).then(data => {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('Export downloaded');
-    }).catch(() => showToast('Export failed'));
+    // Sort a copy of the live data using exactly the same state that renders the table.
+    const sorted = sortAlerts(alertsData, sortState);
+
+    // Export only DB-persisted rows (skip optimistic pending placeholders).
+    // Field set matches what /api/import expects, so round-trips cleanly.
+    const data = sorted
+        .filter(a => !a._pending && !String(a.id).startsWith('pending-'))
+        .map(a => ({
+            symbol: a.symbol,
+            condition: a.condition,
+            trigger_price: a.trigger_price,
+            is_active: a.is_active,
+            is_triggered: a.is_triggered,
+            triggered_at: a.triggered_at,
+            added_at: a.added_at,
+            notes: a.notes || '',
+        }));
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alerts_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Export downloaded');
 });
 
 document.getElementById('importBtn').addEventListener('click', function() {
