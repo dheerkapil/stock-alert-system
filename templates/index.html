@@ -225,7 +225,7 @@
             vertical-align: middle;
             border-bottom: 1px solid var(--border-light);
             font-size: 0.8rem;
-            color: inherit;
+            color: var(--text);
             background: var(--surface);
             overflow: hidden;
             text-overflow: ellipsis;
@@ -278,20 +278,18 @@
         .text-right { text-align: right; }
         .text-center { text-align: center; }
 
-        tbody tr.row-met { color: var(--success); }
-        tbody tr.row-unmet { color: var(--danger); }
-        tbody tr.row-pending { color: var(--text-muted); font-style: italic; }
+        tbody tr.row-pending td { color: var(--text-muted); font-style: italic; }
 
-        .cmp-green, .gap-green, .pct-green { color: var(--success) !important; font-weight: 600; }
-        .cmp-red, .gap-red, .pct-red { color: var(--danger) !important; font-weight: 600; }
-        .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted) !important; }
-        .rvol-green { color: var(--success) !important; font-weight: 600; }
-        .rvol-yellow { color: var(--warning) !important; font-weight: 600; }
-        .rvol-red { color: var(--danger) !important; font-weight: 600; }
-        .rvol-neutral { color: var(--text-muted) !important; }
+        .cmp-green, .gap-green, .pct-green { color: var(--success); font-weight: 600; }
+        .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
+        .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
+        .rvol-green { color: var(--success); font-weight: 600; }
+        .rvol-yellow { color: var(--warning); font-weight: 600; }
+        .rvol-red { color: var(--danger); font-weight: 600; }
+        .rvol-neutral { color: var(--text-muted); }
 
         .tv-link {
-            color: inherit;
+            color: var(--text);
             text-decoration: none;
             font-weight: 700;
             display: inline-block;
@@ -309,7 +307,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            color: inherit;
+            color: var(--text);
             cursor: pointer;
             font-size: 0.8rem;
         }
@@ -945,9 +943,6 @@ function submitForm(force) {
 addBtn.addEventListener('click', () => submitForm(false));
 addBtnMobile.addEventListener('click', () => submitForm(false));
 
-// ------------------------------------------------------------------
-//  Sort state
-// ------------------------------------------------------------------
 let sortState = { column: null, direction: 1, gapMode: 0 };
 let alertsData = [];
 let focusedRowIndex = -1;
@@ -1104,12 +1099,7 @@ function renderAlerts(data) {
             (a.condition === '<' && cmpNum < trigNum)
         );
 
-        let rowClass;
-        if (isPending) {
-            rowClass = 'row-pending';
-        } else {
-            rowClass = condMet ? 'row-met' : 'row-unmet';
-        }
+        const rowClass = isPending ? 'row-pending' : '';
 
         let cmpDisplay = '-', cmpClass = 'cmp-neutral';
         if (isPending) {
@@ -1453,9 +1443,6 @@ document.querySelectorAll('.sortable').forEach(header => {
     });
 });
 
-// ------------------------------------------------------------------
-//  Fast poll after a new symbol is added
-// ------------------------------------------------------------------
 let fastPollTimer = null;
 let fastPollUntil = 0;
 
@@ -1481,7 +1468,6 @@ function handleAddResponse(data, payload) {
         notesInput.value = '';
         symbolInput.focus();
 
-        // Insert a placeholder row so the user sees it immediately
         alertsData.push({
             id: 'pending-' + data.symbol,
             symbol: data.symbol,
@@ -1501,7 +1487,6 @@ function handleAddResponse(data, payload) {
         });
         renderAlerts(sortAlerts(alertsData, sortState));
 
-        // Poll fast until the backend fills in real data
         startFastPoll(30000);
     } else if (data.status === 'duplicate') {
         showAppModal({
