@@ -31,11 +31,7 @@ def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
 
 def _tv_fetch(symbols):
-    """
-    Returns {symbol: data} for every symbol TradingView answered.
-    On 429: logs partial count, sets backoff, returns what it got.
-    On chunk error: logs, continues to next chunk.
-    """
+    """Returns {symbol: data}. On 429, returns partials; sets backoff."""
     global _backoff_until
 
     result = {}
@@ -58,8 +54,7 @@ def _tv_fetch(symbols):
             if r.status_code == 429:
                 _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
                 logger.warning(f"TV 429 on chunk {idx}/{total_chunks} — "
-                               f"got {len(result)}/{len(symbols)} so far. "
-                               f"Backing off {config.TV_CACHE_BACKOFF_SECONDS}s")
+                               f"got {len(result)}/{len(symbols)}. Backing off.")
                 return result
 
             if r.status_code != 200:
@@ -67,11 +62,7 @@ def _tv_fetch(symbols):
                 time.sleep(config.TRADINGVIEW_DELAY)
                 continue
 
-            body = r.json()
-            data_rows = body.get('data', [])
-            logger.info(f"TV chunk {idx}/{total_chunks}: requested {len(chunk)}, "
-                        f"received {len(data_rows)}")
-
+            data_rows = r.json().get('data', [])
             for entry in data_rows:
                 ticker = entry['s'].split(':')[1]
                 v = entry['d']
@@ -92,7 +83,6 @@ def _tv_fetch(symbols):
 
         time.sleep(config.TRADINGVIEW_DELAY)
 
-    logger.info(f"TV fetch complete: {len(result)}/{len(symbols)} symbols")
     return result
 
 def refresh_tv_cache(symbols):
@@ -113,15 +103,25 @@ def refresh_tv_cache(symbols):
     logger.info(f"TV refresh starting: {len(missing)} missing of {len(symbols)}")
     fetched = _tv_fetch(missing)
 
-    if fetched:
-        with _TV_CACHE_LOCK:
-            for sym, data in fetched.items():
-                _TV_CACHE[sym] = (now, data)
-        logger.info(f"TV refresh wrote {len(fetched)} entries to cache")
-    else:
-        logger.warning("TV refresh returned 0 symbols — cache unchanged")
+    updated = 0
+    skipped_null = 0
+    with _TV_CACHE_LOCK:
+        for sym, data in fetched.items():
+            existing = _TV_CACHE.get(sym)
 
-    return len(fetched)
+            # Rule: never overwrite a good price with a null one.
+            if (existing
+                    and existing[1].get("price") is not None
+                    and data.get("price") is None):
+                skipped_null += 1
+                continue
+
+            _TV_CACHE[sym] = (now, data)
+            updated += 1
+
+    logger.info(f"TV refresh: updated {updated}, kept-previous {skipped_null}, "
+                f"total returned {len(fetched)}")
+    return updated
 
 def get_cached(symbols):
     result = {}
