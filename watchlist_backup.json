@@ -2847,5 +2847,16 @@
     "triggered_at": null,
     "added_at": "2026-10-03 14:43:30",
     "notes": ""
+  },
+  {
+    "id": 261,
+    "symbol": "RELIANCE",
+    "condition": ">",
+    "trigger_price": 5000.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-03 15:39:44",
+    "notes": ""
   }
 ]
