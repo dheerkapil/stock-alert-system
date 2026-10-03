@@ -31,7 +31,6 @@ def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
 
 def _tv_fetch(symbols):
-    """Returns {symbol: data}. On 429, returns partials; sets backoff."""
     global _backoff_until
 
     result = {}
@@ -63,21 +62,30 @@ def _tv_fetch(symbols):
                 continue
 
             data_rows = r.json().get('data', [])
+            with_price = 0
+            with_null = 0
             for entry in data_rows:
                 ticker = entry['s'].split(':')[1]
                 v = entry['d']
                 def f(x): return float(x) if x is not None else None
+                price = f(v[0]) if len(v) > 0 else None
                 data = {
-                    "price":       f(v[0]) if len(v) > 0 else None,
+                    "price":       price,
                     "volume":      f(v[1]) if len(v) > 1 else None,
                     "avg_vol_10d": f(v[2]) if len(v) > 2 else None,
                     "rvol":        f(v[3]) if len(v) > 3 else None,
                     "prev_close":  f(v[4]) if len(v) > 4 else None,
                 }
+                if price is None:
+                    with_null += 1
+                else:
+                    with_price += 1
                 for s in chunk:
                     if _tv_symbol(s) == ticker.upper().replace('-', '_'):
                         result[s] = data
                         break
+            logger.info(f"TV chunk {idx}/{total_chunks}: "
+                        f"{with_price} with price, {with_null} with null")
         except Exception as e:
             logger.warning(f"TV chunk {idx}/{total_chunks} failed: {e}")
 
@@ -104,23 +112,19 @@ def refresh_tv_cache(symbols):
     fetched = _tv_fetch(missing)
 
     updated = 0
-    skipped_null = 0
+    rejected_null = 0
     with _TV_CACHE_LOCK:
         for sym, data in fetched.items():
-            existing = _TV_CACHE.get(sym)
-
-            # Rule: never overwrite a good price with a null one.
-            if (existing
-                    and existing[1].get("price") is not None
-                    and data.get("price") is None):
-                skipped_null += 1
+            # NEVER write a null-price entry. Absent symbols fall back to
+            # EOD close inside /api/alerts. Writing nulls here poisons the
+            # cache and hides the EOD fallback.
+            if data.get("price") is None:
+                rejected_null += 1
                 continue
-
             _TV_CACHE[sym] = (now, data)
             updated += 1
 
-    logger.info(f"TV refresh: updated {updated}, kept-previous {skipped_null}, "
-                f"total returned {len(fetched)}")
+    logger.info(f"TV refresh: wrote {updated}, rejected {rejected_null} null-price")
     return updated
 
 def get_cached(symbols):
@@ -144,7 +148,11 @@ def cache_restore(entries, max_age=1800):
             ts = float(e.get("ts", 0))
             if now - ts > max_age:
                 continue
-            _TV_CACHE[sym] = (ts, e["data"])
+            data = e.get("data") or {}
+            # Skip null-price entries from the snapshot too.
+            if data.get("price") is None:
+                continue
+            _TV_CACHE[sym] = (ts, data)
             n += 1
     return n
 
