@@ -12,9 +12,6 @@ logger = logging.getLogger(__name__)
 
 WEBUI_URL = "https://stock-alert-ui.onrender.com"
 
-# ------------------------------------------------------------------
-#  WORKER TICK
-# ------------------------------------------------------------------
 _last_tick = time.time()
 
 def get_last_tick():
@@ -52,8 +49,7 @@ def _tv_fetch(symbols):
 
             if r.status_code == 429:
                 _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
-                logger.warning(f"TV 429 on chunk {idx}/{total_chunks} — "
-                               f"got {len(result)}/{len(symbols)}. Backing off.")
+                logger.warning(f"TV 429 on chunk {idx}/{total_chunks} — got {len(result)}/{len(symbols)}. Backing off.")
                 return result
 
             if r.status_code != 200:
@@ -62,30 +58,21 @@ def _tv_fetch(symbols):
                 continue
 
             data_rows = r.json().get('data', [])
-            with_price = 0
-            with_null = 0
             for entry in data_rows:
                 ticker = entry['s'].split(':')[1]
                 v = entry['d']
                 def f(x): return float(x) if x is not None else None
-                price = f(v[0]) if len(v) > 0 else None
                 data = {
-                    "price":       price,
+                    "price":       f(v[0]) if len(v) > 0 else None,
                     "volume":      f(v[1]) if len(v) > 1 else None,
                     "avg_vol_10d": f(v[2]) if len(v) > 2 else None,
                     "rvol":        f(v[3]) if len(v) > 3 else None,
                     "prev_close":  f(v[4]) if len(v) > 4 else None,
                 }
-                if price is None:
-                    with_null += 1
-                else:
-                    with_price += 1
                 for s in chunk:
                     if _tv_symbol(s) == ticker.upper().replace('-', '_'):
                         result[s] = data
                         break
-            logger.info(f"TV chunk {idx}/{total_chunks}: "
-                        f"{with_price} with price, {with_null} with null")
         except Exception as e:
             logger.warning(f"TV chunk {idx}/{total_chunks} failed: {e}")
 
@@ -99,6 +86,9 @@ def refresh_tv_cache(symbols):
 
     symbols = list(set(symbols))
     now = time.time()
+
+    # === INSTRUMENTATION 1 ===
+    logger.info(f"refresh_tv_cache ENTER: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)}")
 
     with _TV_CACHE_LOCK:
         missing = [s for s in symbols
@@ -115,25 +105,33 @@ def refresh_tv_cache(symbols):
     rejected_null = 0
     with _TV_CACHE_LOCK:
         for sym, data in fetched.items():
-            # NEVER write a null-price entry. Absent symbols fall back to
-            # EOD close inside /api/alerts. Writing nulls here poisons the
-            # cache and hides the EOD fallback.
             if data.get("price") is None:
                 rejected_null += 1
                 continue
             _TV_CACHE[sym] = (now, data)
             updated += 1
 
-    logger.info(f"TV refresh: wrote {updated}, rejected {rejected_null} null-price")
+    # === INSTRUMENTATION 2 ===
+    logger.info(f"refresh_tv_cache EXIT: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} "
+                f"wrote={updated} rejected_null={rejected_null}")
     return updated
 
 def get_cached(symbols):
     result = {}
     with _TV_CACHE_LOCK:
+        missing_exact = [s for s in set(symbols) if s not in _TV_CACHE]
         for s in set(symbols):
             e = _TV_CACHE.get(s)
             if e:
                 result[s] = e[1]
+
+    # === INSTRUMENTATION 3 ===
+    if missing_exact:
+        logger.warning(
+            f"get_cached: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} "
+            f"asked={len(set(symbols))} missing_exact={len(missing_exact)} "
+            f"sample={missing_exact[:5]}"
+        )
     return result
 
 def cache_snapshot():
@@ -149,11 +147,11 @@ def cache_restore(entries, max_age=1800):
             if now - ts > max_age:
                 continue
             data = e.get("data") or {}
-            # Skip null-price entries from the snapshot too.
             if data.get("price") is None:
                 continue
             _TV_CACHE[sym] = (ts, data)
             n += 1
+    logger.info(f"cache_restore: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} loaded={n}")
     return n
 
 # ------------------------------------------------------------------
