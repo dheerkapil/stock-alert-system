@@ -11,8 +11,8 @@ STOP_TIME  = "15:45"
 TIMEZONE = pytz.timezone("Asia/Kolkata")
 
 # ---- Data Sources ----
-TRADINGVIEW_CHUNK_SIZE = 150
-TRADINGVIEW_DELAY = 0.5
+TRADINGVIEW_CHUNK_SIZE = 100   # smaller batches, less likely to trigger rate limit
+TRADINGVIEW_DELAY = 1.0        # seconds between chunks
 YAHOO_FINANCE_ENABLED = True
 
 # ---- Telegram ----

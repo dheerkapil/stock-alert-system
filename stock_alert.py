@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import threading
 import requests
 import yfinance as yf
 import pandas as pd
@@ -19,6 +20,13 @@ _last_worker_tick = time.time()
 
 def get_last_worker_tick():
     return _last_worker_tick
+
+# ------------------------------------------------------------------
+#  TRADINGVIEW CACHE — 60 seconds per symbol, thread-safe
+# ------------------------------------------------------------------
+_TV_CACHE = {}                  # {symbol: (timestamp, data_dict)}
+_TV_CACHE_LOCK = threading.Lock()
+_TV_CACHE_TTL = 60
 
 # ------------------------------------------------------------------
 #  DATA-SOURCE HEALTH MONITORING
@@ -70,13 +78,16 @@ def get_active_alerts():
         return []
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW — price, volume metrics, prev close
+#  TRADINGVIEW — fetch (no cache) with 429 retry
 # ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
-def get_prices_with_volume(symbols):
-    symbols = list(set(symbols))
+def _fetch_tv_batch(symbols):
+    """
+    Raw TradingView fetch. No cache. Retries each chunk once on 429.
+    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}.
+    """
     if not symbols:
         return {}
 
@@ -94,34 +105,91 @@ def get_prices_with_volume(symbols):
                 "prev_close_price",
             ]
         }
-        try:
-            resp = requests.post(
-                "https://scanner.tradingview.com/india/scan",
-                json=payload, timeout=15
-            )
-            resp.raise_for_status()
-            for entry in resp.json().get('data', []):
-                tv_symbol = entry['s'].split(':')[1]
-                vals = entry['d']
-                price       = vals[0] if len(vals) > 0 else None
-                volume      = vals[1] if len(vals) > 1 else None
-                avg_vol_10d = vals[2] if len(vals) > 2 else None
-                rvol        = vals[3] if len(vals) > 3 else None
-                prev_close  = vals[4] if len(vals) > 4 else None
-                tv_clean = tv_symbol.upper().replace('-', '_')
-                for original in chunk:
-                    if to_tradingview_symbol(original) == tv_clean:
-                        result[original] = {
-                            "price":       float(price)       if price       is not None else None,
-                            "volume":      float(volume)      if volume      is not None else None,
-                            "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
-                            "rvol":        float(rvol)        if rvol        is not None else None,
-                            "prev_close":  float(prev_close)  if prev_close  is not None else None,
-                        }
+
+        for attempt in (1, 2):
+            try:
+                resp = requests.post(
+                    "https://scanner.tradingview.com/india/scan",
+                    json=payload, timeout=15
+                )
+
+                if resp.status_code == 429:
+                    if attempt == 1:
+                        logger.warning("TradingView 429 — retrying in 3s")
+                        time.sleep(3)
+                        continue
+                    else:
+                        logger.warning("TradingView 429 again — skipping this chunk")
                         break
-        except Exception as e:
-            logger.warning(f"TradingView error: {e}")
+
+                resp.raise_for_status()
+
+                for entry in resp.json().get('data', []):
+                    tv_symbol = entry['s'].split(':')[1]
+                    vals = entry['d']
+                    price       = vals[0] if len(vals) > 0 else None
+                    volume      = vals[1] if len(vals) > 1 else None
+                    avg_vol_10d = vals[2] if len(vals) > 2 else None
+                    rvol        = vals[3] if len(vals) > 3 else None
+                    prev_close  = vals[4] if len(vals) > 4 else None
+                    tv_clean = tv_symbol.upper().replace('-', '_')
+                    for original in chunk:
+                        if to_tradingview_symbol(original) == tv_clean:
+                            result[original] = {
+                                "price":       float(price)       if price       is not None else None,
+                                "volume":      float(volume)      if volume      is not None else None,
+                                "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
+                                "rvol":        float(rvol)        if rvol        is not None else None,
+                                "prev_close":  float(prev_close)  if prev_close  is not None else None,
+                            }
+                            break
+                break
+            except Exception as e:
+                logger.warning(f"TradingView error (attempt {attempt}): {e}")
+                if attempt == 1:
+                    time.sleep(2)
+                continue
+
         time.sleep(config.TRADINGVIEW_DELAY)
+
+    return result
+
+# ------------------------------------------------------------------
+#  TRADINGVIEW — cached wrapper (60s per symbol)
+# ------------------------------------------------------------------
+def get_prices_with_volume(symbols):
+    """
+    60-second per-symbol cached TradingView lookup.
+    Shared safely between the worker thread and request handlers.
+    """
+    symbols = list(set(symbols))
+    if not symbols:
+        return {}
+
+    now = time.time()
+    result = {}
+    missing = []
+
+    with _TV_CACHE_LOCK:
+        for sym in symbols:
+            entry = _TV_CACHE.get(sym)
+            if entry and (now - entry[0]) < _TV_CACHE_TTL:
+                result[sym] = entry[1]
+            else:
+                missing.append(sym)
+
+    if not missing:
+        return result
+
+    logger.info(f"TV fetch: {len(missing)} missing, {len(result)} cached")
+
+    fetched = _fetch_tv_batch(missing)
+
+    with _TV_CACHE_LOCK:
+        for sym, data in fetched.items():
+            _TV_CACHE[sym] = (now, data)
+
+    result.update(fetched)
     return result
 
 # ------------------------------------------------------------------

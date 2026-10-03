@@ -24,7 +24,7 @@ app = Flask(__name__)
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long-random-string")
 
 # ------------------------------------------------------------------
-#  HEALTHCHECK.IO — dead man's switch (Telegram alerts on silence)
+#  HEALTHCHECK.IO — dead man's switch
 # ------------------------------------------------------------------
 HEALTHCHECK_PING_URL = os.environ.get("HEALTHCHECK_PING_URL", "")
 
@@ -1104,16 +1104,11 @@ def cleanup_sessions():
             time.sleep(300)
 
 def healthcheck_pinger():
-    """
-    Dead-man's-switch. Pings Healthchecks.io every 5 minutes IFF the worker
-    is still ticking. If the worker stalls or the container dies, pings stop
-    and Healthchecks.io alerts via Telegram.
-    """
     if not HEALTHCHECK_PING_URL:
         logger.info("Healthcheck pinger disabled (HEALTHCHECK_PING_URL not set).")
         return
 
-    time.sleep(60)   # let the worker spin up
+    time.sleep(60)
 
     while True:
         try:
