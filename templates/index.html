@@ -183,12 +183,7 @@
         }
 
         /* ============ TABLE ============ */
-        .table-scroll {
-            overflow: auto;
-            max-height: 75vh;
-            -webkit-overflow-scrolling: touch;
-            border-radius: 12px;
-        }
+        .table-scroll { overflow: auto; max-height: 75vh; -webkit-overflow-scrolling: touch; border-radius: 12px; }
         .table-scroll table {
             width: 100%;
             min-width: 1280px;
@@ -238,19 +233,10 @@
         }
         .table-scroll tbody tr:focus-visible { outline: none; }
 
-        /* Desktop: cap table width so it doesn't stretch across wide screens */
         @media (min-width: 768px) {
-            .table-scroll table {
-                max-width: 1400px;
-                margin-left: auto;
-                margin-right: auto;
-            }
+            .table-scroll table { max-width: 1400px; margin-left: auto; margin-right: auto; }
         }
 
-        /* Column widths — pixel-based, Notes absorbs remaining.
-           Fixed sum: 110+48+82+82+76+72+88+82+78+72+148+140 = 1078px.
-           At 1280px min-width → Notes gets 202px.
-           At 1400px max-width → Notes gets 322px. */
         .col-symbol  { width: 110px; }
         .col-cond    { width: 48px; }
         .col-trigger { width: 82px; }
@@ -262,12 +248,25 @@
         .col-rvol    { width: 78px; }
         .col-status  { width: 72px; }
         .col-added   { width: 148px; }
-        /* .col-notes — no width, takes remainder */
         .col-actions { width: 140px; }
 
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
+
+        /* TradingView link on symbol */
+        .tv-link {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 700;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+        .tv-link:hover { color: var(--primary); text-decoration: underline; }
+        .tv-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 
         .notes-cell {
             display: block;
@@ -458,7 +457,6 @@
             * { animation: none !important; transition: none !important; }
         }
 
-        /* ============ MOBILE ============ */
         @media (max-width: 576px) {
             body { padding: 6px; }
             .card { padding: 10px; margin-bottom: 8px; border-radius: 12px; }
@@ -468,29 +466,13 @@
             .logout-btn { height: 38px; padding: 0 12px; font-size: 0.75rem; }
 
             .form-label { font-size: 0.65rem; margin-bottom: 3px; }
-            .form-control-sm, .form-select-sm {
-                font-size: 0.82rem;
-                padding: 0.4rem 0.5rem;
-                border-radius: 8px;
-            }
-            .add-alert-btn {
-                font-size: 0.88rem;
-                padding: 0.55rem 0.7rem;
-                border-radius: 20px;
-                margin-top: 6px;
-            }
+            .form-control-sm, .form-select-sm { font-size: 0.82rem; padding: 0.4rem 0.5rem; border-radius: 8px; }
+            .add-alert-btn { font-size: 0.88rem; padding: 0.55rem 0.7rem; border-radius: 20px; margin-top: 6px; }
             .btn-tool { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
 
             .table-scroll table { min-width: 1280px; }
-            .table-scroll thead th {
-                font-size: 0.65rem;
-                padding: 8px 4px;
-                letter-spacing: 0.2px;
-            }
-            .table-scroll tbody td {
-                font-size: 0.75rem;
-                padding: 7px 4px;
-            }
+            .table-scroll thead th { font-size: 0.65rem; padding: 8px 4px; letter-spacing: 0.2px; }
+            .table-scroll tbody td { font-size: 0.75rem; padding: 7px 4px; }
             .table .btn-sm { padding: 5px 6px; font-size: 0.65rem; margin: 0; }
             .status-btn { width: 22px; height: 22px; font-size: 0.55rem; }
             .notes-cell { font-size: 0.75rem; }
@@ -998,6 +980,10 @@ function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function tvUrl(symbol) {
+    return 'https://www.tradingview.com/chart/?symbol=NSE:' + encodeURIComponent(symbol);
+}
+
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
     if (!data || data.length === 0) {
@@ -1035,7 +1021,7 @@ function renderAlerts(data) {
         }
         let rvolDisplay = '-', rvolClass = 'rvol-neutral';
         if (a.rvol !== null && a.rvol !== undefined && isFinite(a.rvol)) {
-            rvolDisplay = a.rvol.toFixed(1);
+            rvolDisplay = a.rvol.toFixed(2);
             if (a.rvol > 1.5) rvolClass = 'rvol-green';
             else if (a.rvol > 1.0) rvolClass = 'rvol-yellow';
             else rvolClass = 'rvol-red';
@@ -1056,7 +1042,7 @@ function renderAlerts(data) {
         }
 
         html += `<tr data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" data-notes="${notesEscaped}" tabindex="0" data-row-index="${idx}">
-            <td class="text-left col-symbol"><strong>${a.symbol}</strong></td>
+            <td class="text-left col-symbol"><a href="${tvUrl(a.symbol)}" target="_blank" rel="noopener" class="tv-link" title="Open ${a.symbol} chart on TradingView">${a.symbol}</a></td>
             <td class="text-center col-cond">${a.condition}</td>
             <td class="text-right col-trigger">${a.trigger_price}</td>
             <td class="text-right col-cmp ${cmpClass}">${cmpDisplay}</td>
@@ -1093,6 +1079,7 @@ function renderAlerts(data) {
         row.addEventListener('click', function(e) {
             if (e.target.closest('button')) return;
             if (e.target.closest('.notes-cell')) return;
+            if (e.target.closest('.tv-link')) return;
             this.focus();
         });
     });
