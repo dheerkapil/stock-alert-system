@@ -336,13 +336,10 @@ def gh_get(filename, branch=None):
         return None
 
 # ------------------------------------------------------------------
-#  NSE SYMBOLS
+#  NSE SYMBOLS — writer to file, reader via stock_alert
 # ------------------------------------------------------------------
-NSE_SYMBOLS = []
-NSE_NAMES = {}
-
 def refresh_nse():
-    global NSE_SYMBOLS, NSE_NAMES
+    """Fetch NSE symbol list from archives, save to file, push to GitHub."""
     try:
         r = requests.get(
             "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
@@ -355,14 +352,18 @@ def refresh_nse():
         if series_col:
             df = df[df[series_col].str.strip().isin(['EQ', 'BE'])]
 
-        NSE_SYMBOLS = [{"symbol": row[sym_col].strip(), "name": row[name_col].strip()}
-                       for _, row in df.iterrows()]
-        NSE_NAMES = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS}
-        logger.info(f"NSE: {len(NSE_SYMBOLS)} symbols cached")
+        symbols = [{"symbol": row[sym_col].strip(), "name": row[name_col].strip()}
+                   for _, row in df.iterrows()]
+        if not symbols:
+            logger.error("NSE fetch returned empty list")
+            return False
+
+        stock_alert.save_nse_symbols(symbols)
+        logger.info(f"NSE: {len(symbols)} symbols saved to file")
 
         threading.Thread(
-            target=lambda: gh_put(GH_NSE, json.dumps(NSE_SYMBOLS),
-                                  f"NSE symbols: {len(NSE_SYMBOLS)}"),
+            target=lambda: gh_put(GH_NSE, json.dumps(symbols),
+                                  f"NSE symbols: {len(symbols)}"),
             daemon=True).start()
         return True
     except Exception as e:
@@ -373,16 +374,14 @@ def refresh_nse():
 #  GITHUB RESTORE
 # ------------------------------------------------------------------
 def restore_nse():
-    global NSE_SYMBOLS, NSE_NAMES
     content = gh_get(GH_NSE)
     if not content:
         return
     try:
         data = json.loads(content)
         if isinstance(data, list) and data:
-            NSE_SYMBOLS = data
-            NSE_NAMES = {i['symbol'].upper(): i['name'] for i in data if i.get('symbol')}
-            logger.info(f"✅ Restored {len(NSE_SYMBOLS)} NSE symbols")
+            stock_alert.save_nse_symbols(data)
+            logger.info(f"✅ Restored {len(data)} NSE symbols from GitHub")
     except Exception as e:
         logger.error(f"NSE restore: {e}")
 
@@ -509,12 +508,10 @@ def index():
 
 @app.route('/api/search')
 def search():
-    q = request.args.get('q', '').strip().upper()
+    q = request.args.get('q', '').strip()
     if not q:
         return jsonify([])
-    out = [i for i in NSE_SYMBOLS
-           if q in i['symbol'] or q in i['name'].upper()][:50]
-    return jsonify(out)
+    return jsonify(stock_alert.get_search_results(q))
 
 @app.route('/api/alerts')
 def api_alerts():
@@ -530,6 +527,7 @@ def api_alerts():
     tv = stock_alert.get_cached(symbols)
     last_two = get_last_two_closes(symbols)
     eod_vol = get_eod_volume_stats(symbols)
+    company_names = stock_alert.get_company_names(symbols)
 
     no_data = []
 
@@ -577,7 +575,7 @@ def api_alerts():
             a['vol_pct'] = None
             a['rvol'] = None
 
-        a['company_name'] = NSE_NAMES.get(sym.upper(), '')
+        a['company_name'] = company_names.get(sym.upper(), '')
         if a.get('notes') is None:
             a['notes'] = ''
 
@@ -875,8 +873,7 @@ def market_loop():
                 last_tv_push = time.time()
 
             if last_nse_fetch != today:
-                if not NSE_SYMBOLS:
-                    refresh_nse()
+                refresh_nse()
                 last_nse_fetch = today
 
             if time.time() - last_otp_cleanup >= 300:
@@ -893,11 +890,8 @@ def market_loop():
 
 def eod_fetcher():
     """
-    State machine:
-      - At 19:00 IST on a weekday, start a bhavcopy fetch for today.
-      - Retry every 15 minutes until it succeeds.
-      - If midnight crosses with the fetch still pending, try Yahoo once.
-      - Send Telegram on success and on permanent failure.
+    Bhavcopy at 19:00, retry every 15 min until midnight.
+    At midnight, if still pending, one Yahoo fallback.
     """
     last_completed_date = _read_last_eod_date()
     pending_date = None
@@ -910,7 +904,7 @@ def eod_fetcher():
             now = datetime.now(config.TIMEZONE)
             today = now.date()
 
-            # --- Check 1: midnight crossed with a pending fetch ---
+            # Midnight crossed with pending
             if pending_date is not None and today > pending_date:
                 logger.info(f"eod_fetcher: midnight crossed, Yahoo fallback for {pending_date}")
                 _eod_fallback_yahoo(pending_date)
@@ -920,7 +914,7 @@ def eod_fetcher():
                 time.sleep(60)
                 continue
 
-            # --- Check 2: start a new fetch ---
+            # Start new fetch
             if (pending_date is None
                     and now.weekday() < 5
                     and now.hour >= 19
@@ -934,7 +928,7 @@ def eod_fetcher():
                     pending_date = today
                     next_attempt_ts = time.time()
 
-            # --- Check 3: retry pending ---
+            # Retry pending
             if pending_date is not None and time.time() >= (next_attempt_ts or 0):
                 syms = _watchlist_symbols()
                 if not syms:
@@ -943,16 +937,18 @@ def eod_fetcher():
                     pending_date = None
                     next_attempt_ts = None
                 else:
-                    rows = stock_alert.fetch_bhavcopy_for_date(pending_date, syms)
-                    if rows is None:
-                        # File not available → retry in 15 min
+                    prev_closes = get_prev_closes(syms)
+                    status, rows = stock_alert.fetch_bhavcopy_for_date(
+                        pending_date, syms, compare_closes=prev_closes
+                    )
+
+                    if status == "unavailable":
                         next_attempt_ts = time.time() + 900
                         logger.info(f"eod_fetcher: bhavcopy for {pending_date} not yet available, "
                                     f"next attempt in 15 min")
-                    elif len(rows) == 0:
-                        # File exists but no matching symbols → mark complete
-                        logger.warning(f"eod_fetcher: bhavcopy for {pending_date} has no matches "
-                                       f"for our {len(syms)} symbols")
+
+                    elif status == "empty":
+                        logger.warning(f"eod_fetcher: bhavcopy for {pending_date} has no matches")
                         stock_alert.send_telegram(
                             f"⚠️ EOD bhavcopy for {pending_date.strftime('%Y-%m-%d')} "
                             f"has no rows for our watchlist symbols"
@@ -960,7 +956,18 @@ def eod_fetcher():
                         last_completed_date = pending_date
                         pending_date = None
                         next_attempt_ts = None
-                    else:
+
+                    elif status == "stale":
+                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} is stale "
+                                    f"(likely holiday carryforward)")
+                        stock_alert.send_telegram(
+                            f"⏭️ EOD skip for {pending_date.strftime('%Y-%m-%d')} — market holiday"
+                        )
+                        last_completed_date = pending_date
+                        pending_date = None
+                        next_attempt_ts = None
+
+                    else:  # ok
                         n = persist_bars(rows)
                         push_eod()
                         prune_eod()
@@ -978,17 +985,13 @@ def eod_fetcher():
             time.sleep(60)
 
 def _eod_fallback_yahoo(target_date):
-    """Called at midnight when bhavcopy never arrived. One shot at Yahoo."""
     date_str = target_date.strftime('%Y-%m-%d')
     try:
         syms = _watchlist_symbols()
         if not syms:
-            logger.warning("eod_fetcher yahoo fallback: no watchlist symbols")
             return
-
         rows = stock_alert.batch_fetch_daily_bars_yahoo(syms, days=5, include_today=False)
         target_rows = [r for r in rows if r[1] == date_str]
-
         if target_rows:
             n = persist_bars(target_rows)
             push_eod()
