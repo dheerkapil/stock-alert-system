@@ -34,7 +34,7 @@ GH_CACHE_BRANCH = "cache"
 GH_API        = "https://api.github.com"
 
 # ------------------------------------------------------------------
-#  AUTH — OTP codes live in a file so both workers see them
+#  AUTH
 # ------------------------------------------------------------------
 _OTP_FILE = os.path.join(os.path.dirname(os.path.abspath(config.DB_FILE)), "otp_state.json")
 _OTP_LOCK = threading.Lock()
@@ -197,6 +197,7 @@ def init_db():
             trigger_price REAL NOT NULL,
             is_active INTEGER DEFAULT 1,
             is_triggered INTEGER DEFAULT 0,
+            triggered_at TIMESTAMP,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notes TEXT DEFAULT ''
         );
@@ -215,6 +216,20 @@ def init_db():
     c.commit()
     c.close()
     logger.info("Database ready")
+
+def migrate_triggered_at_column():
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        cur = c.cursor()
+        cur.execute("PRAGMA table_info(watchlist)")
+        cols = [r[1] for r in cur.fetchall()]
+        if 'triggered_at' not in cols:
+            cur.execute("ALTER TABLE watchlist ADD COLUMN triggered_at TIMESTAMP")
+            c.commit()
+            logger.info("Added triggered_at column to watchlist")
+        c.close()
+    except Exception as e:
+        logger.error(f"triggered_at migration error: {e}")
 
 def get_prev_closes(symbols):
     if not symbols:
@@ -379,10 +394,6 @@ def gh_get(filename, branch=None):
 #  NSE SYMBOLS
 # ------------------------------------------------------------------
 def refresh_nse():
-    """
-    Fetch NSE symbol list. Pushes to GitHub only if the list changed,
-    to avoid triggering a Render redeploy on every startup.
-    """
     try:
         r = requests.get(
             "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
@@ -401,7 +412,6 @@ def refresh_nse():
             logger.error("NSE fetch returned empty list")
             return False
 
-        # Compare to what's on GitHub already
         old_content = gh_get(GH_NSE)
         old_symbols = None
         if old_content:
@@ -411,7 +421,6 @@ def refresh_nse():
                 old_symbols = None
 
         changed = (old_symbols != symbols)
-
         stock_alert.save_nse_symbols(symbols)
 
         if changed:
@@ -460,14 +469,15 @@ def restore_watchlist():
             try:
                 c.execute('''
                     INSERT INTO watchlist
-                    (symbol, condition, trigger_price, is_active, is_triggered, added_at, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (symbol, condition, trigger_price, is_active, is_triggered, triggered_at, added_at, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     (item.get('symbol') or '').upper(),
                     item.get('condition', '>'),
                     float(item.get('trigger_price', 0)),
                     int(item.get('is_active', 1)),
                     int(item.get('is_triggered', 0)),
+                    item.get('triggered_at'),
                     item.get('added_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     item.get('notes') or '',
                 ))
@@ -641,6 +651,18 @@ def api_alerts():
 
     return jsonify(alerts)
 
+def _refresh_new_symbol(sym):
+    """Background warm for a newly added symbol: TV + bhavcopy."""
+    try:
+        stock_alert.refresh_tv_cache([sym])
+        logger.info(f"Warm: TV cache updated for {sym}")
+    except Exception as e:
+        logger.warning(f"TV warm failed for {sym}: {e}")
+    try:
+        backfill_symbol(sym)
+    except Exception as e:
+        logger.warning(f"Backfill failed for {sym}: {e}")
+
 @app.route('/api/add', methods=['POST'])
 def api_add():
     d = request.json
@@ -676,8 +698,10 @@ def api_add():
                   (sym, cond, price, notes))
         c.commit()
         c.close()
-        threading.Thread(target=backfill_symbol, args=(sym,), daemon=True).start()
+
+        threading.Thread(target=_refresh_new_symbol, args=(sym,), daemon=True).start()
         threading.Thread(target=push_watchlist, daemon=True).start()
+
         return jsonify({'status': 'ok', 'symbol': sym, 'condition': cond, 'price': price})
     except Exception as e:
         c.close()
@@ -727,7 +751,7 @@ def api_update(aid):
             }))
             triggered_now = True
         else:
-            c2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (aid,))
+            c2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1, triggered_at = NULL WHERE id = ?', (aid,))
         c2.commit()
         c2.close()
 
@@ -756,9 +780,9 @@ def api_reactivate(aid):
                         'trigger_price': a['trigger_price'],
                         'current_price': round(live, 2) if live is not None else None})
 
-    c.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (aid,))
+    c.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1, triggered_at = NULL WHERE id = ?', (aid,))
     if would:
-        c.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (aid,))
+        c.execute('UPDATE watchlist SET is_triggered = 1, triggered_at = CURRENT_TIMESTAMP WHERE id = ?', (aid,))
     c.commit()
     c.close()
 
@@ -797,7 +821,7 @@ def api_delete(aid):
 @app.route('/api/mark_triggered/<int:aid>', methods=['POST'])
 def api_mark_triggered(aid):
     c = db()
-    c.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (aid,))
+    c.execute('UPDATE watchlist SET is_triggered = 1, triggered_at = CURRENT_TIMESTAMP WHERE id = ?', (aid,))
     c.commit()
     c.close()
     threading.Thread(target=push_watchlist, daemon=True).start()
@@ -824,10 +848,11 @@ def api_import():
         if cond not in ('>', '<'):
             cond = '>'
         try:
-            c.execute('INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, notes) '
-                      'VALUES (?, ?, ?, ?, ?, ?)',
+            c.execute('INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, triggered_at, notes) '
+                      'VALUES (?, ?, ?, ?, ?, ?, ?)',
                       (item.get('symbol', '').upper(), cond, float(item.get('trigger_price', 0)),
                        int(item.get('is_active', 1)), int(item.get('is_triggered', 0)),
+                       item.get('triggered_at'),
                        (item.get('notes') or '').strip()))
         except Exception:
             pass
@@ -903,8 +928,6 @@ def market_loop():
     time.sleep(30)
 
     last_tv_push = 0
-    # Do NOT refresh NSE on startup — restore_nse already loaded it.
-    # Only refresh from NSE archives once per calendar day.
     last_nse_fetch = datetime.now(config.TIMEZONE).date()
     last_otp_cleanup = 0
     first_run_done = False
@@ -1093,6 +1116,7 @@ def worker_thread():
 #  INIT
 # ------------------------------------------------------------------
 init_db()
+migrate_triggered_at_column()
 
 threading.Thread(target=startup_thread,      daemon=True).start()
 threading.Thread(target=market_loop,         daemon=True).start()

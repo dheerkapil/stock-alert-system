@@ -243,12 +243,11 @@
             .table-scroll table { max-width: 1400px; margin-left: auto; margin-right: auto; }
         }
 
-        /* Column widths — sums to 100% */
         .col-symbol  { width: 110px; }
         .col-cond    { width: 48px; }
         .col-trigger { width: 82px; }
         .col-cmp     { width: 82px; }
-        .col-gap     { width: 76px; }
+        .col-gap     { width: 86px; }
         .col-mgap    { width: 72px; }
         .col-chg     { width: 88px; }
         .col-vol     { width: 82px; }
@@ -257,7 +256,6 @@
         .col-added   { width: 148px; }
         .col-actions { width: 140px; }
 
-        /* --- Sticky symbol column (both header and body) --- */
         thead th.col-symbol {
             position: sticky;
             left: 0;
@@ -280,11 +278,10 @@
         .text-right { text-align: right; }
         .text-center { text-align: center; }
 
-        /* --- Row font color by trigger state --- */
         tbody tr.row-met { color: var(--success); }
         tbody tr.row-unmet { color: var(--danger); }
+        tbody tr.row-pending { color: var(--text-muted); font-style: italic; }
 
-        /* Cells with their own semantic color — override row color */
         .cmp-green, .gap-green, .pct-green { color: var(--success) !important; font-weight: 600; }
         .cmp-red, .gap-red, .pct-red { color: var(--danger) !important; font-weight: 600; }
         .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted) !important; }
@@ -293,7 +290,6 @@
         .rvol-red { color: var(--danger) !important; font-weight: 600; }
         .rvol-neutral { color: var(--text-muted) !important; }
 
-        /* TradingView link inherits row color */
         .tv-link {
             color: inherit;
             text-decoration: none;
@@ -336,6 +332,7 @@
         .status-btn.active { background: #28a745; border-color: #28a745; }
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.85; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
+        .status-btn.pending { background: var(--text-muted); border-color: var(--text-muted); cursor: wait; }
 
         .table .btn-sm {
             padding: 5px 7px;
@@ -605,7 +602,7 @@
                         <th class="text-center col-cond">Cond</th>
                         <th class="sortable text-right col-trigger" data-sort="trigger">Trigger <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-cmp" data-sort="cmp">CMP <span class="sort-icon">↕</span></th>
-                        <th class="sortable text-right col-gap" data-sort="gap">% Gap <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-right col-gap" data-sort="gap">🔔 % Gap <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-mgap" data-sort="mgap">MGAP <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-chg" data-sort="pct_chg">% Chg <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-vol" data-sort="vol">% Vol_10d <span class="sort-icon">↕</span></th>
@@ -948,18 +945,86 @@ function submitForm(force) {
 addBtn.addEventListener('click', () => submitForm(false));
 addBtnMobile.addEventListener('click', () => submitForm(false));
 
-let currentSort = { column: null, direction: 1 };
+// ------------------------------------------------------------------
+//  Sort state
+// ------------------------------------------------------------------
+let sortState = { column: null, direction: 1, gapMode: 0 };
 let alertsData = [];
 let focusedRowIndex = -1;
 
-function sortAlerts(data, column, direction) {
+const GAP_ICONS = ['↕', '↑', '↓', '⏱↑', '⏱↓'];
+
+function parseTriggered(s) {
+    if (!s) return null;
+    try {
+        const iso = String(s).replace(' ', 'T') + 'Z';
+        const t = new Date(iso).getTime();
+        return isNaN(t) ? null : t;
+    } catch { return null; }
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('.sortable').forEach(th => {
+        const col = th.dataset.sort;
+        const icon = th.querySelector('.sort-icon');
+        th.classList.remove('active');
+
+        if (col === 'gap') {
+            if (sortState.column === 'gap') {
+                th.classList.add('active');
+                icon.textContent = GAP_ICONS[sortState.gapMode] || '↕';
+            } else {
+                icon.textContent = '↕';
+            }
+            return;
+        }
+
+        if (sortState.column === col) {
+            th.classList.add('active');
+            icon.textContent = sortState.direction === 1 ? '↑' : '↓';
+        } else {
+            icon.textContent = '↕';
+        }
+    });
+}
+
+function sortAlerts(data, state) {
+    if (!state.column) return [...data];
     const sorted = [...data];
+
+    if (state.column === 'gap') {
+        if (state.gapMode === 1) {
+            sorted.sort((a, b) => calculateGap(a) - calculateGap(b));
+        } else if (state.gapMode === 2) {
+            sorted.sort((a, b) => calculateGap(b) - calculateGap(a));
+        } else if (state.gapMode === 3) {
+            sorted.sort((a, b) => {
+                const ta = parseTriggered(a.triggered_at);
+                const tb = parseTriggered(b.triggered_at);
+                if (ta === null && tb === null) return 0;
+                if (ta === null) return 1;
+                if (tb === null) return -1;
+                return ta - tb;
+            });
+        } else if (state.gapMode === 4) {
+            sorted.sort((a, b) => {
+                const ta = parseTriggered(a.triggered_at);
+                const tb = parseTriggered(b.triggered_at);
+                if (ta === null && tb === null) return 0;
+                if (ta === null) return 1;
+                if (tb === null) return -1;
+                return tb - ta;
+            });
+        }
+        return sorted;
+    }
+
+    const direction = state.direction;
     sorted.sort((a, b) => {
-        switch (column) {
+        switch (state.column) {
             case 'symbol': return direction * (a.symbol || '').localeCompare(b.symbol || '');
             case 'trigger': return direction * ((parseFloat(a.trigger_price) || 0) - (parseFloat(b.trigger_price) || 0));
             case 'cmp': return direction * ((parseFloat(a.cmp) || 0) - (parseFloat(b.cmp) || 0));
-            case 'gap': return direction * (calculateGap(a) - calculateGap(b));
             case 'mgap': {
                 const gA = calculateGap(a), gB = calculateGap(b);
                 const aA = isFinite(gA) ? Math.abs(gA) : Infinity;
@@ -1030,30 +1095,41 @@ function renderAlerts(data) {
     }
     let html = '';
     data.forEach((a, idx) => {
-        // Determine whether the condition is met
+        const isPending = a._pending === true;
+
         const cmpNum = parseFloat(a.cmp);
         const trigNum = parseFloat(a.trigger_price);
         const condMet = isFinite(cmpNum) && isFinite(trigNum) && (
             (a.condition === '>' && cmpNum > trigNum) ||
             (a.condition === '<' && cmpNum < trigNum)
         );
-        const rowClass = condMet ? 'row-met' : 'row-unmet';
+
+        let rowClass;
+        if (isPending) {
+            rowClass = 'row-pending';
+        } else {
+            rowClass = condMet ? 'row-met' : 'row-unmet';
+        }
 
         let cmpDisplay = '-', cmpClass = 'cmp-neutral';
-        if (a.cmp !== null && a.cmp !== undefined) {
+        if (isPending) {
+            cmpDisplay = '⏳';
+        } else if (a.cmp !== null && a.cmp !== undefined) {
             cmpDisplay = a.cmp;
             cmpClass = condMet ? 'cmp-green' : 'cmp-red';
         }
+
         let gapDisplay = '-', gapClass = 'gap-neutral';
         const gap = calculateGap(a);
-        if (isFinite(gap)) {
+        if (!isPending && isFinite(gap)) {
             gapDisplay = gap.toFixed(1) + '%';
             if (a.is_triggered === 1) { gapClass = condMet ? 'gap-green' : 'gap-red'; gapDisplay = '🔔 ' + gapDisplay; }
             else if (condMet) { gapClass = 'gap-green'; gapDisplay = '⏳ ' + gapDisplay; }
             else gapClass = 'gap-red';
         }
         let mgapDisplay = '-';
-        if (isFinite(gap)) mgapDisplay = Math.abs(gap).toFixed(1) + '%';
+        if (!isPending && isFinite(gap)) mgapDisplay = Math.abs(gap).toFixed(1) + '%';
+
         let pctChgDisplay = '-', pctChgClass = 'pct-neutral';
         if (a.pct_chg !== null && a.pct_chg !== undefined && isFinite(a.pct_chg)) {
             pctChgDisplay = (a.pct_chg > 0 ? '+' : '') + a.pct_chg.toFixed(2) + '%';
@@ -1070,9 +1146,18 @@ function renderAlerts(data) {
             else if (a.rvol > 1.0) rvolClass = 'rvol-yellow';
             else rvolClass = 'rvol-red';
         }
-        let statusClass = 'inactive', statusText = '⚪', disabled = '';
-        if (a.is_triggered === 1) { statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled'; }
-        else if (a.is_active === 1) { statusClass = 'active'; statusText = '🟢'; }
+
+        let statusClass, statusText, disabled = '';
+        if (isPending) {
+            statusClass = 'pending'; statusText = '⏳'; disabled = 'disabled';
+        } else if (a.is_triggered === 1) {
+            statusClass = 'triggered'; statusText = '🔴'; disabled = 'disabled';
+        } else if (a.is_active === 1) {
+            statusClass = 'active'; statusText = '🟢';
+        } else {
+            statusClass = 'inactive'; statusText = '⚪';
+        }
+
         const dateDisplay = formatDate(a.added_at);
         const companyName = (a.company_name || '').replace(/"/g, '&quot;');
         const cmpForButton = (a.cmp !== null && a.cmp !== undefined) ? a.cmp : '';
@@ -1084,6 +1169,14 @@ function renderAlerts(data) {
         } else {
             notesCell = `<span class="notes-empty">—</span>`;
         }
+
+        const actionsCell = isPending
+            ? `<td class="text-center col-actions"></td>`
+            : `<td class="text-center col-actions">
+                <button class="btn btn-sm btn-outline-primary" data-action="edit" title="Edit (E)">✏️</button>
+                ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning" data-action="reactivate" title="Reactivate (R)">🔄</button>` : ''}
+                <button class="btn btn-sm btn-outline-danger" data-action="delete" title="Delete (Delete)">🗑️</button>
+            </td>`;
 
         html += `<tr class="${rowClass}" data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" data-notes="${notesEscaped}" tabindex="0" data-row-index="${idx}">
             <td class="text-left col-symbol"><a href="${tvUrl(a.symbol)}" target="_blank" rel="noopener" class="tv-link" title="Open ${a.symbol} chart on TradingView">${a.symbol}</a></td>
@@ -1098,11 +1191,7 @@ function renderAlerts(data) {
             <td class="text-center col-status"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
             <td class="text-left col-added">${dateDisplay}</td>
             <td class="text-left col-notes">${notesCell}</td>
-            <td class="text-center col-actions">
-                <button class="btn btn-sm btn-outline-primary" data-action="edit" title="Edit (E)">✏️</button>
-                ${a.is_triggered ? `<button class="btn btn-sm btn-outline-warning" data-action="reactivate" title="Reactivate (R)">🔄</button>` : ''}
-                <button class="btn btn-sm btn-outline-danger" data-action="delete" title="Delete (Delete)">🗑️</button>
-            </td>
+            ${actionsCell}
         </tr>`;
     });
     tbody.innerHTML = html;
@@ -1133,6 +1222,7 @@ function renderAlerts(data) {
             e.stopPropagation();
             const action = this.dataset.action;
             const row = this.closest('tr');
+            if (!row.dataset.id || String(row.dataset.id).startsWith('pending-')) return;
             handleRowAction(action, row);
         });
     });
@@ -1341,13 +1431,47 @@ function filterTable() {
 document.querySelectorAll('.sortable').forEach(header => {
     header.addEventListener('click', function() {
         const column = this.dataset.sort;
-        if (currentSort.column === column) currentSort.direction *= -1;
-        else { currentSort.column = column; currentSort.direction = 1; }
-        document.querySelectorAll('.sortable').forEach(th => th.classList.remove('active'));
-        this.classList.add('active');
-        renderAlerts(sortAlerts(alertsData, currentSort.column, currentSort.direction));
+        if (column === 'gap') {
+            if (sortState.column !== 'gap') {
+                sortState.gapMode = 1;
+                sortState.column = 'gap';
+            } else {
+                sortState.gapMode = (sortState.gapMode + 1) % 5;
+                if (sortState.gapMode === 0) sortState.column = null;
+            }
+        } else {
+            if (sortState.column === column) {
+                sortState.direction *= -1;
+            } else {
+                sortState.column = column;
+                sortState.direction = 1;
+            }
+            sortState.gapMode = 0;
+        }
+        updateSortIcons();
+        renderAlerts(sortAlerts(alertsData, sortState));
     });
 });
+
+// ------------------------------------------------------------------
+//  Fast poll after a new symbol is added
+// ------------------------------------------------------------------
+let fastPollTimer = null;
+let fastPollUntil = 0;
+
+function startFastPoll(durationMs = 30000) {
+    fastPollUntil = Date.now() + durationMs;
+    if (fastPollTimer) clearTimeout(fastPollTimer);
+    const tick = () => {
+        if (Date.now() > fastPollUntil) {
+            fastPollTimer = null;
+            return;
+        }
+        fetchAlerts();
+        fastPollTimer = setTimeout(tick, 2500);
+    };
+    tick();
+}
 
 function handleAddResponse(data, payload) {
     if (data.status === 'ok') {
@@ -1356,7 +1480,29 @@ function handleAddResponse(data, payload) {
         priceInput.value = '';
         notesInput.value = '';
         symbolInput.focus();
-        fetchAlerts();
+
+        // Insert a placeholder row so the user sees it immediately
+        alertsData.push({
+            id: 'pending-' + data.symbol,
+            symbol: data.symbol,
+            condition: data.condition,
+            trigger_price: data.price,
+            cmp: null,
+            pct_chg: null,
+            vol_pct: null,
+            rvol: null,
+            triggered_at: null,
+            is_active: 1,
+            is_triggered: 0,
+            added_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            notes: payload.notes || '',
+            company_name: '',
+            _pending: true,
+        });
+        renderAlerts(sortAlerts(alertsData, sortState));
+
+        // Poll fast until the backend fills in real data
+        startFastPoll(30000);
     } else if (data.status === 'duplicate') {
         showAppModal({
             title: '⚠️ Duplicate Alert',
@@ -1503,8 +1649,7 @@ function fetchAlerts() {
         .then(res => res.json())
         .then(data => {
             alertsData = data;
-            if (currentSort.column) renderAlerts(sortAlerts(alertsData, currentSort.column, currentSort.direction));
-            else renderAlerts(alertsData);
+            renderAlerts(sortAlerts(alertsData, sortState));
         })
         .catch(error => {
             console.error('Fetch error:', error);
@@ -1513,6 +1658,7 @@ function fetchAlerts() {
         });
 }
 
+updateSortIcons();
 fetchAlerts();
 setInterval(fetchAlerts, 60000);
 </script>
