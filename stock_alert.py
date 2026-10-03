@@ -1,4 +1,3 @@
-import os
 import time
 import logging
 import threading
@@ -8,259 +7,131 @@ import pandas as pd
 from datetime import datetime
 import config
 
-logging.basicConfig(level=config.LOG_LEVEL, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
+WEBUI_URL = "https://stock-alert-ui.onrender.com"
 
 # ------------------------------------------------------------------
-#  WORKER TICK — for /api/health liveness checks
+#  WORKER TICK — read by /api/health
 # ------------------------------------------------------------------
-_last_worker_tick = time.time()
+_last_tick = time.time()
 
-def get_last_worker_tick():
-    return _last_worker_tick
+def get_last_tick():
+    return _last_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE — 60-second per-symbol, thread-safe
-#  Only refresh_tv_cache() writes to it. Everyone else reads.
+#  TRADINGVIEW CACHE — RAM only, thread-safe
+#  Only refresh_tv_cache() writes. Everyone else reads.
 # ------------------------------------------------------------------
 _TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
-_TV_CACHE_TTL = 60
+_backoff_until = 0.0
 
-# Backoff timestamp after a 429. All fetches are suppressed until then.
-_tv_backoff_until = 0.0
-_TV_BACKOFF_SECONDS = 300   # 5 minutes
+def _tv_symbol(sym):
+    return sym.upper().replace('-', '_')
 
-# ------------------------------------------------------------------
-#  DATA-SOURCE HEALTH MONITORING
-# ------------------------------------------------------------------
-TV_FAILURE_THRESHOLD = 3
-TV_MIN_COVERAGE      = 0.10
-
-_tv_failure_streak = 0
-_tv_alert_sent     = False
-
-# ------------------------------------------------------------------
-#  HELPERS
-# ------------------------------------------------------------------
-def api_headers():
-    h = {}
-    if config.WORKER_API_KEY:
-        h['X-API-Key'] = config.WORKER_API_KEY
-    return h
-
-def is_market_open(now):
-    start = datetime.strptime(config.START_TIME, "%H:%M").time()
-    stop  = datetime.strptime(config.STOP_TIME, "%H:%M").time()
-    return start <= now.time() <= stop
-
-def is_weekday(now):
-    return now.weekday() < 5
-
-def _extract_date_ist(idx):
-    try:
-        if hasattr(idx, 'tzinfo') and idx.tzinfo is not None:
-            return idx.astimezone(config.TIMEZONE).date()
-        elif hasattr(idx, 'date'):
-            return idx.date()
-        return idx
-    except Exception:
-        return None
-
-# ------------------------------------------------------------------
-#  FETCH ACTIVE ALERTS FROM WEB UI
-# ------------------------------------------------------------------
-def get_active_alerts():
-    try:
-        resp = requests.get(f"{WEBUI_URL}/api/alerts", headers=api_headers(), timeout=10)
-        resp.raise_for_status()
-        alerts = resp.json()
-        return [a for a in alerts if a['is_active'] == 1 and a['is_triggered'] == 0]
-    except Exception as e:
-        logger.error(f"Failed to fetch alerts: {e}")
-        return []
-
-# ------------------------------------------------------------------
-#  TRADINGVIEW — raw fetch (called ONLY by refresh_tv_cache)
-# ------------------------------------------------------------------
-def to_tradingview_symbol(symbol):
-    return symbol.upper().replace('-', '_')
-
-def _fetch_tv_batch(symbols):
-    """
-    Raw TradingView fetch. On any 429, sets global backoff and aborts.
-    Never retries inside the same call.
-    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}.
-    """
-    global _tv_backoff_until
-
-    if not symbols:
-        return {}
+def _tv_fetch(symbols):
+    """One-shot TradingView fetch. On 429, sets backoff and aborts."""
+    global _backoff_until
 
     result = {}
     for i in range(0, len(symbols), config.TRADINGVIEW_CHUNK_SIZE):
         chunk = symbols[i:i + config.TRADINGVIEW_CHUNK_SIZE]
-        tickers = [f"NSE:{to_tradingview_symbol(s)}" for s in chunk]
         payload = {
-            "symbols": {"tickers": tickers},
+            "symbols": {"tickers": [f"NSE:{_tv_symbol(s)}" for s in chunk]},
             "columns": [
-                "close",
-                "volume",
-                "average_volume_10d_calc",
-                "relative_volume_10d_calc",
+                "close", "volume",
+                "average_volume_10d_calc", "relative_volume_10d_calc",
                 "prev_close_price",
             ]
         }
         try:
-            resp = requests.post(
-                "https://scanner.tradingview.com/india/scan",
-                json=payload, timeout=8
-            )
+            r = requests.post("https://scanner.tradingview.com/india/scan",
+                              json=payload, timeout=8)
 
-            if resp.status_code == 429:
-                _tv_backoff_until = time.time() + _TV_BACKOFF_SECONDS
-                logger.warning(f"TradingView 429 — backing off {_TV_BACKOFF_SECONDS}s")
+            if r.status_code == 429:
+                _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
+                logger.warning(f"TV 429 — backing off {config.TV_CACHE_BACKOFF_SECONDS}s")
                 return result
 
-            resp.raise_for_status()
+            r.raise_for_status()
 
-            for entry in resp.json().get('data', []):
-                tv_symbol = entry['s'].split(':')[1]
-                vals = entry['d']
-                price       = vals[0] if len(vals) > 0 else None
-                volume      = vals[1] if len(vals) > 1 else None
-                avg_vol_10d = vals[2] if len(vals) > 2 else None
-                rvol        = vals[3] if len(vals) > 3 else None
-                prev_close  = vals[4] if len(vals) > 4 else None
-                tv_clean = tv_symbol.upper().replace('-', '_')
-                for original in chunk:
-                    if to_tradingview_symbol(original) == tv_clean:
-                        result[original] = {
-                            "price":       float(price)       if price       is not None else None,
-                            "volume":      float(volume)      if volume      is not None else None,
-                            "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
-                            "rvol":        float(rvol)        if rvol        is not None else None,
-                            "prev_close":  float(prev_close)  if prev_close  is not None else None,
-                        }
+            for entry in r.json().get('data', []):
+                ticker = entry['s'].split(':')[1]
+                v = entry['d']
+                def f(x): return float(x) if x is not None else None
+                data = {
+                    "price":       f(v[0]) if len(v) > 0 else None,
+                    "volume":      f(v[1]) if len(v) > 1 else None,
+                    "avg_vol_10d": f(v[2]) if len(v) > 2 else None,
+                    "rvol":        f(v[3]) if len(v) > 3 else None,
+                    "prev_close":  f(v[4]) if len(v) > 4 else None,
+                }
+                for s in chunk:
+                    if _tv_symbol(s) == ticker.upper().replace('-', '_'):
+                        result[s] = data
                         break
         except Exception as e:
-            logger.warning(f"TradingView chunk error: {e}")
+            logger.warning(f"TV chunk failed: {e}")
 
         time.sleep(config.TRADINGVIEW_DELAY)
 
     return result
 
-# ------------------------------------------------------------------
-#  TRADINGVIEW — refresh (writes cache). Only the background warmer calls this.
-# ------------------------------------------------------------------
 def refresh_tv_cache(symbols):
-    """
-    Fetch fresh data for symbols whose cache entry is missing or stale,
-    and write it to the cache. Respects the 429 backoff timer.
-    Returns the number of symbols updated.
-    """
-    global _tv_backoff_until
-
-    if time.time() < _tv_backoff_until:
-        remaining = int(_tv_backoff_until - time.time())
-        logger.info(f"TV refresh skipped — backoff for {remaining}s more")
+    """Fetch only symbols whose cache is stale/missing. Caller: market_loop only."""
+    if time.time() < _backoff_until:
         return 0
 
     symbols = list(set(symbols))
-    if not symbols:
-        return 0
-
     now = time.time()
 
     with _TV_CACHE_LOCK:
-        missing = [
-            s for s in symbols
-            if s not in _TV_CACHE or (now - _TV_CACHE[s][0]) >= _TV_CACHE_TTL
-        ]
+        missing = [s for s in symbols
+                   if s not in _TV_CACHE
+                   or (now - _TV_CACHE[s][0]) >= config.TV_CACHE_TTL_SECONDS]
 
     if not missing:
         return 0
 
-    logger.info(f"TV refresh: {len(missing)} stale/missing of {len(symbols)}")
-    fetched = _fetch_tv_batch(missing)
+    logger.info(f"TV refresh: {len(missing)} of {len(symbols)}")
+    fetched = _tv_fetch(missing)
 
-    if fetched:
-        with _TV_CACHE_LOCK:
-            for sym, data in fetched.items():
-                _TV_CACHE[sym] = (now, data)
+    with _TV_CACHE_LOCK:
+        for sym, data in fetched.items():
+            _TV_CACHE[sym] = (now, data)
 
     return len(fetched)
 
-# ------------------------------------------------------------------
-#  TRADINGVIEW — read-only (used by worker + web requests)
-# ------------------------------------------------------------------
-def get_prices_with_volume(symbols):
-    """
-    Read-only access to the TV cache. Never triggers a fetch.
-    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}
-    for symbols that have a (possibly stale) cache entry.
-    """
-    if not symbols:
-        return {}
-
-    now = time.time()
+def get_cached(symbols):
+    """Read-only cache access. Never fetches."""
     result = {}
     with _TV_CACHE_LOCK:
-        for sym in set(symbols):
-            entry = _TV_CACHE.get(sym)
-            if entry:
-                result[sym] = entry[1]
+        for s in set(symbols):
+            e = _TV_CACHE.get(s)
+            if e:
+                result[s] = e[1]
     return result
 
-def get_cache_coverage(symbols):
-    """Return fraction of symbols with any cached data (0.0 – 1.0)."""
-    if not symbols:
-        return 1.0
+def cache_snapshot():
     with _TV_CACHE_LOCK:
-        have = sum(1 for s in set(symbols) if s in _TV_CACHE)
-    return have / len(set(symbols))
+        return {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
+
+def cache_restore(entries, max_age=1800):
+    now = time.time()
+    n = 0
+    with _TV_CACHE_LOCK:
+        for sym, e in entries.items():
+            ts = float(e.get("ts", 0))
+            if now - ts > max_age:
+                continue
+            _TV_CACHE[sym] = (ts, e["data"])
+            n += 1
+    return n
 
 # ------------------------------------------------------------------
-#  YAHOO FALLBACK — live price only
-# ------------------------------------------------------------------
-def get_prices_yfinance(symbols):
-    prices = {}
-    for sym in symbols:
-        try:
-            df = yf.Ticker(f"{sym.upper()}.NS").history(period="1d", interval="1m")
-            if not df.empty:
-                prices[sym] = {
-                    "price": float(df['Close'].iloc[-1]),
-                    "volume": None, "avg_vol_10d": None,
-                    "rvol": None, "prev_close": None,
-                }
-        except Exception:
-            pass
-    return prices
-
-def get_prices(symbols):
-    """
-    Returns {symbol: price}. Reads from the TV cache only.
-    If cache coverage is very low, returns whatever's cached and doesn't
-    fan out to Yahoo (Yahoo would rate-limit us during a TV outage too).
-    """
-    pv = get_prices_with_volume(symbols)
-    coverage = get_cache_coverage(symbols)
-
-    if coverage >= 0.5:
-        missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
-        if missing and config.YAHOO_FINANCE_ENABLED:
-            logger.info(f"Yahoo fallback for {len(missing)} symbols.")
-            pv.update(get_prices_yfinance(missing))
-    else:
-        logger.warning(f"TV cache coverage {int(coverage*100)}% — skipping Yahoo fallback")
-
-    return {s: v.get("price") for s, v in pv.items()}
-
-# ------------------------------------------------------------------
-#  YAHOO — daily bars (EOD snapshot + backfill)
+#  YAHOO — daily bars (EOD + backfill)
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
     if not symbols:
@@ -268,7 +139,7 @@ def batch_fetch_daily_bars(symbols, days=5, include_today=False):
     symbols = [s.upper() for s in symbols]
     tickers = [f"{s}.NS" for s in symbols]
 
-    logger.info(f"Batch fetching {days}d bars for {len(symbols)} symbols...")
+    logger.info(f"Yahoo: {days}d bars for {len(symbols)} symbols")
 
     try:
         data = yf.download(
@@ -278,10 +149,10 @@ def batch_fetch_daily_bars(symbols, days=5, include_today=False):
             threads=True, auto_adjust=False
         )
     except Exception as e:
-        logger.error(f"Batch download failed: {e}")
+        logger.error(f"Yahoo download failed: {e}")
         return []
 
-    today_ist = datetime.now(config.TIMEZONE).date()
+    today = datetime.now(config.TIMEZONE).date()
     rows = []
 
     for sym, ticker in zip(symbols, tickers):
@@ -297,34 +168,32 @@ def batch_fetch_daily_bars(symbols, days=5, include_today=False):
                 continue
 
             for i in range(len(df)):
-                bar_date = _extract_date_ist(df.index[i])
-                if bar_date is None:
-                    continue
-                if not include_today and bar_date >= today_ist:
+                idx = df.index[i]
+                bar_date = (idx.astimezone(config.TIMEZONE).date()
+                            if hasattr(idx, 'tzinfo') and idx.tzinfo
+                            else idx.date())
+                if not include_today and bar_date >= today:
                     continue
 
-                def _fv(col):
+                def fv(col):
                     if col not in df.columns:
                         return None
                     v = df[col].iloc[i]
                     return None if pd.isna(v) else float(v)
 
-                rows.append((
-                    sym,
-                    bar_date.strftime('%Y-%m-%d'),
-                    _fv('Open'), _fv('High'), _fv('Low'), _fv('Close'), _fv('Volume')
-                ))
+                rows.append((sym, bar_date.strftime('%Y-%m-%d'),
+                             fv('Open'), fv('High'), fv('Low'), fv('Close'), fv('Volume')))
         except Exception as e:
             logger.warning(f"Extract failed for {sym}: {e}")
 
     return rows
 
 # ------------------------------------------------------------------
-#  TELEGRAM (retry)
+#  TELEGRAM
 # ------------------------------------------------------------------
 def send_telegram(message, retries=3):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
-        logger.error("Telegram credentials missing.")
+        logger.error("Telegram credentials missing")
         return False
 
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -335,133 +204,107 @@ def send_telegram(message, retries=3):
             r = requests.post(url, json=payload, timeout=10)
             if r.status_code == 200:
                 return True
-            logger.warning(f"Telegram returned {r.status_code} (attempt {attempt}/{retries})")
-        except Exception as e:
-            logger.warning(f"Telegram error (attempt {attempt}/{retries}): {e}")
+        except Exception:
+            pass
         if attempt < retries:
             time.sleep(2)
 
-    logger.error(f"Telegram failed after {retries} attempts: {message[:80]}")
+    logger.error(f"Telegram failed: {message[:60]}")
     return False
 
-# ------------------------------------------------------------------
-#  ALERT MESSAGE FORMATTER
-# ------------------------------------------------------------------
-def format_alert_message(alert, cmp_price):
-    symbol    = alert['symbol']
-    condition = alert['condition']
-    trigger   = alert['trigger_price']
-    pct_chg   = alert.get('pct_chg')
-    rvol      = alert.get('rvol')
-    notes     = (alert.get('notes') or '').strip()
-
-    day_chg_str = f"{pct_chg:+.2f}%" if pct_chg is not None else "-"
-    rvol_str    = f"{rvol:.2f}"    if rvol    is not None else "-"
+def format_alert(alert):
+    """Format alert as specified by the user."""
+    notes = (alert.get('notes') or '').strip()
+    pct = alert.get('pct_chg')
+    rvol = alert.get('rvol')
 
     lines = [
-        symbol,
+        alert['symbol'],
         "",
-        f"Price {condition} {trigger}",
+        f"Price {alert['condition']} {alert['trigger_price']}",
         "",
-        f"Day Chg: {day_chg_str}",
+        f"Day Chg: {pct:+.2f}%" if pct is not None else "Day Chg: -",
         "",
-        f"RVol: {rvol_str}",
+        f"RVol: {rvol:.2f}" if rvol is not None else "RVol: -",
     ]
     if notes:
         lines.append("")
         lines.append(f"Note: {notes}")
-
     return "\n".join(lines)
 
 # ------------------------------------------------------------------
-#  MAIN LOOP — supervised. No hourly heartbeat. Anomaly detection.
+#  WORKER MAIN
 # ------------------------------------------------------------------
-def main():
-    global _last_worker_tick, _tv_failure_streak, _tv_alert_sent
+def worker_loop():
+    global _last_tick
 
     logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
-    logger.info(f"Market hours: {config.START_TIME} - {config.STOP_TIME} IST. Weekdays only.")
 
-    send_telegram(
-        f"🟢 System online — "
-        f"{datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')}"
-    )
+    send_telegram(f"🟢 System online — {datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')}")
 
     while True:
         try:
-            _last_worker_tick = time.time()
+            _last_tick = time.time()
             now = datetime.now(config.TIMEZONE)
 
-            while not is_weekday(now) or not is_market_open(now):
+            # Wait for market hours
+            while not (now.weekday() < 5
+                       and datetime.strptime(config.START_TIME, "%H:%M").time()
+                           <= now.time()
+                           <= datetime.strptime(config.STOP_TIME, "%H:%M").time()):
                 time.sleep(60)
-                _last_worker_tick = time.time()
+                _last_tick = time.time()
                 now = datetime.now(config.TIMEZONE)
 
-            _last_worker_tick = time.time()
-            alerts = get_active_alerts()
+            _last_tick = time.time()
 
-            if not alerts:
-                logger.info("No active alerts.")
-                _tv_failure_streak = 0
-                if _tv_alert_sent:
-                    send_telegram("✅ Market data recovered")
-                    _tv_alert_sent = False
+            # Get alerts from web UI
+            try:
+                r = requests.get(f"{WEBUI_URL}/api/alerts",
+                                 headers={'X-API-Key': config.WORKER_API_KEY},
+                                 timeout=10)
+                r.raise_for_status()
+                alerts = [a for a in r.json()
+                          if a['is_active'] == 1 and a['is_triggered'] == 0]
+            except Exception as e:
+                logger.error(f"Failed to fetch alerts: {e}")
                 time.sleep(config.POLL_INTERVAL)
                 continue
 
-            symbols = list(set(a['symbol'] for a in alerts))
-            logger.info(f"Fetching prices for {len(symbols)} symbols...")
-            prices = get_prices(symbols)
+            if not alerts:
+                time.sleep(config.POLL_INTERVAL)
+                continue
 
-            coverage = len(prices) / len(symbols) if symbols else 1.0
-            if coverage < TV_MIN_COVERAGE:
-                _tv_failure_streak += 1
-                logger.warning(f"Low data coverage: {int(coverage*100)}% "
-                               f"(streak={_tv_failure_streak})")
-                if _tv_failure_streak >= TV_FAILURE_THRESHOLD and not _tv_alert_sent:
-                    send_telegram(
-                        f"⚠️ Market data degraded\n"
-                        f"Coverage: {int(coverage*100)}% of {len(symbols)} symbols\n"
-                        f"Streak: {_tv_failure_streak} cycles\n"
-                        f"Since: {now.strftime('%H:%M')} IST"
-                    )
-                    _tv_alert_sent = True
-            else:
-                if _tv_alert_sent:
-                    send_telegram(
-                        f"✅ Market data recovered\n"
-                        f"Coverage: {int(coverage*100)}% of {len(symbols)} symbols"
-                    )
-                    _tv_alert_sent = False
-                _tv_failure_streak = 0
+            # Read prices from cache (never fetch — warmer does that)
+            symbols = list({a['symbol'] for a in alerts})
+            prices = get_cached(symbols)
 
-            for alert in alerts:
-                current = prices.get(alert['symbol'])
-                if current is None:
+            for a in alerts:
+                price = prices.get(a['symbol'], {}).get('price')
+                if price is None:
                     continue
 
-                triggered = (
-                    (alert['condition'] == '>' and current > alert['trigger_price']) or
-                    (alert['condition'] == '<' and current < alert['trigger_price'])
+                fired = (
+                    (a['condition'] == '>' and price > a['trigger_price']) or
+                    (a['condition'] == '<' and price < a['trigger_price'])
                 )
+                if not fired:
+                    continue
 
-                if triggered:
-                    send_telegram(format_alert_message(alert, current))
-                    try:
-                        requests.post(
-                            f"{WEBUI_URL}/api/mark_triggered/{alert['id']}",
-                            headers=api_headers(), timeout=10
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to mark triggered: {e}")
-                    logger.info(f"Alert {alert['id']} triggered.")
+                send_telegram(format_alert(a))
+
+                try:
+                    requests.post(f"{WEBUI_URL}/api/mark_triggered/{a['id']}",
+                                  headers={'X-API-Key': config.WORKER_API_KEY},
+                                  timeout=10)
+                except Exception as e:
+                    logger.error(f"mark_triggered failed: {e}")
+
+                logger.info(f"Alert {a['id']} ({a['symbol']}) triggered")
 
             time.sleep(config.POLL_INTERVAL)
 
         except Exception as e:
-            _last_worker_tick = time.time()
-            logger.exception(f"Worker error: {e}. Restarting in 30s.")
+            _last_tick = time.time()
+            logger.exception(f"Worker error: {e}")
             time.sleep(30)
-
-if __name__ == "__main__":
-    main()

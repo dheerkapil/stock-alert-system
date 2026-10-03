@@ -16,273 +16,140 @@ from flask import Flask, render_template, request, jsonify, redirect, make_respo
 import config
 import stock_alert
 
-logging.basicConfig(level=config.LOG_LEVEL)
+logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-this-to-a-long-random-string")
+SESSION_SECRET = os.environ.get("SESSION_SECRET_KEY", "change-me-please")
+HEALTHCHECK_URL = os.environ.get("HEALTHCHECK_PING_URL", "")
+
+GITHUB_TOKEN  = os.environ.get("GITHUB_BACKUP_TOKEN", "")
+GITHUB_REPO   = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
+GH_WATCHLIST  = "watchlist_backup.json"
+GH_EOD        = "eod_backup.json"
+GH_NSE        = "nse_symbols.json"
+GH_CACHE      = "tv_cache.json"
+GH_CACHE_BRANCH = "cache"
+GH_API        = "https://api.github.com"
 
 # ------------------------------------------------------------------
-#  HEALTHCHECK.IO — dead man's switch
+#  AUTH
 # ------------------------------------------------------------------
-HEALTHCHECK_PING_URL = os.environ.get("HEALTHCHECK_PING_URL", "")
-
-# ------------------------------------------------------------------
-#  GITHUB BACKUP
-# ------------------------------------------------------------------
-GITHUB_TOKEN         = os.environ.get("GITHUB_BACKUP_TOKEN", "")
-GITHUB_REPO          = os.environ.get("GITHUB_REPO", "dheerkapil/stock-alert-system")
-GITHUB_BACKUP_FILE   = os.environ.get("GITHUB_BACKUP_FILE", "watchlist_backup.json")
-GITHUB_EOD_FILE      = os.environ.get("GITHUB_EOD_FILE", "eod_backup.json")
-GITHUB_NSE_FILE      = os.environ.get("GITHUB_NSE_FILE", "nse_symbols.json")
-GITHUB_API           = "https://api.github.com"
-BACKUP_DEBOUNCE_SECONDS        = 5
-BACKUP_FAILURE_ALERT_THRESHOLD = 3
-EOD_BACKUP_DAYS                = 10
-
-_backup_timer = None
-_backup_lock = threading.Lock()
-_backup_failures = 0
-_backup_alert_sent = False
-
-_eod_failure_alerted = False
-
-# ------------------------------------------------------------------
-#  AUTH CONSTANTS
-# ------------------------------------------------------------------
-PENDING_OTP = {}
-SESSION_DURATION = 30 * 24 * 3600
+_OTP = {}                # ip -> {code, expiry, sent_at, attempts}
+SESSIONS_DURATION = 30 * 24 * 3600
 OTP_VALIDITY = 300
 OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
 
-# ------------------------------------------------------------------
-#  EOD RETENTION
-# ------------------------------------------------------------------
-EOD_RETENTION_DAYS = 365
-
-# ------------------------------------------------------------------
-#  NSE SYMBOL CACHE
-# ------------------------------------------------------------------
-NSE_SYMBOLS = []
-NSE_NAME_LOOKUP = {}
-_NSE_LAST_FETCH_SUCCESS = None
-
-def refresh_nse_symbols():
-    global NSE_SYMBOLS, NSE_NAME_LOOKUP, _NSE_LAST_FETCH_SUCCESS
-    url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
-    try:
-        resp = requests.get(url, headers={"User-Agent": config.USER_AGENT}, timeout=30)
-        resp.raise_for_status()
-        df = pd.read_csv(StringIO(resp.text))
-        sym_col    = next((c for c in df.columns if 'SYMBOL' in c.upper()), None)
-        name_col   = next((c for c in df.columns if 'NAME'   in c.upper()), None)
-        series_col = next((c for c in df.columns if 'SERIES' in c.upper()), None)
-        if not sym_col or not name_col:
-            logger.error("NSE CSV: missing expected columns")
-            return False
-        if series_col:
-            df[series_col] = df[series_col].str.strip()
-            df = df[df[series_col].isin(['EQ', 'BE'])]
-
-        new_symbols = [
-            {"symbol": r[sym_col].strip(), "name": r[name_col].strip()}
-            for _, r in df.iterrows()
-        ]
-        if not new_symbols:
-            logger.warning("NSE CSV parsed to empty list — keeping existing data.")
-            return False
-
-        NSE_SYMBOLS = new_symbols
-        NSE_NAME_LOOKUP = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS}
-        _NSE_LAST_FETCH_SUCCESS = datetime.now(config.TIMEZONE)
-        logger.info(f"✅ Cached {len(NSE_SYMBOLS)} symbols from NSE.")
-
-        threading.Thread(target=_push_nse_to_github, daemon=True).start()
-        return True
-    except Exception as e:
-        logger.error(f"NSE symbols fetch failed: {e}")
-        return False
-
-def _push_nse_to_github():
-    if not GITHUB_TOKEN or not NSE_SYMBOLS:
-        return
-    try:
-        payload = json.dumps(NSE_SYMBOLS, default=str)
-        if _github_put(GITHUB_NSE_FILE, payload, f"NSE symbols: {len(NSE_SYMBOLS)} entries"):
-            logger.info(f"Backed up {len(NSE_SYMBOLS)} NSE symbols to GitHub.")
-    except Exception as e:
-        logger.error(f"NSE backup failed: {e}")
-
-def _restore_nse_from_github():
-    global NSE_SYMBOLS, NSE_NAME_LOOKUP
-    if not GITHUB_TOKEN:
-        return False
-    try:
-        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_NSE_FILE}"
-        r = requests.get(url, headers=_github_headers(), timeout=15)
-        if r.status_code == 404:
-            logger.info("No NSE symbol backup on GitHub yet.")
-            return False
-        if r.status_code != 200:
-            logger.warning(f"NSE restore: GitHub returned {r.status_code}.")
-            return False
-
-        decoded = base64.b64decode(r.json().get("content", "")).decode('utf-8')
-        data = json.loads(decoded)
-        if not isinstance(data, list) or not data:
-            return False
-
-        NSE_SYMBOLS = data
-        NSE_NAME_LOOKUP = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS if i.get('symbol')}
-        logger.info(f"✅ Restored {len(NSE_SYMBOLS)} NSE symbols from GitHub backup.")
-        return True
-    except Exception as e:
-        logger.error(f"NSE restore failed: {e}")
-        return False
-
-# ------------------------------------------------------------------
-#  AUTH HELPERS
-# ------------------------------------------------------------------
-def get_client_ip():
+def _ip():
     xff = request.headers.get('X-Forwarded-For', '')
     return xff.split(',')[0].strip() if xff else (request.remote_addr or 'unknown')
 
-def make_session_token():
-    expiry = int(time.time()) + SESSION_DURATION
-    payload = str(expiry)
-    sig = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}.{sig}"
+def _mk_session():
+    expiry = int(time.time()) + SESSIONS_DURATION
+    sig = hmac.new(SESSION_SECRET.encode(), str(expiry).encode(), hashlib.sha256).hexdigest()
+    return f"{expiry}.{sig}"
 
-def verify_session_token(token):
+def _valid_session(tok):
     try:
-        payload, sig = token.rsplit(".", 1)
-        expected = hmac.new(SESSION_SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            return False
-        return int(payload) > time.time()
+        exp, sig = tok.rsplit(".", 1)
+        expected = hmac.new(SESSION_SECRET.encode(), exp.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected) and int(exp) > time.time()
     except Exception:
         return False
 
-def is_authenticated():
+def _is_auth():
     sid = request.cookies.get('session_id')
-    return verify_session_token(sid) if sid else False
+    return bool(sid and _valid_session(sid))
 
-def is_valid_worker_key():
-    return bool(config.WORKER_API_KEY) and request.headers.get('X-API-Key', '') == config.WORKER_API_KEY
+def _is_worker():
+    return bool(config.WORKER_API_KEY
+                and request.headers.get('X-API-Key') == config.WORKER_API_KEY)
 
 @app.before_request
-def check_auth():
-    path = request.path
-    if path in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico', '/api/health'):
+def _gate():
+    p = request.path
+    if p in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico', '/api/health'):
         return None
-    if path.startswith('/static/'):
-        return None
-    if path == '/api/alerts' or path.startswith('/api/mark_triggered'):
-        if is_valid_worker_key():
+    if p == '/api/alerts' or p.startswith('/api/mark_triggered'):
+        if _is_worker():
             return None
-    if not is_authenticated():
-        if path.startswith('/api/'):
+    if not _is_auth():
+        if p.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
         return redirect('/login')
     return None
 
-# ------------------------------------------------------------------
-#  AUTH ROUTES
-# ------------------------------------------------------------------
 @app.route('/login')
 def login_page():
-    if is_authenticated():
-        return redirect('/')
-    return render_template('login.html')
+    return redirect('/') if _is_auth() else render_template('login.html')
 
 @app.route('/api/send_otp', methods=['POST'])
 def send_otp():
-    ip = get_client_ip()
+    ip = _ip()
     now = time.time()
-    existing = PENDING_OTP.get(ip)
-    if existing and now - existing.get('sent_at', 0) < OTP_THROTTLE:
-        wait = int(OTP_THROTTLE - (now - existing['sent_at']))
-        return jsonify({'status': 'error', 'message': f'Wait {wait}s before retrying.'}), 429
+    if ip in _OTP and now - _OTP[ip]['sent_at'] < OTP_THROTTLE:
+        wait = int(OTP_THROTTLE - (now - _OTP[ip]['sent_at']))
+        return jsonify({'status': 'error', 'message': f'Wait {wait}s'}), 429
 
     code = f"{random.randint(0, 9999):04d}"
-    PENDING_OTP[ip] = {'code': code, 'expiry': now + OTP_VALIDITY, 'sent_at': now, 'attempts': 0}
+    _OTP[ip] = {'code': code, 'expiry': now + OTP_VALIDITY,
+                'sent_at': now, 'attempts': 0}
 
-    stock_alert.send_telegram(
-        f"🔐 <b>Login OTP</b>\nCode: <b>{code}</b>\nIP: <code>{ip}</code>\nValid 5 min."
-    )
-    logger.info(f"OTP sent for IP {ip}")
+    stock_alert.send_telegram(f"🔐 <b>Login OTP</b>\nCode: <b>{code}</b>\nValid 5 min.")
     return jsonify({'status': 'ok'})
 
 @app.route('/api/verify_otp', methods=['POST'])
 def verify_otp():
-    data = request.json or {}
-    code = str(data.get('code', '')).strip()
-    ip = get_client_ip()
+    code = str((request.json or {}).get('code', '')).strip()
+    ip = _ip()
     now = time.time()
-    entry = PENDING_OTP.get(ip)
+    e = _OTP.get(ip)
 
-    if not entry or entry['expiry'] < now:
-        return jsonify({'status': 'error', 'message': 'No OTP or expired. Request a new one.'}), 401
+    if not e or e['expiry'] < now:
+        return jsonify({'status': 'error', 'message': 'No OTP or expired'}), 401
 
-    entry['attempts'] = entry.get('attempts', 0) + 1
-    if entry['attempts'] > MAX_OTP_ATTEMPTS:
-        PENDING_OTP.pop(ip, None)
-        stock_alert.send_telegram(f"🚨 Too many failed login attempts. IP: <code>{ip}</code>")
-        return jsonify({'status': 'error', 'message': 'Too many attempts.'}), 401
+    e['attempts'] += 1
+    if e['attempts'] > MAX_OTP_ATTEMPTS:
+        _OTP.pop(ip, None)
+        return jsonify({'status': 'error', 'message': 'Too many attempts'}), 401
 
-    if entry['code'] != code:
-        stock_alert.send_telegram(f"❌ Failed login. IP: <code>{ip}</code> Attempt {entry['attempts']}/{MAX_OTP_ATTEMPTS}")
-        return jsonify({'status': 'error', 'message': 'Invalid code.'}), 401
+    if e['code'] != code:
+        return jsonify({'status': 'error', 'message': 'Invalid code'}), 401
 
-    PENDING_OTP.pop(ip, None)
-    session_id = make_session_token()
-    ist = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
-    stock_alert.send_telegram(f"✅ Login success\nIP: <code>{ip}</code>\nTime: {ist}")
-
+    _OTP.pop(ip, None)
     resp = make_response(jsonify({'status': 'ok'}))
-    is_https = (request.headers.get('X-Forwarded-Proto') == 'https') or request.is_secure
-    resp.set_cookie('session_id', session_id, max_age=SESSION_DURATION,
-                    httponly=True, samesite='Lax', secure=is_https, path='/')
+    https = (request.headers.get('X-Forwarded-Proto') == 'https') or request.is_secure
+    resp.set_cookie('session_id', _mk_session(), max_age=SESSIONS_DURATION,
+                    httponly=True, samesite='Lax', secure=https, path='/')
+    stock_alert.send_telegram(f"✅ Login from <code>{ip}</code>")
     return resp
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    ip = get_client_ip()
-    ist = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')
-    stock_alert.send_telegram(f"👋 Logout\nIP: <code>{ip}</code>\nTime: {ist}")
     resp = make_response(jsonify({'status': 'ok'}))
     resp.set_cookie('session_id', '', max_age=0, path='/')
     return resp
 
-# ------------------------------------------------------------------
-#  HEALTH ENDPOINT — for UptimeRobot keep-alive
-# ------------------------------------------------------------------
 @app.route('/api/health')
 def health():
-    try:
-        last_tick = stock_alert.get_last_worker_tick()
-    except Exception:
-        last_tick = 0
-    age = time.time() - last_tick
+    age = time.time() - stock_alert.get_last_tick()
     if age > 900:
-        logger.warning(f"Health check failed: worker age {int(age)}s")
-        return jsonify({'status': 'error', 'worker_age_seconds': int(age)}), 503
-    return jsonify({'status': 'ok', 'worker_age_seconds': int(age)}), 200
+        return jsonify({'status': 'error', 'age': int(age)}), 503
+    return jsonify({'status': 'ok', 'age': int(age)}), 200
 
 # ------------------------------------------------------------------
 #  DATABASE
 # ------------------------------------------------------------------
-def get_db():
-    conn = sqlite3.connect(config.DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+def db():
+    c = sqlite3.connect(config.DB_FILE)
+    c.row_factory = sqlite3.Row
+    return c
 
 def init_db():
-    conn = sqlite3.connect(config.DB_FILE)
-    c = conn.cursor()
-    c.execute('''
+    c = sqlite3.connect(config.DB_FILE)
+    c.executescript('''
         CREATE TABLE IF NOT EXISTS watchlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             symbol TEXT NOT NULL,
@@ -292,359 +159,213 @@ def init_db():
             is_triggered INTEGER DEFAULT 0,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notes TEXT DEFAULT ''
-        )
-    ''')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
+        );
+        CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol);
 
-    c.execute('''
         CREATE TABLE IF NOT EXISTS eod_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             symbol TEXT NOT NULL,
             trade_date TEXT NOT NULL,
             open REAL, high REAL, low REAL, close REAL, volume REAL,
             UNIQUE(symbol, trade_date)
-        )
+        );
+        CREATE INDEX IF NOT EXISTS idx_eod_symbol_date ON eod_snapshots (symbol, trade_date);
+        CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_snapshots (trade_date);
     ''')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_eod_symbol_date ON eod_snapshots (symbol, trade_date)')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_snapshots (trade_date)')
+    c.commit()
+    c.close()
+    logger.info("Database ready")
 
-    conn.commit()
-    conn.close()
-    logger.info("Database initialized.")
-
-def migrate_conditions():
-    conn = sqlite3.connect(config.DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='watchlist'")
-    row = c.fetchone()
-    if not row:
-        conn.close()
-        return
-    schema = row[0]
-    if "'>='" not in schema and "'<='" not in schema:
-        conn.close()
-        return
-
-    logger.info("Migrating condition operators: >= → >, <= → <")
-    c.execute('BEGIN TRANSACTION')
-    c.execute('''
-        CREATE TABLE watchlist_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
-            condition TEXT NOT NULL CHECK(condition IN ('>', '<')),
-            trigger_price REAL NOT NULL,
-            is_active INTEGER DEFAULT 1,
-            is_triggered INTEGER DEFAULT 0,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT DEFAULT ''
-        )
-    ''')
-    c.execute('''
-        INSERT INTO watchlist_new (id, symbol, condition, trigger_price, is_active, is_triggered, added_at)
-        SELECT id, symbol,
-            CASE WHEN condition = '>=' THEN '>' WHEN condition = '<=' THEN '<' ELSE condition END,
-            trigger_price, is_active, is_triggered, added_at
-        FROM watchlist
-    ''')
-    c.execute('DROP TABLE watchlist')
-    c.execute('ALTER TABLE watchlist_new RENAME TO watchlist')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol)')
-    c.execute('COMMIT')
-    conn.close()
-    logger.info("✅ Migration completed.")
-
-def migrate_notes_column():
-    conn = sqlite3.connect(config.DB_FILE)
-    c = conn.cursor()
-    c.execute("PRAGMA table_info(watchlist)")
-    cols = [r[1] for r in c.fetchall()]
-    if 'notes' not in cols:
-        c.execute("ALTER TABLE watchlist ADD COLUMN notes TEXT DEFAULT ''")
-        conn.commit()
-        logger.info("✅ notes column added.")
-    conn.close()
-
-# ------------------------------------------------------------------
-#  PREV CLOSE — SQL fallback
-# ------------------------------------------------------------------
-def get_prev_closes_from_db(symbols):
+def get_prev_closes(symbols):
+    """Last completed close before today, per symbol."""
     if not symbols:
         return {}
-    symbols = [s.upper() for s in symbols]
-    today_str = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
-    placeholders = ','.join('?' * len(symbols))
-
-    conn = sqlite3.connect(config.DB_FILE)
-    rows = conn.execute(f'''
+    today = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
+    ph = ','.join('?' * len(symbols))
+    c = sqlite3.connect(config.DB_FILE)
+    rows = c.execute(f'''
         SELECT e.symbol, e.close
         FROM eod_snapshots e
         INNER JOIN (
-            SELECT symbol, MAX(trade_date) AS max_date
+            SELECT symbol, MAX(trade_date) AS d
             FROM eod_snapshots
-            WHERE trade_date < ? AND symbol IN ({placeholders})
+            WHERE trade_date < ? AND symbol IN ({ph})
             GROUP BY symbol
-        ) latest
-        ON e.symbol = latest.symbol AND e.trade_date = latest.max_date
-    ''', [today_str] + symbols).fetchall()
-    conn.close()
+        ) m ON e.symbol = m.symbol AND e.trade_date = m.d
+    ''', [today] + symbols).fetchall()
+    c.close()
     return {r[0]: r[1] for r in rows}
 
-# ------------------------------------------------------------------
-#  EOD PERSISTENCE + BACKFILL
-# ------------------------------------------------------------------
-def _persist_bars(rows):
+def get_last_two_closes(symbols):
+    """Last two closes per symbol, for the "no live data" fallback."""
+    if not symbols:
+        return {}
+    ph = ','.join('?' * len(symbols))
+    c = sqlite3.connect(config.DB_FILE)
+    rows = c.execute(f'''
+        WITH r AS (
+            SELECT symbol, trade_date, close,
+                   ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS n
+            FROM eod_snapshots WHERE symbol IN ({ph})
+        )
+        SELECT symbol, trade_date, close, n FROM r WHERE n <= 2
+    ''', symbols).fetchall()
+    c.close()
+
+    out = {}
+    for sym, d, cl, n in rows:
+        e = out.setdefault(sym, {})
+        e['last' if n == 1 else 'prior'] = cl
+    return out
+
+def persist_bars(rows):
     if not rows:
         return 0
-    conn = sqlite3.connect(config.DB_FILE)
-    for (sym, trade_date, o, h, l, c, v) in rows:
-        conn.execute('''
+    c = sqlite3.connect(config.DB_FILE)
+    for r in rows:
+        c.execute('''
             INSERT OR REPLACE INTO eod_snapshots
             (symbol, trade_date, open, high, low, close, volume)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (sym, trade_date, o, h, l, c, v))
-    conn.commit()
-    conn.close()
+        ''', r)
+    c.commit()
+    c.close()
     return len(rows)
 
-def _prune_eod_snapshots():
-    cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=EOD_RETENTION_DAYS)).strftime('%Y-%m-%d')
-    conn = sqlite3.connect(config.DB_FILE)
-    removed = conn.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (cutoff,)).rowcount
-    conn.commit()
-    conn.close()
-    if removed:
-        logger.info(f"🧹 Pruned {removed} EOD rows older than {cutoff}.")
-
-def backfill_symbols(symbols):
-    if not symbols:
-        return
-    rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
-    if not rows:
-        logger.warning(f"Backfill returned no data for {len(symbols)} symbols.")
-        return
-    n = _persist_bars(rows)
-    logger.info(f"✅ Backfilled {n} bars for {len(symbols)} symbols.")
-    _push_eod_to_github()
-
-def ensure_eod_backfill():
-    conn = sqlite3.connect(config.DB_FILE)
-    row = conn.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
-    max_date = row[0] if row else None
-    symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
-    conn.close()
-
-    if not symbols:
-        logger.info("Watchlist empty. Nothing to backfill.")
-        return
-
-    today = datetime.now(config.TIMEZONE).date()
-    cutoff = (today - timedelta(days=5)).strftime('%Y-%m-%d')
-
-    if max_date and max_date >= cutoff:
-        logger.info(f"EOD table is fresh (max={max_date}). Skipping backfill.")
-        return
-
-    logger.info(f"EOD table stale or empty (max={max_date}). Backfilling {len(symbols)} symbols...")
-    backfill_symbols(symbols)
+def prune_eod():
+    cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=365)).strftime('%Y-%m-%d')
+    c = sqlite3.connect(config.DB_FILE)
+    n = c.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (cutoff,)).rowcount
+    c.commit()
+    c.close()
+    if n:
+        logger.info(f"Pruned {n} old EOD rows")
 
 # ------------------------------------------------------------------
-#  GITHUB BACKUP — shared helpers
+#  GITHUB
 # ------------------------------------------------------------------
-def schedule_backup():
-    global _backup_timer
+_gh_headers = lambda: {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github+json",
+    "User-Agent": "stock-alert",
+}
+
+def gh_put(filename, content, message, branch=None):
     if not GITHUB_TOKEN:
-        return
-    with _backup_lock:
-        if _backup_timer is not None:
-            _backup_timer.cancel()
-        _backup_timer = threading.Timer(BACKUP_DEBOUNCE_SECONDS, _do_backup)
-        _backup_timer.daemon = True
-        _backup_timer.start()
-
-def _do_backup():
-    global _backup_timer, _backup_failures
-    try:
-        conn = sqlite3.connect(config.DB_FILE)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute('SELECT * FROM watchlist ORDER BY id').fetchall()
-        conn.close()
-        _push_to_github(json.dumps([dict(r) for r in rows], indent=2, default=str))
-    except Exception as e:
-        logger.error(f"Backup failed: {e}")
-        _backup_failures += 1
-        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(str(e))
-    finally:
-        with _backup_lock:
-            _backup_timer = None
-
-def _alert_backup_failure(reason):
-    global _backup_alert_sent
-    if _backup_alert_sent:
-        return
-    _backup_alert_sent = True
-    stock_alert.send_telegram(
-        f"⚠️ GitHub Backup Failing\nReason: {reason}"
-    )
-
-def _github_headers():
-    return {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "stock-alert-backup",
-    }
-
-def _github_put(filename, content, message):
-    global _backup_failures, _backup_alert_sent
-    url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{filename}"
-    headers = _github_headers()
+        return False
+    url = f"{GH_API}/repos/{GITHUB_REPO}/contents/{filename}"
+    if branch:
+        url += f"?ref={branch}"
 
     sha = None
     try:
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(url, headers=_gh_headers(), timeout=10)
         if r.status_code == 200:
             sha = r.json().get("sha")
         elif r.status_code != 404:
-            _backup_failures += 1
-            if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-                _alert_backup_failure(f"HTTP {r.status_code} on GET {filename}")
             return False
-    except Exception as e:
-        _backup_failures += 1
-        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(f"GET {filename}: {e}")
+    except Exception:
         return False
 
     body = {
         "message": message,
-        "content": base64.b64encode(content.encode('utf-8')).decode('ascii'),
+        "content": base64.b64encode(content.encode()).decode(),
     }
     if sha:
         body["sha"] = sha
+    if branch:
+        body["branch"] = branch
 
     try:
-        r = requests.put(url, headers=headers, json=body, timeout=15)
-        if r.status_code in (200, 201):
-            _backup_failures = 0
-            _backup_alert_sent = False
-            return True
-        _backup_failures += 1
-        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(f"HTTP {r.status_code} on PUT {filename}")
-        return False
-    except Exception as e:
-        _backup_failures += 1
-        if _backup_failures >= BACKUP_FAILURE_ALERT_THRESHOLD:
-            _alert_backup_failure(f"PUT {filename}: {e}")
-        return False
-
-def _push_to_github(content):
-    try:
-        count = len(json.loads(content))
+        r = requests.put(url, headers=_gh_headers(), json=body, timeout=15)
+        return r.status_code in (200, 201)
     except Exception:
-        count = 0
-    if _github_put(GITHUB_BACKUP_FILE, content, f"Auto-backup: {count} alerts"):
-        logger.info(f"Backed up {count} alerts to GitHub.")
+        return False
 
-def _push_eod_to_github():
+def gh_get(filename, branch=None):
     if not GITHUB_TOKEN:
-        return
+        return None
+    url = f"{GH_API}/repos/{GITHUB_REPO}/contents/{filename}"
+    if branch:
+        url += f"?ref={branch}"
     try:
-        cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=EOD_BACKUP_DAYS)).strftime('%Y-%m-%d')
-        conn = sqlite3.connect(config.DB_FILE)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            'SELECT symbol, trade_date, open, high, low, close, volume '
-            'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
-            (cutoff,)
-        ).fetchall()
-        conn.close()
-
-        if not rows:
-            return
-
-        payload = json.dumps([dict(r) for r in rows], default=str)
-        if _github_put(GITHUB_EOD_FILE, payload, f"EOD backup: {len(rows)} rows"):
-            logger.info(f"Backed up {len(rows)} EOD rows to GitHub.")
-    except Exception as e:
-        logger.error(f"EOD backup failed: {e}")
-
-def _restore_eod_from_github():
-    if not GITHUB_TOKEN:
-        return
-    try:
-        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_EOD_FILE}"
-        r = requests.get(url, headers=_github_headers(), timeout=15)
-        if r.status_code == 404:
-            logger.info("No EOD backup on GitHub yet.")
-            return
+        r = requests.get(url, headers=_gh_headers(), timeout=15)
         if r.status_code != 200:
-            logger.warning(f"EOD restore: GitHub returned {r.status_code}.")
-            return
+            return None
+        return base64.b64decode(r.json().get("content", "")).decode()
+    except Exception:
+        return None
 
-        decoded = base64.b64decode(r.json().get("content", "")).decode('utf-8')
-        data = json.loads(decoded)
-        if not isinstance(data, list):
-            return
+# ------------------------------------------------------------------
+#  NSE SYMBOLS
+# ------------------------------------------------------------------
+NSE_SYMBOLS = []
+NSE_NAMES = {}
 
-        conn = sqlite3.connect(config.DB_FILE)
-        inserted = 0
+def refresh_nse():
+    global NSE_SYMBOLS, NSE_NAMES
+    try:
+        r = requests.get(
+            "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
+            headers={"User-Agent": config.USER_AGENT}, timeout=30)
+        r.raise_for_status()
+        df = pd.read_csv(StringIO(r.text))
+        sym_col = next(c for c in df.columns if 'SYMBOL' in c.upper())
+        name_col = next(c for c in df.columns if 'NAME' in c.upper())
+        series_col = next((c for c in df.columns if 'SERIES' in c.upper()), None)
+        if series_col:
+            df = df[df[series_col].str.strip().isin(['EQ', 'BE'])]
+
+        NSE_SYMBOLS = [{"symbol": row[sym_col].strip(), "name": row[name_col].strip()}
+                       for _, row in df.iterrows()]
+        NSE_NAMES = {i['symbol'].upper(): i['name'] for i in NSE_SYMBOLS}
+        logger.info(f"NSE: {len(NSE_SYMBOLS)} symbols cached")
+
+        threading.Thread(
+            target=lambda: gh_put(GH_NSE, json.dumps(NSE_SYMBOLS),
+                                  f"NSE symbols: {len(NSE_SYMBOLS)}"),
+            daemon=True).start()
+        return True
+    except Exception as e:
+        logger.error(f"NSE fetch failed: {e}")
+        return False
+
+# ------------------------------------------------------------------
+#  GITHUB RESTORE (startup)
+# ------------------------------------------------------------------
+def restore_nse():
+    global NSE_SYMBOLS, NSE_NAMES
+    content = gh_get(GH_NSE)
+    if not content:
+        return
+    try:
+        data = json.loads(content)
+        if isinstance(data, list) and data:
+            NSE_SYMBOLS = data
+            NSE_NAMES = {i['symbol'].upper(): i['name'] for i in data if i.get('symbol')}
+            logger.info(f"✅ Restored {len(NSE_SYMBOLS)} NSE symbols")
+    except Exception as e:
+        logger.error(f"NSE restore: {e}")
+
+def restore_watchlist():
+    c = sqlite3.connect(config.DB_FILE)
+    count = c.execute('SELECT COUNT(*) FROM watchlist').fetchone()[0]
+    c.close()
+    if count > 0:
+        logger.info(f"Watchlist already has {count} rows")
+        return
+    content = gh_get(GH_WATCHLIST)
+    if not content:
+        return
+    try:
+        data = json.loads(content)
+        c = sqlite3.connect(config.DB_FILE)
+        n = 0
         for item in data:
             try:
-                conn.execute('''
-                    INSERT OR REPLACE INTO eod_snapshots
-                    (symbol, trade_date, open, high, low, close, volume)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    item.get('symbol'),
-                    item.get('trade_date'),
-                    item.get('open'),
-                    item.get('high'),
-                    item.get('low'),
-                    item.get('close'),
-                    item.get('volume'),
-                ))
-                inserted += 1
-            except Exception as e:
-                logger.warning(f"EOD restore skip {item.get('symbol')}/{item.get('trade_date')}: {e}")
-        conn.commit()
-        conn.close()
-        logger.info(f"✅ Restored {inserted} EOD rows from GitHub backup.")
-    except Exception as e:
-        logger.error(f"EOD restore failed: {e}")
-
-def restore_from_github():
-    if not GITHUB_TOKEN:
-        return
-    try:
-        conn = sqlite3.connect(config.DB_FILE)
-        count = conn.execute('SELECT COUNT(*) FROM watchlist').fetchone()[0]
-        conn.close()
-
-        url = f"{GITHUB_API}/repos/{GITHUB_REPO}/contents/{GITHUB_BACKUP_FILE}"
-        r = requests.get(url, headers=_github_headers(), timeout=15)
-
-        if r.status_code == 401:
-            stock_alert.send_telegram("🚨 GitHub backup token is invalid (401). Backups will fail.")
-            return
-        if r.status_code != 200:
-            logger.warning(f"Restore: GitHub returned {r.status_code}.")
-            return
-        if count > 0:
-            logger.info(f"Watchlist has {count} rows — skipping restore.")
-            return
-
-        decoded = base64.b64decode(r.json().get("content", "")).decode('utf-8')
-        data = json.loads(decoded)
-        if not isinstance(data, list):
-            return
-
-        conn = sqlite3.connect(config.DB_FILE)
-        restored = 0
-        for item in data:
-            try:
-                conn.execute('''
-                    INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, added_at, notes)
+                c.execute('''
+                    INSERT INTO watchlist
+                    (symbol, condition, trigger_price, is_active, is_triggered, added_at, notes)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     (item.get('symbol') or '').upper(),
@@ -655,14 +376,90 @@ def restore_from_github():
                     item.get('added_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     item.get('notes') or '',
                 ))
-                restored += 1
-            except Exception as e:
-                logger.warning(f"Restore skip {item.get('symbol')}: {e}")
-        conn.commit()
-        conn.close()
-        logger.info(f"✅ Restored {restored} alerts from GitHub backup.")
+                n += 1
+            except Exception:
+                pass
+        c.commit()
+        c.close()
+        logger.info(f"✅ Restored {n} alerts")
     except Exception as e:
-        logger.error(f"Restore failed: {e}")
+        logger.error(f"Watchlist restore: {e}")
+
+def restore_eod():
+    content = gh_get(GH_EOD)
+    if not content:
+        return
+    try:
+        data = json.loads(content)
+        c = sqlite3.connect(config.DB_FILE)
+        n = 0
+        for item in data:
+            try:
+                c.execute('''
+                    INSERT OR REPLACE INTO eod_snapshots
+                    (symbol, trade_date, open, high, low, close, volume)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (item.get('symbol'), item.get('trade_date'),
+                      item.get('open'), item.get('high'), item.get('low'),
+                      item.get('close'), item.get('volume')))
+                n += 1
+            except Exception:
+                pass
+        c.commit()
+        c.close()
+        logger.info(f"✅ Restored {n} EOD rows")
+    except Exception as e:
+        logger.error(f"EOD restore: {e}")
+
+def restore_tv_cache():
+    content = gh_get(GH_CACHE, branch=GH_CACHE_BRANCH)
+    if not content:
+        return
+    try:
+        data = json.loads(content)
+        saved = data.get("saved_at", 0)
+        age = time.time() - saved
+        if age > 1800:
+            logger.info(f"TV cache {int(age)}s old — skipping")
+            return
+        n = stock_alert.cache_restore(data.get("entries", {}), max_age=1800)
+        logger.info(f"✅ Restored {n} TV cache entries")
+    except Exception as e:
+        logger.error(f"TV cache restore: {e}")
+
+# ------------------------------------------------------------------
+#  PUSHERS (called from market_loop / eod_fetcher)
+# ------------------------------------------------------------------
+def push_watchlist():
+    c = sqlite3.connect(config.DB_FILE)
+    c.row_factory = sqlite3.Row
+    rows = [dict(r) for r in c.execute('SELECT * FROM watchlist ORDER BY id')]
+    c.close()
+    if gh_put(GH_WATCHLIST, json.dumps(rows, indent=2, default=str),
+              f"Watchlist: {len(rows)} alerts"):
+        logger.info(f"Backed up {len(rows)} alerts")
+
+def push_eod():
+    cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=10)).strftime('%Y-%m-%d')
+    c = sqlite3.connect(config.DB_FILE)
+    c.row_factory = sqlite3.Row
+    rows = [dict(r) for r in c.execute(
+        'SELECT symbol, trade_date, open, high, low, close, volume '
+        'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
+        (cutoff,))]
+    c.close()
+    if rows:
+        gh_put(GH_EOD, json.dumps(rows, default=str),
+               f"EOD backup: {len(rows)} rows")
+
+def push_tv_cache():
+    entries = stock_alert.cache_snapshot()
+    if not entries:
+        return
+    payload = json.dumps({"saved_at": time.time(), "entries": entries}, default=str)
+    if gh_put(GH_CACHE, payload, f"TV cache: {len(entries)}",
+              branch=GH_CACHE_BRANCH):
+        logger.info(f"TV cache → GitHub ({len(entries)})")
 
 # ------------------------------------------------------------------
 #  API ROUTES
@@ -672,516 +469,409 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/search')
-def search_symbols():
+def search():
     q = request.args.get('q', '').strip().upper()
     if not q:
         return jsonify([])
-
-    if not NSE_SYMBOLS:
-        logger.info("Search hit with empty NSE_SYMBOLS — attempting lazy load.")
-        refresh_nse_symbols()
-
-    out = []
-    for item in NSE_SYMBOLS:
-        if q in item['symbol'] or q in item['name'].upper():
-            out.append(item)
-            if len(out) >= 50:
-                break
+    out = [i for i in NSE_SYMBOLS
+           if q in i['symbol'] or q in i['name'].upper()][:50]
     return jsonify(out)
 
-@app.route('/api/price/<symbol>')
-def get_price(symbol):
-    try:
-        prices = stock_alert.get_prices([symbol.upper()])
-        return jsonify({"symbol": symbol, "price": prices.get(symbol)})
-    except Exception as e:
-        return jsonify({"symbol": symbol, "error": str(e)}), 500
-
-@app.route('/api/add', methods=['POST'])
-def add_alert():
-    data = request.json
-    symbol = data.get('symbol', '').upper()
-    condition = data.get('condition')
-    trigger_price = data.get('price')
-    notes = (data.get('notes') or '').strip()
-    force_duplicate = data.get('force_duplicate', False)
-    force_trigger = data.get('force_trigger', False)
-
-    if not symbol or condition not in ('>', '<') or not trigger_price:
-        return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
-    try:
-        trigger_price = float(trigger_price)
-    except ValueError:
-        return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
-
-    conn = get_db()
-    if conn.execute('SELECT id FROM watchlist WHERE symbol = ?', (symbol,)).fetchone() and not force_duplicate:
-        conn.close()
-        return jsonify({'status': 'duplicate', 'message': f"{symbol} already in list."}), 200
-
-    current_price = None
-    try:
-        current_price = stock_alert.get_prices([symbol]).get(symbol)
-    except Exception:
-        pass
-
-    if current_price is not None and not force_trigger:
-        if condition == '>' and current_price > trigger_price:
-            conn.close()
-            return jsonify({'status': 'warning',
-                            'message': f"Current price {current_price} already meets the condition."}), 200
-        if condition == '<' and current_price < trigger_price:
-            conn.close()
-            return jsonify({'status': 'warning',
-                            'message': f"Current price {current_price} already meets the condition."}), 200
-
-    try:
-        conn.execute('INSERT INTO watchlist (symbol, condition, trigger_price, notes) VALUES (?, ?, ?, ?)',
-                     (symbol, condition, trigger_price, notes))
-        conn.commit()
-        conn.close()
-        threading.Thread(target=backfill_symbols, args=([symbol],), daemon=True).start()
-        schedule_backup()
-        return jsonify({'status': 'ok', 'symbol': symbol, 'condition': condition, 'price': trigger_price})
-    except Exception as e:
-        conn.close()
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/update/<int:alert_id>', methods=['POST'])
-def update_alert(alert_id):
-    data = request.json
-    new_price = data.get('price')
-    new_condition = data.get('condition')
-    new_notes = data.get('notes')
-
-    conn = get_db()
-    row = conn.execute('SELECT symbol, is_triggered FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
-    symbol = row['symbol']
-    was_triggered = (row['is_triggered'] == 1)
-
-    if new_price is not None:
-        try:
-            conn.execute('UPDATE watchlist SET trigger_price = ? WHERE id = ?', (float(new_price), alert_id))
-        except ValueError:
-            conn.close()
-            return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
-    if new_condition is not None:
-        if new_condition not in ('>', '<'):
-            conn.close()
-            return jsonify({'status': 'error', 'message': 'Invalid condition'}), 400
-        conn.execute('UPDATE watchlist SET condition = ? WHERE id = ?', (new_condition, alert_id))
-    if new_notes is not None:
-        conn.execute('UPDATE watchlist SET notes = ? WHERE id = ?', (new_notes.strip(), alert_id))
-
-    conn.commit()
-    final = conn.execute('SELECT condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
-    conn.close()
-
-    triggered_now = False
-    if was_triggered:
-        current_price = None
-        try:
-            current_price = stock_alert.get_prices([symbol]).get(symbol)
-        except Exception:
-            pass
-
-        cond_met = (
-            current_price is not None and (
-                (final['condition'] == '>' and current_price > final['trigger_price']) or
-                (final['condition'] == '<' and current_price < final['trigger_price'])
-            )
-        )
-
-        conn2 = get_db()
-        if cond_met:
-            conn2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (alert_id,))
-            notes = (final['notes'] or '').strip()
-            lines = [
-                symbol,
-                "",
-                f"Price {final['condition']} {final['trigger_price']}",
-                "",
-                "Day Chg: -",
-                "",
-                "RVol: -",
-            ]
-            if notes:
-                lines.append("")
-                lines.append(f"Note: {notes}")
-            stock_alert.send_telegram("\n".join(lines))
-            triggered_now = True
-        else:
-            conn2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
-        conn2.commit()
-        conn2.close()
-
-    schedule_backup()
-    return jsonify({
-        'status': 'ok', 'symbol': symbol,
-        'condition': final['condition'], 'price': final['trigger_price'],
-        'notes': final['notes'],
-        'triggered_now': triggered_now, 'was_triggered': was_triggered,
-    })
-
-@app.route('/api/reactivate/<int:alert_id>', methods=['POST'])
-def reactivate_alert(alert_id):
-    data = request.json or {}
-    dry_run = data.get('dry_run', False)
-
-    conn = get_db()
-    alert = conn.execute('SELECT symbol, condition, trigger_price, notes FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
-    if not alert:
-        conn.close()
-        return jsonify({'status': 'error', 'message': 'Alert not found'}), 404
-
-    try:
-        current_price = stock_alert.get_prices([alert['symbol']]).get(alert['symbol'])
-    except Exception:
-        current_price = None
-
-    would_trigger = (
-        current_price is not None and (
-            (alert['condition'] == '>' and current_price > alert['trigger_price']) or
-            (alert['condition'] == '<' and current_price < alert['trigger_price'])
-        )
-    )
-
-    if dry_run:
-        conn.close()
-        return jsonify({
-            'status': 'ok', 'dry_run': True, 'would_trigger': would_trigger,
-            'symbol': alert['symbol'], 'condition': alert['condition'],
-            'trigger_price': alert['trigger_price'], 'current_price': current_price,
-        })
-
-    conn.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (alert_id,))
-    if would_trigger:
-        conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
-    conn.commit()
-    conn.close()
-
-    if would_trigger:
-        notes = (alert['notes'] or '').strip()
-        lines = [
-            alert['symbol'],
-            "",
-            f"Price {alert['condition']} {alert['trigger_price']}",
-            "",
-            "Day Chg: -",
-            "",
-            "RVol: -",
-        ]
-        if notes:
-            lines.append("")
-            lines.append(f"Note: {notes}")
-        stock_alert.send_telegram("\n".join(lines))
-
-    schedule_backup()
-    return jsonify({'status': 'ok', 'triggered': would_trigger})
-
 @app.route('/api/alerts')
-def get_alerts():
-    conn = get_db()
-    alerts = [dict(r) for r in conn.execute('SELECT * FROM watchlist ORDER BY symbol').fetchall()]
-    conn.close()
+def api_alerts():
+    c = sqlite3.connect(config.DB_FILE)
+    c.row_factory = sqlite3.Row
+    alerts = [dict(r) for r in c.execute('SELECT * FROM watchlist ORDER BY symbol')]
+    c.close()
 
     if not alerts:
         return jsonify([])
 
     symbols = list({a['symbol'] for a in alerts})
-    pv = stock_alert.get_prices_with_volume(symbols)   # cache-only, no fetch
-    prev_closes_db = get_prev_closes_from_db(symbols)
+    tv = stock_alert.get_cached(symbols)
+    prev = get_prev_closes(symbols)
+    last_two = get_last_two_closes(symbols)
 
     for a in alerts:
-        entry = pv.get(a['symbol'], {})
-        cmp = entry.get('price')
-        a['cmp'] = cmp
-        a['rvol'] = entry.get('rvol')
+        sym = a['symbol']
+        e = tv.get(sym, {})
 
-        vol     = entry.get('volume')
-        avg_vol = entry.get('avg_vol_10d')
-        a['vol_pct'] = (vol / avg_vol * 100) if (vol and avg_vol and avg_vol > 0) else None
+        cmp_price = e.get('price')
+        used_last_close = False
+        if cmp_price is None:
+            cmp_price = last_two.get(sym, {}).get('last')
+            used_last_close = True
+        a['cmp'] = cmp_price
 
-        prev_close = entry.get('prev_close')
+        prev_close = e.get('prev_close')
         if prev_close is None:
-            prev_close = prev_closes_db.get(a['symbol'])
+            if used_last_close:
+                prev_close = last_two.get(sym, {}).get('prior')
+            else:
+                prev_close = prev.get(sym)
+        a['pct_chg'] = ((cmp_price - prev_close) / prev_close * 100) \
+                        if (cmp_price and prev_close) else None
 
-        a['pct_chg'] = ((cmp - prev_close) / prev_close * 100) if (cmp is not None and prev_close) else None
+        vol = e.get('volume')
+        avg = e.get('avg_vol_10d')
+        a['vol_pct'] = (vol / avg * 100) if (vol and avg and avg > 0) else None
+        a['rvol'] = e.get('rvol')
 
-        a['company_name'] = NSE_NAME_LOOKUP.get(a['symbol'].upper(), '')
+        a['company_name'] = NSE_NAMES.get(sym.upper(), '')
         if a.get('notes') is None:
             a['notes'] = ''
 
     return jsonify(alerts)
 
-@app.route('/api/toggle/<int:alert_id>', methods=['POST'])
-def toggle_alert(alert_id):
-    conn = get_db()
-    row = conn.execute('SELECT is_active FROM watchlist WHERE id = ?', (alert_id,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'status': 'error'}), 404
-    new_val = 0 if row['is_active'] else 1
-    conn.execute('UPDATE watchlist SET is_active = ? WHERE id = ?', (new_val, alert_id))
-    conn.commit()
-    conn.close()
-    schedule_backup()
-    return jsonify({'status': 'ok', 'is_active': new_val})
+@app.route('/api/add', methods=['POST'])
+def api_add():
+    d = request.json
+    sym = d.get('symbol', '').upper()
+    cond = d.get('condition')
+    price = d.get('price')
+    notes = (d.get('notes') or '').strip()
+    force_dup = d.get('force_duplicate', False)
+    force_trig = d.get('force_trigger', False)
 
-@app.route('/api/mark_triggered/<int:alert_id>', methods=['POST'])
-def mark_triggered(alert_id):
-    conn = get_db()
-    conn.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (alert_id,))
-    conn.commit()
-    conn.close()
-    schedule_backup()
+    if not sym or cond not in ('>', '<') or not price:
+        return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
+    try:
+        price = float(price)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
+
+    c = db()
+    if c.execute('SELECT id FROM watchlist WHERE symbol = ?', (sym,)).fetchone() and not force_dup:
+        c.close()
+        return jsonify({'status': 'duplicate', 'message': f'{sym} already in list'}), 200
+
+    live = stock_alert.get_cached([sym]).get(sym, {}).get('price')
+    if live is not None and not force_trig:
+        if (cond == '>' and live > price) or (cond == '<' and live < price):
+            c.close()
+            return jsonify({'status': 'warning',
+                            'message': f'Current {live} already meets condition',
+                            'current_price': live}), 200
+
+    try:
+        c.execute('INSERT INTO watchlist (symbol, condition, trigger_price, notes) VALUES (?, ?, ?, ?)',
+                  (sym, cond, price, notes))
+        c.commit()
+        c.close()
+        threading.Thread(target=backfill_symbol, args=(sym,), daemon=True).start()
+        threading.Thread(target=push_watchlist, daemon=True).start()
+        return jsonify({'status': 'ok', 'symbol': sym, 'condition': cond, 'price': price})
+    except Exception as e:
+        c.close()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/update/<int:aid>', methods=['POST'])
+def api_update(aid):
+    d = request.json
+    c = db()
+    row = c.execute('SELECT symbol, is_triggered FROM watchlist WHERE id = ?', (aid,)).fetchone()
+    if not row:
+        c.close()
+        return jsonify({'status': 'error'}), 404
+    sym = row['symbol']
+    was_trig = (row['is_triggered'] == 1)
+
+    if d.get('price') is not None:
+        try:
+            c.execute('UPDATE watchlist SET trigger_price = ? WHERE id = ?',
+                      (float(d['price']), aid))
+        except ValueError:
+            c.close()
+            return jsonify({'status': 'error', 'message': 'Bad price'}), 400
+    if d.get('condition') in ('>', '<'):
+        c.execute('UPDATE watchlist SET condition = ? WHERE id = ?', (d['condition'], aid))
+    if d.get('notes') is not None:
+        c.execute('UPDATE watchlist SET notes = ? WHERE id = ?', (d['notes'].strip(), aid))
+    c.commit()
+
+    final = c.execute('SELECT condition, trigger_price, notes FROM watchlist WHERE id = ?',
+                      (aid,)).fetchone()
+    c.close()
+
+    triggered_now = False
+    if was_trig:
+        live = stock_alert.get_cached([sym]).get(sym, {}).get('price')
+        cond_met = live is not None and (
+            (final['condition'] == '>' and live > final['trigger_price']) or
+            (final['condition'] == '<' and live < final['trigger_price']))
+        c2 = db()
+        if cond_met:
+            c2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (aid,))
+            stock_alert.send_telegram(stock_alert.format_alert({
+                'symbol': sym, 'condition': final['condition'],
+                'trigger_price': final['trigger_price'], 'notes': final['notes'],
+                'pct_chg': None, 'rvol': None,
+            }))
+            triggered_now = True
+        else:
+            c2.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (aid,))
+        c2.commit()
+        c2.close()
+
+    threading.Thread(target=push_watchlist, daemon=True).start()
+    return jsonify({'status': 'ok', 'triggered_now': triggered_now, 'was_triggered': was_trig})
+
+@app.route('/api/reactivate/<int:aid>', methods=['POST'])
+def api_reactivate(aid):
+    dry = (request.json or {}).get('dry_run', False)
+    c = db()
+    a = c.execute('SELECT symbol, condition, trigger_price, notes FROM watchlist WHERE id = ?',
+                  (aid,)).fetchone()
+    if not a:
+        c.close()
+        return jsonify({'status': 'error'}), 404
+
+    live = stock_alert.get_cached([a['symbol']]).get(a['symbol'], {}).get('price')
+    would = live is not None and (
+        (a['condition'] == '>' and live > a['trigger_price']) or
+        (a['condition'] == '<' and live < a['trigger_price']))
+
+    if dry:
+        c.close()
+        return jsonify({'status': 'ok', 'would_trigger': would,
+                        'symbol': a['symbol'], 'condition': a['condition'],
+                        'trigger_price': a['trigger_price'], 'current_price': live})
+
+    c.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (aid,))
+    if would:
+        c.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (aid,))
+    c.commit()
+    c.close()
+
+    if would:
+        stock_alert.send_telegram(stock_alert.format_alert({
+            'symbol': a['symbol'], 'condition': a['condition'],
+            'trigger_price': a['trigger_price'], 'notes': a['notes'],
+            'pct_chg': None, 'rvol': None,
+        }))
+    threading.Thread(target=push_watchlist, daemon=True).start()
+    return jsonify({'status': 'ok', 'triggered': would})
+
+@app.route('/api/toggle/<int:aid>', methods=['POST'])
+def api_toggle(aid):
+    c = db()
+    row = c.execute('SELECT is_active FROM watchlist WHERE id = ?', (aid,)).fetchone()
+    if not row:
+        c.close()
+        return jsonify({'status': 'error'}), 404
+    v = 0 if row['is_active'] else 1
+    c.execute('UPDATE watchlist SET is_active = ? WHERE id = ?', (v, aid))
+    c.commit()
+    c.close()
+    threading.Thread(target=push_watchlist, daemon=True).start()
+    return jsonify({'status': 'ok', 'is_active': v})
+
+@app.route('/api/delete/<int:aid>', methods=['DELETE'])
+def api_delete(aid):
+    c = db()
+    c.execute('DELETE FROM watchlist WHERE id = ?', (aid,))
+    c.commit()
+    c.close()
+    threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok'})
 
-@app.route('/api/delete/<int:alert_id>', methods=['DELETE'])
-def delete_alert(alert_id):
-    conn = get_db()
-    conn.execute('DELETE FROM watchlist WHERE id = ?', (alert_id,))
-    conn.commit()
-    conn.close()
-    schedule_backup()
+@app.route('/api/mark_triggered/<int:aid>', methods=['POST'])
+def api_mark_triggered(aid):
+    c = db()
+    c.execute('UPDATE watchlist SET is_triggered = 1 WHERE id = ?', (aid,))
+    c.commit()
+    c.close()
+    threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok'})
 
 @app.route('/api/export')
-def export_alerts():
-    conn = get_db()
-    data = [dict(r) for r in conn.execute('SELECT * FROM watchlist').fetchall()]
-    conn.close()
+def api_export():
+    c = db()
+    data = [dict(r) for r in c.execute('SELECT * FROM watchlist')]
+    c.close()
     return jsonify(data)
 
 @app.route('/api/import', methods=['POST'])
-def import_alerts():
+def api_import():
     data = request.json
     if not isinstance(data, list):
-        return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
+        return jsonify({'status': 'error'}), 400
 
-    conn = get_db()
-    conn.execute('DELETE FROM watchlist')
+    c = db()
+    c.execute('DELETE FROM watchlist')
     for item in data:
         cond = item.get('condition', '>')
         cond = '>' if cond == '>=' else ('<' if cond == '<=' else cond)
         if cond not in ('>', '<'):
             cond = '>'
+        try:
+            c.execute('INSERT INTO watchlist (symbol, condition, trigger_price, is_active, is_triggered, notes) '
+                      'VALUES (?, ?, ?, ?, ?, ?)',
+                      (item.get('symbol', '').upper(), cond, float(item.get('trigger_price', 0)),
+                       int(item.get('is_active', 1)), int(item.get('is_triggered', 0)),
+                       (item.get('notes') or '').strip()))
+        except Exception:
+            pass
+    c.commit()
+    c.close()
 
-        raw = item.get('added_at')
-        added_at = None
-        if raw:
-            try:
-                s = str(raw).strip()
-                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d'):
-                    try:
-                        added_at = datetime.strptime(s, fmt).strftime('%Y-%m-%d %H:%M:%S')
-                        break
-                    except ValueError:
-                        continue
-            except Exception:
-                added_at = None
-
-        notes = (item.get('notes') or '').strip()
-        cols = '(symbol, condition, trigger_price, is_active, is_triggered, notes' + (', added_at' if added_at else '') + ')'
-        vals = [item.get('symbol', '').upper(), cond, float(item.get('trigger_price', 0)),
-                int(item.get('is_active', 1)), int(item.get('is_triggered', 0)), notes]
-        if added_at:
-            vals.append(added_at)
-        conn.execute(f'INSERT INTO watchlist {cols} VALUES ({",".join("?" * len(vals))})', vals)
-    conn.commit()
-    conn.close()
-
-    all_symbols = list({item.get('symbol', '').upper() for item in data if item.get('symbol')})
-    if all_symbols:
-        threading.Thread(target=backfill_symbols, args=(all_symbols,), daemon=True).start()
-
-    schedule_backup()
+    syms = list({i.get('symbol', '').upper() for i in data if i.get('symbol')})
+    if syms:
+        threading.Thread(target=backfill_symbols, args=(syms,), daemon=True).start()
+    threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok', 'count': len(data)})
+
+# ------------------------------------------------------------------
+#  BACKFILL HELPERS
+# ------------------------------------------------------------------
+def backfill_symbol(sym):
+    rows = stock_alert.batch_fetch_daily_bars([sym], days=5, include_today=False)
+    if rows:
+        persist_bars(rows)
+        logger.info(f"Backfilled {len(rows)} rows for {sym}")
+
+def backfill_symbols(symbols):
+    rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
+    if rows:
+        n = persist_bars(rows)
+        logger.info(f"Backfilled {n} rows for {len(symbols)} symbols")
 
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
 # ------------------------------------------------------------------
-def start_worker():
-    time.sleep(5)
-    while True:
-        try:
-            stock_alert.main()
-        except Exception as e:
-            logger.exception(f"Worker died, restarting in 30s: {e}")
-            time.sleep(30)
+def startup_thread():
+    time.sleep(2)
+    restore_nse()
+    restore_watchlist()
+    restore_eod()
+    restore_tv_cache()
+    logger.info("Startup restore complete")
 
-def tv_cache_warmer():
+def market_loop():
     """
-    Background pre-warmer. The ONLY place that fetches TradingView.
-    Keeps the cache hot so user requests never wait.
-    Runs every 55s during market hours, every 5 min otherwise.
+    Single background loop that owns ALL TradingView traffic
+    and periodic housekeeping:
+      - refreshes TV cache every 55s during market hours
+      - persists TV cache to GitHub every 5 min (market) / 30 min (off)
+      - cleans up expired OTP entries
+      - refreshes NSE symbol list once per day
     """
-    time.sleep(30)   # let startup finish
+    time.sleep(30)  # let startup finish
+
+    last_tv_push = 0
+    last_nse_fetch = None
+    last_otp_cleanup = 0
 
     while True:
         try:
             now = datetime.now(config.TIMEZONE)
-            in_market = stock_alert.is_weekday(now) and stock_alert.is_market_open(now)
+            today = now.date()
+            in_market = (now.weekday() < 5
+                         and datetime.strptime(config.START_TIME, "%H:%M").time()
+                             <= now.time()
+                             <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
 
-            conn = sqlite3.connect(config.DB_FILE)
-            symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
-            conn.close()
+            # --- TV cache refresh ---
+            if in_market:
+                c = sqlite3.connect(config.DB_FILE)
+                syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
+                c.close()
+                if syms:
+                    stock_alert.refresh_tv_cache(syms)
 
-            if symbols:
-                stock_alert.refresh_tv_cache(symbols)
+            # --- TV cache persist to GitHub ---
+            push_interval = 300 if in_market else 1800
+            if time.time() - last_tv_push >= push_interval:
+                push_tv_cache()
+                last_tv_push = time.time()
+
+            # --- NSE symbols (once per day) ---
+            if last_nse_fetch != today:
+                if not NSE_SYMBOLS:
+                    refresh_nse()
+                last_nse_fetch = today
+
+            # --- OTP cleanup (every 5 min) ---
+            if time.time() - last_otp_cleanup >= 300:
+                now_t = time.time()
+                for k in [k for k, v in list(_OTP.items()) if v.get('expiry', 0) < now_t]:
+                    _OTP.pop(k, None)
+                last_otp_cleanup = now_t
 
             time.sleep(55 if in_market else 300)
+
         except Exception as e:
-            logger.error(f"TV cache warmer error: {e}")
+            logger.error(f"market_loop error: {e}")
             time.sleep(60)
 
-def nse_symbols_refresher():
-    time.sleep(5)
-
-    last_success_date = None
-
-    while True:
-        try:
-            today = datetime.now(config.TIMEZONE).date()
-
-            if last_success_date == today:
-                time.sleep(1800)
-                continue
-
-            logger.info(f"NSE symbols fetch (last success: {last_success_date})...")
-            if refresh_nse_symbols():
-                last_success_date = today
-                logger.info(f"✅ NSE symbols refresh complete for {today}.")
-            else:
-                logger.warning("NSE fetch failed — will retry in 30 minutes.")
-
-            time.sleep(1800)
-        except Exception as e:
-            logger.error(f"NSE refresher error: {e}")
-            time.sleep(600)
-
 def eod_fetcher():
-    global _eod_failure_alerted
-
-    now = datetime.now(config.TIMEZONE)
-    if now.weekday() < 5 and now.hour >= 16 and now.minute >= 30:
-        last_run_date = now.date()
-        logger.info(f"EOD fetcher: starting after cutoff, skipping today ({last_run_date}).")
-    else:
-        last_run_date = None
-
+    last_run = None
     while True:
         try:
             now = datetime.now(config.TIMEZONE)
             today = now.date()
 
             if (now.weekday() < 5 and now.hour >= 16 and now.minute >= 30
-                    and last_run_date != today):
+                    and last_run != today):
                 today_str = today.strftime('%Y-%m-%d')
-
                 if today_str in config.NSE_HOLIDAYS:
-                    logger.info(f"🕟 EOD skip: {today_str} is an NSE holiday.")
-                    last_run_date = today
+                    logger.info(f"EOD skip: {today_str} is a holiday")
+                    last_run = today
                 else:
-                    logger.info("🕟 4:30 PM EOD fetch starting...")
-                    try:
-                        conn = sqlite3.connect(config.DB_FILE)
-                        symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
-                        conn.close()
-
-                        if symbols:
-                            rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=True)
-                            n = _persist_bars(rows)
-                            logger.info(f"✅ EOD: stored {n} rows for {len(symbols)} symbols.")
-
-                            if n == 0 and not _eod_failure_alerted:
-                                stock_alert.send_telegram(
-                                    f"⚠️ EOD fetch returned no data\n"
-                                    f"Date: {today_str} ({today.strftime('%A')})\n"
-                                    f"Symbols requested: {len(symbols)}"
-                                )
-                                _eod_failure_alerted = True
-                            elif n > 0:
-                                _eod_failure_alerted = False
-
-                            _prune_eod_snapshots()
-                            _push_eod_to_github()
-                        last_run_date = today
-                    except Exception as e:
-                        logger.error(f"EOD fetch failed: {e}")
+                    logger.info("EOD fetch starting...")
+                    c = sqlite3.connect(config.DB_FILE)
+                    syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
+                    c.close()
+                    if syms:
+                        rows = stock_alert.batch_fetch_daily_bars(syms, days=5, include_today=True)
+                        n = persist_bars(rows)
+                        logger.info(f"EOD stored {n} rows")
+                        if n == 0:
+                            stock_alert.send_telegram(f"⚠️ EOD returned no data\nDate: {today_str}")
+                        prune_eod()
+                        push_eod()
+                    last_run = today
 
             time.sleep(60)
         except Exception as e:
-            logger.error(f"EOD fetcher error: {e}")
+            logger.error(f"EOD error: {e}")
             time.sleep(60)
 
-def cleanup_sessions():
+def healthcheck_pinger():
+    if not HEALTHCHECK_URL:
+        return
+    time.sleep(60)
     while True:
         try:
-            now = time.time()
-            for k in [k for k, v in list(PENDING_OTP.items()) if v.get('expiry', 0) < now]:
-                PENDING_OTP.pop(k, None)
+            age = time.time() - stock_alert.get_last_tick()
+            if age < 900:
+                try:
+                    requests.get(HEALTHCHECK_URL, timeout=10)
+                except Exception:
+                    pass
             time.sleep(300)
         except Exception:
             time.sleep(300)
 
-def healthcheck_pinger():
-    if not HEALTHCHECK_PING_URL:
-        logger.info("Healthcheck pinger disabled (HEALTHCHECK_PING_URL not set).")
-        return
-
-    time.sleep(60)
-
+def worker_thread():
+    time.sleep(5)
     while True:
         try:
-            last_tick = stock_alert.get_last_worker_tick()
-            age = time.time() - last_tick
-
-            if age < 900:
-                try:
-                    r = requests.get(HEALTHCHECK_PING_URL, timeout=10)
-                    if r.status_code == 200:
-                        logger.debug("Healthcheck ping sent.")
-                    else:
-                        logger.warning(f"Healthcheck ping returned {r.status_code}")
-                except Exception as e:
-                    logger.warning(f"Healthcheck ping failed: {e}")
-            else:
-                logger.warning(f"Skipping healthcheck ping — worker age {int(age)}s")
-
-            time.sleep(300)
+            stock_alert.worker_loop()
         except Exception as e:
-            logger.error(f"Healthcheck pinger error: {e}")
-            time.sleep(300)
-
-def background_startup():
-    logger.info("Background startup: restoring NSE symbols from GitHub...")
-    _restore_nse_from_github()
-    logger.info("Background startup: restoring watchlist from GitHub...")
-    restore_from_github()
-    logger.info("Background startup: restoring EOD from GitHub...")
-    _restore_eod_from_github()
-    logger.info("Background startup: checking EOD freshness...")
-    ensure_eod_backfill()
-    logger.info("Background startup: done.")
+            logger.exception(f"Worker crashed, restarting in 30s: {e}")
+            time.sleep(30)
 
 # ------------------------------------------------------------------
 #  INIT
 # ------------------------------------------------------------------
 init_db()
-migrate_conditions()
-migrate_notes_column()
 
-threading.Thread(target=background_startup,     daemon=True).start()
-threading.Thread(target=nse_symbols_refresher,  daemon=True).start()
-threading.Thread(target=start_worker,           daemon=True).start()
-threading.Thread(target=tv_cache_warmer,        daemon=True).start()
-threading.Thread(target=eod_fetcher,            daemon=True).start()
-threading.Thread(target=cleanup_sessions,       daemon=True).start()
-threading.Thread(target=healthcheck_pinger,     daemon=True).start()
+threading.Thread(target=startup_thread,      daemon=True).start()
+threading.Thread(target=market_loop,         daemon=True).start()
+threading.Thread(target=eod_fetcher,         daemon=True).start()
+threading.Thread(target=worker_thread,       daemon=True).start()
+threading.Thread(target=healthcheck_pinger,  daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

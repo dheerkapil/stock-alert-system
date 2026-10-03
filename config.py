@@ -1,43 +1,34 @@
 import os
 import pytz
 
-# ---- Time & Polling ----
-POLL_INTERVAL = 300            # 5 minutes
+# Time
+POLL_INTERVAL = 300
+TIMEZONE = pytz.timezone("Asia/Kolkata")
 
-# ---- Market Hours (IST) ----
+# Market hours (IST)
 START_TIME = "09:00"
 STOP_TIME  = "15:45"
 
-TIMEZONE = pytz.timezone("Asia/Kolkata")
+# TradingView
+TRADINGVIEW_CHUNK_SIZE = 100
+TRADINGVIEW_DELAY = 1.0
+TV_CACHE_TTL_SECONDS = 60
+TV_CACHE_BACKOFF_SECONDS = 300
 
-# ---- Data Sources ----
-TRADINGVIEW_CHUNK_SIZE = 100   # smaller batches, less likely to trigger rate limit
-TRADINGVIEW_DELAY = 1.0        # seconds between chunks
-YAHOO_FINANCE_ENABLED = True
-
-# ---- Telegram ----
+# Telegram
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID")
 
-# ---- Database ----
+# Database
 DB_FILE = os.environ.get("DB_FILE", "watchlist.db")
 
-# ---- Failure Detection ----
-CONSECUTIVE_TV_FAILURES_THRESHOLD = 3
-
-# ---- Logging ----
-LOG_LEVEL = "INFO"
-
-# ---- User-Agent ----
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-# ---- Worker API Key ----
+# Worker key (web UI ↔ worker auth)
 WORKER_API_KEY = os.environ.get("WORKER_API_KEY", "")
 
-# ---- NSE Trading Holidays ----
-# Fixed-date holidays only. Variable-date holidays (Holi, Diwali, Eid, etc.)
-# change yearly. Update this set annually from NSE's official calendar:
-# https://www.nseindia.com/resources/exchange-communication-holidays
+# HTTP user agent
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# NSE trading holidays (fixed-date only; update variable-date ones annually)
 NSE_HOLIDAYS = {
     "2026-01-26",  # Republic Day
     "2026-05-01",  # Maharashtra Day
