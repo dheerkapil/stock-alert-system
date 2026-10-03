@@ -992,23 +992,21 @@ function sortAlerts(data, state) {
             sorted.sort((a, b) => calculateGap(a) - calculateGap(b));
         } else if (state.gapMode === 2) {
             sorted.sort((a, b) => calculateGap(b) - calculateGap(a));
-        } else if (state.gapMode === 3) {
+        } else if (state.gapMode === 3 || state.gapMode === 4) {
+            const direction = (state.gapMode === 3) ? 1 : -1;   // 3: oldest→newest, 4: newest→oldest
             sorted.sort((a, b) => {
+                // Bell rows first
+                const ia = a.is_triggered === 1 ? 1 : 0;
+                const ib = b.is_triggered === 1 ? 1 : 0;
+                if (ia !== ib) return ib - ia;
+
+                // Then by trigger time; null-timestamp rows go after timestamped ones
                 const ta = parseTriggered(a.triggered_at);
                 const tb = parseTriggered(b.triggered_at);
                 if (ta === null && tb === null) return 0;
                 if (ta === null) return 1;
                 if (tb === null) return -1;
-                return ta - tb;
-            });
-        } else if (state.gapMode === 4) {
-            sorted.sort((a, b) => {
-                const ta = parseTriggered(a.triggered_at);
-                const tb = parseTriggered(b.triggered_at);
-                if (ta === null && tb === null) return 0;
-                if (ta === null) return 1;
-                if (tb === null) return -1;
-                return tb - ta;
+                return direction * (ta - tb);
             });
         }
         return sorted;
