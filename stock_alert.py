@@ -1,3 +1,5 @@
+import os
+import json
 import time
 import logging
 import threading
@@ -18,14 +20,58 @@ def get_last_tick():
     return _last_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE
+#  TRADINGVIEW CACHE — RAM + file-backed (multi-worker safe)
 # ------------------------------------------------------------------
 _TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
 _backoff_until = 0.0
 
+_TV_FILE = os.path.join(os.path.dirname(os.path.abspath(config.DB_FILE)), "tv_cache_local.json")
+_TV_FILE_MEMO = {"mtime": 0, "data": {}}
+_TV_FILE_MEMO_LOCK = threading.Lock()
+
 def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
+
+def _write_tv_file():
+    """Atomically write current RAM cache to disk."""
+    try:
+        with _TV_CACHE_LOCK:
+            payload = {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
+        tmp = _TV_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(payload, f)
+        os.replace(tmp, _TV_FILE)
+    except Exception as e:
+        logger.warning(f"TV cache file write failed: {e}")
+
+def _read_tv_file():
+    """Read disk cache, memoized by mtime. Returns {sym: (ts, data)}."""
+    try:
+        if not os.path.exists(_TV_FILE):
+            return {}
+        mtime = os.path.getmtime(_TV_FILE)
+        with _TV_FILE_MEMO_LOCK:
+            if mtime == _TV_FILE_MEMO["mtime"]:
+                return _TV_FILE_MEMO["data"]
+            with open(_TV_FILE) as f:
+                raw = json.load(f)
+            data = {}
+            for sym, e in raw.items():
+                try:
+                    ts = float(e.get("ts", 0))
+                    d = e.get("data") or {}
+                    if d.get("price") is None:
+                        continue
+                    data[sym] = (ts, d)
+                except Exception:
+                    continue
+            _TV_FILE_MEMO["mtime"] = mtime
+            _TV_FILE_MEMO["data"] = data
+            return data
+    except Exception as e:
+        logger.warning(f"TV cache file read failed: {e}")
+        return {}
 
 def _tv_fetch(symbols):
     global _backoff_until
@@ -49,7 +95,7 @@ def _tv_fetch(symbols):
 
             if r.status_code == 429:
                 _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
-                logger.warning(f"TV 429 on chunk {idx}/{total_chunks} — got {len(result)}/{len(symbols)}. Backing off.")
+                logger.warning(f"TV 429 on chunk {idx}/{total_chunks}")
                 return result
 
             if r.status_code != 200:
@@ -57,8 +103,7 @@ def _tv_fetch(symbols):
                 time.sleep(config.TRADINGVIEW_DELAY)
                 continue
 
-            data_rows = r.json().get('data', [])
-            for entry in data_rows:
+            for entry in r.json().get('data', []):
                 ticker = entry['s'].split(':')[1]
                 v = entry['d']
                 def f(x): return float(x) if x is not None else None
@@ -87,9 +132,6 @@ def refresh_tv_cache(symbols):
     symbols = list(set(symbols))
     now = time.time()
 
-    # === INSTRUMENTATION 1 ===
-    logger.info(f"refresh_tv_cache ENTER: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)}")
-
     with _TV_CACHE_LOCK:
         missing = [s for s in symbols
                    if s not in _TV_CACHE
@@ -98,45 +140,52 @@ def refresh_tv_cache(symbols):
     if not missing:
         return 0
 
-    logger.info(f"TV refresh starting: {len(missing)} missing of {len(symbols)}")
+    logger.info(f"TV refresh: {len(missing)} missing of {len(symbols)}")
     fetched = _tv_fetch(missing)
 
     updated = 0
-    rejected_null = 0
     with _TV_CACHE_LOCK:
         for sym, data in fetched.items():
             if data.get("price") is None:
-                rejected_null += 1
                 continue
             _TV_CACHE[sym] = (now, data)
             updated += 1
 
-    # === INSTRUMENTATION 2 ===
-    logger.info(f"refresh_tv_cache EXIT: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} "
-                f"wrote={updated} rejected_null={rejected_null}")
+    if updated:
+        _write_tv_file()
+
+    logger.info(f"TV refresh wrote {updated} to RAM+file")
     return updated
 
 def get_cached(symbols):
+    """
+    Read TV data. RAM first; if RAM is missing entries, fall back to the
+    on-disk snapshot written by whichever process did the last fetch.
+    """
     result = {}
     with _TV_CACHE_LOCK:
-        missing_exact = [s for s in set(symbols) if s not in _TV_CACHE]
         for s in set(symbols):
             e = _TV_CACHE.get(s)
             if e:
                 result[s] = e[1]
 
-    # === INSTRUMENTATION 3 ===
-    if missing_exact:
-        logger.warning(
-            f"get_cached: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} "
-            f"asked={len(set(symbols))} missing_exact={len(missing_exact)} "
-            f"sample={missing_exact[:5]}"
-        )
+    missing = set(symbols) - set(result.keys())
+    if missing:
+        file_cache = _read_tv_file()
+        for s in missing:
+            e = file_cache.get(s)
+            if e:
+                result[s] = e[1]
+
     return result
 
 def cache_snapshot():
     with _TV_CACHE_LOCK:
-        return {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
+        ram = {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
+    if ram:
+        return ram
+    file_cache = _read_tv_file()
+    return {s: {"ts": ts, "data": d} for s, (ts, d) in file_cache.items()}
 
 def cache_restore(entries, max_age=1800):
     now = time.time()
@@ -151,19 +200,19 @@ def cache_restore(entries, max_age=1800):
                 continue
             _TV_CACHE[sym] = (ts, data)
             n += 1
-    logger.info(f"cache_restore: cache_id={id(_TV_CACHE)} cache_len={len(_TV_CACHE)} loaded={n}")
+    if n:
+        _write_tv_file()
+    logger.info(f"cache_restore loaded {n}")
     return n
 
 # ------------------------------------------------------------------
-#  YAHOO — daily bars
+#  YAHOO
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
     if not symbols:
         return []
     symbols = [s.upper() for s in symbols]
     tickers = [f"{s}.NS" for s in symbols]
-
-    logger.info(f"Yahoo: {days}d bars for {len(symbols)} symbols")
 
     try:
         data = yf.download(
