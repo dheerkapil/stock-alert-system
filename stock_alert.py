@@ -31,10 +31,17 @@ def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
 
 def _tv_fetch(symbols):
+    """
+    Returns {symbol: data} for every symbol TradingView answered.
+    On 429: logs partial count, sets backoff, returns what it got.
+    On chunk error: logs, continues to next chunk.
+    """
     global _backoff_until
 
     result = {}
-    for i in range(0, len(symbols), config.TRADINGVIEW_CHUNK_SIZE):
+    total_chunks = (len(symbols) + config.TRADINGVIEW_CHUNK_SIZE - 1) // config.TRADINGVIEW_CHUNK_SIZE
+
+    for idx, i in enumerate(range(0, len(symbols), config.TRADINGVIEW_CHUNK_SIZE), start=1):
         chunk = symbols[i:i + config.TRADINGVIEW_CHUNK_SIZE]
         payload = {
             "symbols": {"tickers": [f"NSE:{_tv_symbol(s)}" for s in chunk]},
@@ -50,12 +57,22 @@ def _tv_fetch(symbols):
 
             if r.status_code == 429:
                 _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
-                logger.warning(f"TV 429 — backing off {config.TV_CACHE_BACKOFF_SECONDS}s")
+                logger.warning(f"TV 429 on chunk {idx}/{total_chunks} — "
+                               f"got {len(result)}/{len(symbols)} so far. "
+                               f"Backing off {config.TV_CACHE_BACKOFF_SECONDS}s")
                 return result
 
-            r.raise_for_status()
+            if r.status_code != 200:
+                logger.warning(f"TV chunk {idx}/{total_chunks} HTTP {r.status_code}")
+                time.sleep(config.TRADINGVIEW_DELAY)
+                continue
 
-            for entry in r.json().get('data', []):
+            body = r.json()
+            data_rows = body.get('data', [])
+            logger.info(f"TV chunk {idx}/{total_chunks}: requested {len(chunk)}, "
+                        f"received {len(data_rows)}")
+
+            for entry in data_rows:
                 ticker = entry['s'].split(':')[1]
                 v = entry['d']
                 def f(x): return float(x) if x is not None else None
@@ -71,10 +88,11 @@ def _tv_fetch(symbols):
                         result[s] = data
                         break
         except Exception as e:
-            logger.warning(f"TV chunk failed: {e}")
+            logger.warning(f"TV chunk {idx}/{total_chunks} failed: {e}")
 
         time.sleep(config.TRADINGVIEW_DELAY)
 
+    logger.info(f"TV fetch complete: {len(result)}/{len(symbols)} symbols")
     return result
 
 def refresh_tv_cache(symbols):
@@ -92,12 +110,16 @@ def refresh_tv_cache(symbols):
     if not missing:
         return 0
 
-    logger.info(f"TV refresh: {len(missing)} of {len(symbols)}")
+    logger.info(f"TV refresh starting: {len(missing)} missing of {len(symbols)}")
     fetched = _tv_fetch(missing)
 
-    with _TV_CACHE_LOCK:
-        for sym, data in fetched.items():
-            _TV_CACHE[sym] = (now, data)
+    if fetched:
+        with _TV_CACHE_LOCK:
+            for sym, data in fetched.items():
+                _TV_CACHE[sym] = (now, data)
+        logger.info(f"TV refresh wrote {len(fetched)} entries to cache")
+    else:
+        logger.warning("TV refresh returned 0 symbols — cache unchanged")
 
     return len(fetched)
 
@@ -189,7 +211,6 @@ def batch_fetch_daily_bars(symbols, days=5, include_today=False):
 # ------------------------------------------------------------------
 def send_telegram(message, retries=3):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
-        logger.error("Telegram credentials missing")
         return False
 
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -234,7 +255,6 @@ def worker_loop():
     global _last_tick
 
     logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
-
     send_telegram(f"🟢 System online — {datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')}")
 
     while True:
