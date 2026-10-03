@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 WEBUI_URL = "https://stock-alert-ui.onrender.com"
 
 # ------------------------------------------------------------------
-#  WORKER TICK — read by /api/health
+#  WORKER TICK
 # ------------------------------------------------------------------
 _last_tick = time.time()
 
@@ -21,8 +21,7 @@ def get_last_tick():
     return _last_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE — RAM only, thread-safe
-#  Only refresh_tv_cache() writes. Everyone else reads.
+#  TRADINGVIEW CACHE
 # ------------------------------------------------------------------
 _TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
@@ -32,7 +31,6 @@ def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
 
 def _tv_fetch(symbols):
-    """One-shot TradingView fetch. On 429, sets backoff and aborts."""
     global _backoff_until
 
     result = {}
@@ -80,7 +78,6 @@ def _tv_fetch(symbols):
     return result
 
 def refresh_tv_cache(symbols):
-    """Fetch only symbols whose cache is stale/missing. Caller: market_loop only."""
     if time.time() < _backoff_until:
         return 0
 
@@ -105,7 +102,6 @@ def refresh_tv_cache(symbols):
     return len(fetched)
 
 def get_cached(symbols):
-    """Read-only cache access. Never fetches."""
     result = {}
     with _TV_CACHE_LOCK:
         for s in set(symbols):
@@ -131,7 +127,7 @@ def cache_restore(entries, max_age=1800):
     return n
 
 # ------------------------------------------------------------------
-#  YAHOO — daily bars (EOD + backfill)
+#  YAHOO — daily bars
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
     if not symbols:
@@ -213,7 +209,6 @@ def send_telegram(message, retries=3):
     return False
 
 def format_alert(alert):
-    """Format alert as specified by the user."""
     notes = (alert.get('notes') or '').strip()
     pct = alert.get('pct_chg')
     rvol = alert.get('rvol')
@@ -233,7 +228,7 @@ def format_alert(alert):
     return "\n".join(lines)
 
 # ------------------------------------------------------------------
-#  WORKER MAIN
+#  WORKER LOOP
 # ------------------------------------------------------------------
 def worker_loop():
     global _last_tick
@@ -247,7 +242,6 @@ def worker_loop():
             _last_tick = time.time()
             now = datetime.now(config.TIMEZONE)
 
-            # Wait for market hours
             while not (now.weekday() < 5
                        and datetime.strptime(config.START_TIME, "%H:%M").time()
                            <= now.time()
@@ -258,7 +252,6 @@ def worker_loop():
 
             _last_tick = time.time()
 
-            # Get alerts from web UI
             try:
                 r = requests.get(f"{WEBUI_URL}/api/alerts",
                                  headers={'X-API-Key': config.WORKER_API_KEY},
@@ -275,7 +268,6 @@ def worker_loop():
                 time.sleep(config.POLL_INTERVAL)
                 continue
 
-            # Read prices from cache (never fetch — warmer does that)
             symbols = list({a['symbol'] for a in alerts})
             prices = get_cached(symbols)
 

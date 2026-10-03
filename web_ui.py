@@ -216,6 +216,31 @@ def get_last_two_closes(symbols):
         e['last' if n == 1 else 'prior'] = cl
     return out
 
+def get_eod_volume_stats(symbols):
+    """
+    For each symbol: last completed day's volume, and average volume
+    of the 10 days before that. From eod_snapshots.
+    """
+    if not symbols:
+        return {}
+    ph = ','.join('?' * len(symbols))
+    c = sqlite3.connect(config.DB_FILE)
+    rows = c.execute(f'''
+        WITH r AS (
+            SELECT symbol, trade_date, volume,
+                   ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS n
+            FROM eod_snapshots
+            WHERE symbol IN ({ph}) AND volume IS NOT NULL AND volume > 0
+        )
+        SELECT symbol,
+               MAX(CASE WHEN n = 1 THEN volume END) AS last_vol,
+               AVG(CASE WHEN n BETWEEN 2 AND 11 THEN volume END) AS avg_prior_10d
+        FROM r WHERE n <= 11
+        GROUP BY symbol
+    ''', symbols).fetchall()
+    c.close()
+    return {r[0]: {"last_vol": r[1], "avg_prior_10d": r[2]} for r in rows}
+
 def persist_bars(rows):
     if not rows:
         return 0
@@ -489,11 +514,16 @@ def api_alerts():
     tv = stock_alert.get_cached(symbols)
     prev = get_prev_closes(symbols)
     last_two = get_last_two_closes(symbols)
+    eod_vol = get_eod_volume_stats(symbols)
+
+    no_data = []
 
     for a in alerts:
         sym = a['symbol']
         e = tv.get(sym, {})
+        eod = eod_vol.get(sym, {})
 
+        # --- CMP ---
         cmp_price = e.get('price')
         used_last_close = False
         if cmp_price is None:
@@ -501,9 +531,14 @@ def api_alerts():
             used_last_close = True
         a['cmp'] = round(cmp_price, 2) if cmp_price is not None else None
 
+        if a['cmp'] is None:
+            no_data.append(sym)
+
+        # --- trigger_price ---
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
+        # --- prev_close ---
         prev_close = e.get('prev_close')
         if prev_close is None:
             if used_last_close:
@@ -511,24 +546,37 @@ def api_alerts():
             else:
                 prev_close = prev.get(sym)
 
+        # --- %Chg ---
         if cmp_price and prev_close:
             a['pct_chg'] = round((cmp_price - prev_close) / prev_close * 100, 2)
         else:
             a['pct_chg'] = None
 
+        # --- %Vol_10d and RVOL ---
+        # 1st choice: TradingView live values
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
+
+        # 2nd choice: EOD snapshot (for weekends / when TV returns 0)
+        if not vol or vol == 0:
+            vol = eod.get('last_vol')
+        if not avg or avg == 0:
+            avg = eod.get('avg_prior_10d')
+
         if vol and avg and avg > 0:
-            a['vol_pct'] = round(vol / avg * 100, 1)
+            ratio = vol / avg
+            a['vol_pct'] = round(ratio * 100, 1)
+            a['rvol'] = round(ratio, 2)
         else:
             a['vol_pct'] = None
-
-        rvol = e.get('rvol')
-        a['rvol'] = round(rvol, 2) if rvol is not None else None
+            a['rvol'] = None
 
         a['company_name'] = NSE_NAMES.get(sym.upper(), '')
         if a.get('notes') is None:
             a['notes'] = ''
+
+    if no_data:
+        logger.warning(f"No price data for {len(no_data)} symbols: {no_data}")
 
     return jsonify(alerts)
 
@@ -739,12 +787,16 @@ def backfill_symbol(sym):
     if rows:
         persist_bars(rows)
         logger.info(f"Backfilled {len(rows)} rows for {sym}")
+    else:
+        logger.warning(f"Backfill FAILED for {sym} — no data from Yahoo")
 
 def backfill_symbols(symbols):
     rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
     if rows:
         n = persist_bars(rows)
-        logger.info(f"Backfilled {n} rows for {len(symbols)} symbols")
+        covered = {r[0] for r in rows}
+        missing = set(s.upper() for s in symbols) - covered
+        logger.info(f"Backfilled {n} rows; missing: {sorted(missing)}")
 
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
@@ -774,8 +826,6 @@ def market_loop():
                              <= now.time()
                              <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
 
-            # First iteration: always fetch once so cache is warm regardless of day/time.
-            # Afterwards: only during market hours.
             if (not first_run_done) or in_market:
                 c = sqlite3.connect(config.DB_FILE)
                 syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
