@@ -36,7 +36,7 @@ GH_API        = "https://api.github.com"
 # ------------------------------------------------------------------
 #  AUTH
 # ------------------------------------------------------------------
-_OTP = {}                # ip -> {code, expiry, sent_at, attempts}
+_OTP = {}
 SESSIONS_DURATION = 30 * 24 * 3600
 OTP_VALIDITY = 300
 OTP_THROTTLE = 60
@@ -177,7 +177,6 @@ def init_db():
     logger.info("Database ready")
 
 def get_prev_closes(symbols):
-    """Last completed close before today, per symbol."""
     if not symbols:
         return {}
     today = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
@@ -197,7 +196,6 @@ def get_prev_closes(symbols):
     return {r[0]: r[1] for r in rows}
 
 def get_last_two_closes(symbols):
-    """Last two closes per symbol, for the "no live data" fallback."""
     if not symbols:
         return {}
     ph = ','.join('?' * len(symbols))
@@ -331,7 +329,7 @@ def refresh_nse():
         return False
 
 # ------------------------------------------------------------------
-#  GITHUB RESTORE (startup)
+#  GITHUB RESTORE
 # ------------------------------------------------------------------
 def restore_nse():
     global NSE_SYMBOLS, NSE_NAMES
@@ -428,7 +426,7 @@ def restore_tv_cache():
         logger.error(f"TV cache restore: {e}")
 
 # ------------------------------------------------------------------
-#  PUSHERS (called from market_loop / eod_fetcher)
+#  PUSHERS
 # ------------------------------------------------------------------
 def push_watchlist():
     c = sqlite3.connect(config.DB_FILE)
@@ -496,26 +494,43 @@ def api_alerts():
         sym = a['symbol']
         e = tv.get(sym, {})
 
+        # --- CMP (2dp) ---
         cmp_price = e.get('price')
         used_last_close = False
         if cmp_price is None:
             cmp_price = last_two.get(sym, {}).get('last')
             used_last_close = True
-        a['cmp'] = cmp_price
+        a['cmp'] = round(cmp_price, 2) if cmp_price is not None else None
 
+        # --- trigger_price (2dp, defensive — user input may have decimals) ---
+        if a.get('trigger_price') is not None:
+            a['trigger_price'] = round(a['trigger_price'], 2)
+
+        # --- prev_close resolution ---
         prev_close = e.get('prev_close')
         if prev_close is None:
             if used_last_close:
                 prev_close = last_two.get(sym, {}).get('prior')
             else:
                 prev_close = prev.get(sym)
-        a['pct_chg'] = ((cmp_price - prev_close) / prev_close * 100) \
-                        if (cmp_price and prev_close) else None
 
+        # --- %Chg (2dp) ---
+        if cmp_price and prev_close:
+            a['pct_chg'] = round((cmp_price - prev_close) / prev_close * 100, 2)
+        else:
+            a['pct_chg'] = None
+
+        # --- %Vol_10d (1dp) ---
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
-        a['vol_pct'] = (vol / avg * 100) if (vol and avg and avg > 0) else None
-        a['rvol'] = e.get('rvol')
+        if vol and avg and avg > 0:
+            a['vol_pct'] = round(vol / avg * 100, 1)
+        else:
+            a['vol_pct'] = None
+
+        # --- RVOL (2dp) ---
+        rvol = e.get('rvol')
+        a['rvol'] = round(rvol, 2) if rvol is not None else None
 
         a['company_name'] = NSE_NAMES.get(sym.upper(), '')
         if a.get('notes') is None:
@@ -550,8 +565,8 @@ def api_add():
         if (cond == '>' and live > price) or (cond == '<' and live < price):
             c.close()
             return jsonify({'status': 'warning',
-                            'message': f'Current {live} already meets condition',
-                            'current_price': live}), 200
+                            'message': f'Current {round(live, 2)} already meets condition',
+                            'current_price': round(live, 2)}), 200
 
     try:
         c.execute('INSERT INTO watchlist (symbol, condition, trigger_price, notes) VALUES (?, ?, ?, ?)',
@@ -635,7 +650,8 @@ def api_reactivate(aid):
         c.close()
         return jsonify({'status': 'ok', 'would_trigger': would,
                         'symbol': a['symbol'], 'condition': a['condition'],
-                        'trigger_price': a['trigger_price'], 'current_price': live})
+                        'trigger_price': a['trigger_price'],
+                        'current_price': round(live, 2) if live is not None else None})
 
     c.execute('UPDATE watchlist SET is_triggered = 0, is_active = 1 WHERE id = ?', (aid,))
     if would:
@@ -722,7 +738,7 @@ def api_import():
     return jsonify({'status': 'ok', 'count': len(data)})
 
 # ------------------------------------------------------------------
-#  BACKFILL HELPERS
+#  BACKFILL
 # ------------------------------------------------------------------
 def backfill_symbol(sym):
     rows = stock_alert.batch_fetch_daily_bars([sym], days=5, include_today=False)
@@ -748,15 +764,7 @@ def startup_thread():
     logger.info("Startup restore complete")
 
 def market_loop():
-    """
-    Single background loop that owns ALL TradingView traffic
-    and periodic housekeeping:
-      - refreshes TV cache every 55s during market hours
-      - persists TV cache to GitHub every 5 min (market) / 30 min (off)
-      - cleans up expired OTP entries
-      - refreshes NSE symbol list once per day
-    """
-    time.sleep(30)  # let startup finish
+    time.sleep(30)
 
     last_tv_push = 0
     last_nse_fetch = None
@@ -771,7 +779,6 @@ def market_loop():
                              <= now.time()
                              <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
 
-            # --- TV cache refresh ---
             if in_market:
                 c = sqlite3.connect(config.DB_FILE)
                 syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
@@ -779,19 +786,16 @@ def market_loop():
                 if syms:
                     stock_alert.refresh_tv_cache(syms)
 
-            # --- TV cache persist to GitHub ---
             push_interval = 300 if in_market else 1800
             if time.time() - last_tv_push >= push_interval:
                 push_tv_cache()
                 last_tv_push = time.time()
 
-            # --- NSE symbols (once per day) ---
             if last_nse_fetch != today:
                 if not NSE_SYMBOLS:
                     refresh_nse()
                 last_nse_fetch = today
 
-            # --- OTP cleanup (every 5 min) ---
             if time.time() - last_otp_cleanup >= 300:
                 now_t = time.time()
                 for k in [k for k, v in list(_OTP.items()) if v.get('expiry', 0) < now_t]:
