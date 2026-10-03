@@ -183,12 +183,18 @@
         }
 
         /* ============ TABLE ============ */
-        .table-scroll { overflow: auto; max-height: 75vh; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+        .table-scroll {
+            overflow: auto;
+            max-height: 75vh;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+        }
         .table-scroll table {
             width: 100%;
             min-width: 1280px;
             margin-bottom: 0;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             background: var(--surface);
             table-layout: fixed;
         }
@@ -219,15 +225,15 @@
             vertical-align: middle;
             border-bottom: 1px solid var(--border-light);
             font-size: 0.8rem;
-            color: var(--text);
+            color: inherit;
             background: var(--surface);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
         .table-scroll tbody tr { cursor: pointer; }
-        .table-scroll tbody tr:hover td { background: var(--row-hover); }
-        .table-scroll tbody tr.row-focused td {
+        .table-scroll tbody tr:hover > td { background: var(--row-hover); }
+        .table-scroll tbody tr.row-focused > td {
             background: var(--surface-2);
             box-shadow: inset 3px 0 0 var(--primary);
         }
@@ -237,6 +243,7 @@
             .table-scroll table { max-width: 1400px; margin-left: auto; margin-right: auto; }
         }
 
+        /* Column widths — sums to 100% */
         .col-symbol  { width: 110px; }
         .col-cond    { width: 48px; }
         .col-trigger { width: 82px; }
@@ -250,13 +257,45 @@
         .col-added   { width: 148px; }
         .col-actions { width: 140px; }
 
+        /* --- Sticky symbol column (both header and body) --- */
+        thead th.col-symbol {
+            position: sticky;
+            left: 0;
+            top: 0;
+            z-index: 15;
+            background: var(--header-bg);
+            box-shadow: 2px 0 3px -2px rgba(0,0,0,0.25);
+        }
+        tbody td.col-symbol {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: var(--surface);
+            box-shadow: 2px 0 3px -2px rgba(0,0,0,0.25);
+        }
+        tbody tr:hover > td.col-symbol { background: var(--row-hover); }
+        tbody tr.row-focused > td.col-symbol { background: var(--surface-2); }
+
         .text-left { text-align: left; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
 
-        /* TradingView link on symbol */
+        /* --- Row font color by trigger state --- */
+        tbody tr.row-met { color: var(--success); }
+        tbody tr.row-unmet { color: var(--danger); }
+
+        /* Cells with their own semantic color — override row color */
+        .cmp-green, .gap-green, .pct-green { color: var(--success) !important; font-weight: 600; }
+        .cmp-red, .gap-red, .pct-red { color: var(--danger) !important; font-weight: 600; }
+        .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted) !important; }
+        .rvol-green { color: var(--success) !important; font-weight: 600; }
+        .rvol-yellow { color: var(--warning) !important; font-weight: 600; }
+        .rvol-red { color: var(--danger) !important; font-weight: 600; }
+        .rvol-neutral { color: var(--text-muted) !important; }
+
+        /* TradingView link inherits row color */
         .tv-link {
-            color: var(--text);
+            color: inherit;
             text-decoration: none;
             font-weight: 700;
             display: inline-block;
@@ -274,7 +313,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            color: var(--text);
+            color: inherit;
             cursor: pointer;
             font-size: 0.8rem;
         }
@@ -297,13 +336,7 @@
         .status-btn.active { background: #28a745; border-color: #28a745; }
         .status-btn.triggered { background: #dc3545; border-color: #dc3545; cursor: not-allowed; opacity: 0.85; }
         .status-btn.inactive { background: #6c757d; border-color: #6c757d; }
-        .cmp-green, .gap-green, .pct-green { color: var(--success); font-weight: 600; }
-        .cmp-red, .gap-red, .pct-red { color: var(--danger); font-weight: 600; }
-        .cmp-neutral, .gap-neutral, .pct-neutral { color: var(--text-muted); }
-        .rvol-green { color: var(--success); font-weight: 600; }
-        .rvol-yellow { color: var(--warning); font-weight: 600; }
-        .rvol-red { color: var(--danger); font-weight: 600; }
-        .rvol-neutral { color: var(--text-muted); }
+
         .table .btn-sm {
             padding: 5px 7px;
             font-size: 0.7rem;
@@ -316,6 +349,7 @@
         .table .btn-outline-primary { color: var(--primary) !important; }
         .table .btn-outline-danger { color: var(--danger) !important; }
         .table .btn-outline-warning { color: var(--warning) !important; }
+
         .input-group { position: relative; }
         #symbolInput { position: relative; z-index: 1000; }
         .autocomplete-items {
@@ -348,6 +382,7 @@
         .data-tools .tool-group { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
         .data-tools .search-group { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; }
         #importStatus { font-size: 0.8rem; font-weight: 500; color: var(--success); white-space: nowrap; }
+
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -393,6 +428,7 @@
         .modal-actions .btn-secondary { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
         .modal-actions .btn-edit { background: var(--surface); color: var(--primary); border: 1px solid var(--border); }
         .modal-actions .btn-danger { background: var(--danger); color: #fff; border: none; }
+
         .shortcut-help-table { width: 100%; font-size: 0.85rem; }
         .shortcut-help-table td { padding: 4px 8px; }
         .shortcut-help-table td:first-child { text-align: right; white-space: nowrap; }
@@ -404,6 +440,7 @@
             font-size: 0.75rem;
             color: var(--text);
         }
+
         #toastContainer {
             position: fixed;
             bottom: 20px;
@@ -993,17 +1030,24 @@ function renderAlerts(data) {
     }
     let html = '';
     data.forEach((a, idx) => {
+        // Determine whether the condition is met
+        const cmpNum = parseFloat(a.cmp);
+        const trigNum = parseFloat(a.trigger_price);
+        const condMet = isFinite(cmpNum) && isFinite(trigNum) && (
+            (a.condition === '>' && cmpNum > trigNum) ||
+            (a.condition === '<' && cmpNum < trigNum)
+        );
+        const rowClass = condMet ? 'row-met' : 'row-unmet';
+
         let cmpDisplay = '-', cmpClass = 'cmp-neutral';
         if (a.cmp !== null && a.cmp !== undefined) {
             cmpDisplay = a.cmp;
-            if ((a.condition === '>' && a.cmp > a.trigger_price) || (a.condition === '<' && a.cmp < a.trigger_price)) cmpClass = 'cmp-green';
-            else cmpClass = 'cmp-red';
+            cmpClass = condMet ? 'cmp-green' : 'cmp-red';
         }
         let gapDisplay = '-', gapClass = 'gap-neutral';
         const gap = calculateGap(a);
         if (isFinite(gap)) {
             gapDisplay = gap.toFixed(1) + '%';
-            const condMet = (a.condition === '>' && a.cmp > a.trigger_price) || (a.condition === '<' && a.cmp < a.trigger_price);
             if (a.is_triggered === 1) { gapClass = condMet ? 'gap-green' : 'gap-red'; gapDisplay = '🔔 ' + gapDisplay; }
             else if (condMet) { gapClass = 'gap-green'; gapDisplay = '⏳ ' + gapDisplay; }
             else gapClass = 'gap-red';
@@ -1041,7 +1085,7 @@ function renderAlerts(data) {
             notesCell = `<span class="notes-empty">—</span>`;
         }
 
-        html += `<tr data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" data-notes="${notesEscaped}" tabindex="0" data-row-index="${idx}">
+        html += `<tr class="${rowClass}" data-symbol="${a.symbol}" data-company="${companyName}" data-id="${a.id}" data-condition="${a.condition}" data-trigger="${a.trigger_price}" data-active="${a.is_active}" data-triggered="${a.is_triggered}" data-cmp="${cmpForButton}" data-notes="${notesEscaped}" tabindex="0" data-row-index="${idx}">
             <td class="text-left col-symbol"><a href="${tvUrl(a.symbol)}" target="_blank" rel="noopener" class="tv-link" title="Open ${a.symbol} chart on TradingView">${a.symbol}</a></td>
             <td class="text-center col-cond">${a.condition}</td>
             <td class="text-right col-trigger">${a.trigger_price}</td>
