@@ -379,6 +379,10 @@ def gh_get(filename, branch=None):
 #  NSE SYMBOLS
 # ------------------------------------------------------------------
 def refresh_nse():
+    """
+    Fetch NSE symbol list. Pushes to GitHub only if the list changed,
+    to avoid triggering a Render redeploy on every startup.
+    """
     try:
         r = requests.get(
             "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
@@ -397,13 +401,27 @@ def refresh_nse():
             logger.error("NSE fetch returned empty list")
             return False
 
-        stock_alert.save_nse_symbols(symbols)
-        logger.info(f"NSE: {len(symbols)} symbols saved to file")
+        # Compare to what's on GitHub already
+        old_content = gh_get(GH_NSE)
+        old_symbols = None
+        if old_content:
+            try:
+                old_symbols = json.loads(old_content)
+            except Exception:
+                old_symbols = None
 
-        threading.Thread(
-            target=lambda: gh_put(GH_NSE, json.dumps(symbols),
-                                  f"NSE symbols: {len(symbols)}"),
-            daemon=True).start()
+        changed = (old_symbols != symbols)
+
+        stock_alert.save_nse_symbols(symbols)
+
+        if changed:
+            logger.info(f"NSE: {len(symbols)} symbols saved (CHANGED, will push)")
+            threading.Thread(
+                target=lambda: gh_put(GH_NSE, json.dumps(symbols),
+                                      f"NSE symbols: {len(symbols)}"),
+                daemon=True).start()
+        else:
+            logger.info(f"NSE: {len(symbols)} symbols saved (no change, no push)")
         return True
     except Exception as e:
         logger.error(f"NSE fetch failed: {e}")
@@ -885,7 +903,9 @@ def market_loop():
     time.sleep(30)
 
     last_tv_push = 0
-    last_nse_fetch = None
+    # Do NOT refresh NSE on startup — restore_nse already loaded it.
+    # Only refresh from NSE archives once per calendar day.
+    last_nse_fetch = datetime.now(config.TIMEZONE).date()
     last_otp_cleanup = 0
     first_run_done = False
 
