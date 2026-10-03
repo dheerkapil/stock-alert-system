@@ -892,7 +892,7 @@ def get_alerts():
         return jsonify([])
 
     symbols = list({a['symbol'] for a in alerts})
-    pv = stock_alert.get_prices_with_volume(symbols)
+    pv = stock_alert.get_prices_with_volume(symbols)   # cache-only, no fetch
     prev_closes_db = get_prev_closes_from_db(symbols)
 
     for a in alerts:
@@ -1012,6 +1012,31 @@ def start_worker():
         except Exception as e:
             logger.exception(f"Worker died, restarting in 30s: {e}")
             time.sleep(30)
+
+def tv_cache_warmer():
+    """
+    Background pre-warmer. The ONLY place that fetches TradingView.
+    Keeps the cache hot so user requests never wait.
+    Runs every 55s during market hours, every 5 min otherwise.
+    """
+    time.sleep(30)   # let startup finish
+
+    while True:
+        try:
+            now = datetime.now(config.TIMEZONE)
+            in_market = stock_alert.is_weekday(now) and stock_alert.is_market_open(now)
+
+            conn = sqlite3.connect(config.DB_FILE)
+            symbols = [r[0].upper() for r in conn.execute('SELECT DISTINCT symbol FROM watchlist').fetchall() if r[0]]
+            conn.close()
+
+            if symbols:
+                stock_alert.refresh_tv_cache(symbols)
+
+            time.sleep(55 if in_market else 300)
+        except Exception as e:
+            logger.error(f"TV cache warmer error: {e}")
+            time.sleep(60)
 
 def nse_symbols_refresher():
     time.sleep(5)
@@ -1153,6 +1178,7 @@ migrate_notes_column()
 threading.Thread(target=background_startup,     daemon=True).start()
 threading.Thread(target=nse_symbols_refresher,  daemon=True).start()
 threading.Thread(target=start_worker,           daemon=True).start()
+threading.Thread(target=tv_cache_warmer,        daemon=True).start()
 threading.Thread(target=eod_fetcher,            daemon=True).start()
 threading.Thread(target=cleanup_sessions,       daemon=True).start()
 threading.Thread(target=healthcheck_pinger,     daemon=True).start()

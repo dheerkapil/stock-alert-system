@@ -22,11 +22,16 @@ def get_last_worker_tick():
     return _last_worker_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE — 60 seconds per symbol, thread-safe
+#  TRADINGVIEW CACHE — 60-second per-symbol, thread-safe
+#  Only refresh_tv_cache() writes to it. Everyone else reads.
 # ------------------------------------------------------------------
-_TV_CACHE = {}                  # {symbol: (timestamp, data_dict)}
+_TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
 _TV_CACHE_TTL = 60
+
+# Backoff timestamp after a 429. All fetches are suppressed until then.
+_tv_backoff_until = 0.0
+_TV_BACKOFF_SECONDS = 300   # 5 minutes
 
 # ------------------------------------------------------------------
 #  DATA-SOURCE HEALTH MONITORING
@@ -78,16 +83,19 @@ def get_active_alerts():
         return []
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW — fetch (no cache) with 429 retry
+#  TRADINGVIEW — raw fetch (called ONLY by refresh_tv_cache)
 # ------------------------------------------------------------------
 def to_tradingview_symbol(symbol):
     return symbol.upper().replace('-', '_')
 
 def _fetch_tv_batch(symbols):
     """
-    Raw TradingView fetch. No cache. Retries each chunk once on 429.
+    Raw TradingView fetch. On any 429, sets global backoff and aborts.
+    Never retries inside the same call.
     Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}.
     """
+    global _tv_backoff_until
+
     if not symbols:
         return {}
 
@@ -105,92 +113,114 @@ def _fetch_tv_batch(symbols):
                 "prev_close_price",
             ]
         }
+        try:
+            resp = requests.post(
+                "https://scanner.tradingview.com/india/scan",
+                json=payload, timeout=8
+            )
 
-        for attempt in (1, 2):
-            try:
-                resp = requests.post(
-                    "https://scanner.tradingview.com/india/scan",
-                    json=payload, timeout=15
-                )
+            if resp.status_code == 429:
+                _tv_backoff_until = time.time() + _TV_BACKOFF_SECONDS
+                logger.warning(f"TradingView 429 — backing off {_TV_BACKOFF_SECONDS}s")
+                return result
 
-                if resp.status_code == 429:
-                    if attempt == 1:
-                        logger.warning("TradingView 429 — retrying in 3s")
-                        time.sleep(3)
-                        continue
-                    else:
-                        logger.warning("TradingView 429 again — skipping this chunk")
+            resp.raise_for_status()
+
+            for entry in resp.json().get('data', []):
+                tv_symbol = entry['s'].split(':')[1]
+                vals = entry['d']
+                price       = vals[0] if len(vals) > 0 else None
+                volume      = vals[1] if len(vals) > 1 else None
+                avg_vol_10d = vals[2] if len(vals) > 2 else None
+                rvol        = vals[3] if len(vals) > 3 else None
+                prev_close  = vals[4] if len(vals) > 4 else None
+                tv_clean = tv_symbol.upper().replace('-', '_')
+                for original in chunk:
+                    if to_tradingview_symbol(original) == tv_clean:
+                        result[original] = {
+                            "price":       float(price)       if price       is not None else None,
+                            "volume":      float(volume)      if volume      is not None else None,
+                            "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
+                            "rvol":        float(rvol)        if rvol        is not None else None,
+                            "prev_close":  float(prev_close)  if prev_close  is not None else None,
+                        }
                         break
-
-                resp.raise_for_status()
-
-                for entry in resp.json().get('data', []):
-                    tv_symbol = entry['s'].split(':')[1]
-                    vals = entry['d']
-                    price       = vals[0] if len(vals) > 0 else None
-                    volume      = vals[1] if len(vals) > 1 else None
-                    avg_vol_10d = vals[2] if len(vals) > 2 else None
-                    rvol        = vals[3] if len(vals) > 3 else None
-                    prev_close  = vals[4] if len(vals) > 4 else None
-                    tv_clean = tv_symbol.upper().replace('-', '_')
-                    for original in chunk:
-                        if to_tradingview_symbol(original) == tv_clean:
-                            result[original] = {
-                                "price":       float(price)       if price       is not None else None,
-                                "volume":      float(volume)      if volume      is not None else None,
-                                "avg_vol_10d": float(avg_vol_10d) if avg_vol_10d is not None else None,
-                                "rvol":        float(rvol)        if rvol        is not None else None,
-                                "prev_close":  float(prev_close)  if prev_close  is not None else None,
-                            }
-                            break
-                break
-            except Exception as e:
-                logger.warning(f"TradingView error (attempt {attempt}): {e}")
-                if attempt == 1:
-                    time.sleep(2)
-                continue
+        except Exception as e:
+            logger.warning(f"TradingView chunk error: {e}")
 
         time.sleep(config.TRADINGVIEW_DELAY)
 
     return result
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW — cached wrapper (60s per symbol)
+#  TRADINGVIEW — refresh (writes cache). Only the background warmer calls this.
+# ------------------------------------------------------------------
+def refresh_tv_cache(symbols):
+    """
+    Fetch fresh data for symbols whose cache entry is missing or stale,
+    and write it to the cache. Respects the 429 backoff timer.
+    Returns the number of symbols updated.
+    """
+    global _tv_backoff_until
+
+    if time.time() < _tv_backoff_until:
+        remaining = int(_tv_backoff_until - time.time())
+        logger.info(f"TV refresh skipped — backoff for {remaining}s more")
+        return 0
+
+    symbols = list(set(symbols))
+    if not symbols:
+        return 0
+
+    now = time.time()
+
+    with _TV_CACHE_LOCK:
+        missing = [
+            s for s in symbols
+            if s not in _TV_CACHE or (now - _TV_CACHE[s][0]) >= _TV_CACHE_TTL
+        ]
+
+    if not missing:
+        return 0
+
+    logger.info(f"TV refresh: {len(missing)} stale/missing of {len(symbols)}")
+    fetched = _fetch_tv_batch(missing)
+
+    if fetched:
+        with _TV_CACHE_LOCK:
+            for sym, data in fetched.items():
+                _TV_CACHE[sym] = (now, data)
+
+    return len(fetched)
+
+# ------------------------------------------------------------------
+#  TRADINGVIEW — read-only (used by worker + web requests)
 # ------------------------------------------------------------------
 def get_prices_with_volume(symbols):
     """
-    60-second per-symbol cached TradingView lookup.
-    Shared safely between the worker thread and request handlers.
+    Read-only access to the TV cache. Never triggers a fetch.
+    Returns {symbol: {price, volume, avg_vol_10d, rvol, prev_close}}
+    for symbols that have a (possibly stale) cache entry.
     """
-    symbols = list(set(symbols))
     if not symbols:
         return {}
 
     now = time.time()
     result = {}
-    missing = []
-
     with _TV_CACHE_LOCK:
-        for sym in symbols:
+        for sym in set(symbols):
             entry = _TV_CACHE.get(sym)
-            if entry and (now - entry[0]) < _TV_CACHE_TTL:
+            if entry:
                 result[sym] = entry[1]
-            else:
-                missing.append(sym)
-
-    if not missing:
-        return result
-
-    logger.info(f"TV fetch: {len(missing)} missing, {len(result)} cached")
-
-    fetched = _fetch_tv_batch(missing)
-
-    with _TV_CACHE_LOCK:
-        for sym, data in fetched.items():
-            _TV_CACHE[sym] = (now, data)
-
-    result.update(fetched)
     return result
+
+def get_cache_coverage(symbols):
+    """Return fraction of symbols with any cached data (0.0 – 1.0)."""
+    if not symbols:
+        return 1.0
+    with _TV_CACHE_LOCK:
+        have = sum(1 for s in set(symbols) if s in _TV_CACHE)
+    return have / len(set(symbols))
 
 # ------------------------------------------------------------------
 #  YAHOO FALLBACK — live price only
@@ -211,11 +241,22 @@ def get_prices_yfinance(symbols):
     return prices
 
 def get_prices(symbols):
+    """
+    Returns {symbol: price}. Reads from the TV cache only.
+    If cache coverage is very low, returns whatever's cached and doesn't
+    fan out to Yahoo (Yahoo would rate-limit us during a TV outage too).
+    """
     pv = get_prices_with_volume(symbols)
-    missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
-    if missing and config.YAHOO_FINANCE_ENABLED:
-        logger.info(f"Yahoo fallback for {len(missing)} symbols.")
-        pv.update(get_prices_yfinance(missing))
+    coverage = get_cache_coverage(symbols)
+
+    if coverage >= 0.5:
+        missing = [s for s in symbols if s not in pv or pv[s].get("price") is None]
+        if missing and config.YAHOO_FINANCE_ENABLED:
+            logger.info(f"Yahoo fallback for {len(missing)} symbols.")
+            pv.update(get_prices_yfinance(missing))
+    else:
+        logger.warning(f"TV cache coverage {int(coverage*100)}% — skipping Yahoo fallback")
+
     return {s: v.get("price") for s, v in pv.items()}
 
 # ------------------------------------------------------------------
@@ -307,19 +348,6 @@ def send_telegram(message, retries=3):
 #  ALERT MESSAGE FORMATTER
 # ------------------------------------------------------------------
 def format_alert_message(alert, cmp_price):
-    """
-    Format matches user's spec exactly:
-
-        RELIANCE
-
-        Price > 2900
-
-        Day Chg: +1.2%
-
-        RVol: 2.45
-
-        Note: buy 2500
-    """
     symbol    = alert['symbol']
     condition = alert['condition']
     trigger   = alert['trigger_price']
