@@ -494,7 +494,6 @@ def api_alerts():
         sym = a['symbol']
         e = tv.get(sym, {})
 
-        # --- CMP (2dp) ---
         cmp_price = e.get('price')
         used_last_close = False
         if cmp_price is None:
@@ -502,11 +501,9 @@ def api_alerts():
             used_last_close = True
         a['cmp'] = round(cmp_price, 2) if cmp_price is not None else None
 
-        # --- trigger_price (2dp, defensive — user input may have decimals) ---
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        # --- prev_close resolution ---
         prev_close = e.get('prev_close')
         if prev_close is None:
             if used_last_close:
@@ -514,13 +511,11 @@ def api_alerts():
             else:
                 prev_close = prev.get(sym)
 
-        # --- %Chg (2dp) ---
         if cmp_price and prev_close:
             a['pct_chg'] = round((cmp_price - prev_close) / prev_close * 100, 2)
         else:
             a['pct_chg'] = None
 
-        # --- %Vol_10d (1dp) ---
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
         if vol and avg and avg > 0:
@@ -528,7 +523,6 @@ def api_alerts():
         else:
             a['vol_pct'] = None
 
-        # --- RVOL (2dp) ---
         rvol = e.get('rvol')
         a['rvol'] = round(rvol, 2) if rvol is not None else None
 
@@ -769,6 +763,7 @@ def market_loop():
     last_tv_push = 0
     last_nse_fetch = None
     last_otp_cleanup = 0
+    first_run_done = False
 
     while True:
         try:
@@ -779,12 +774,15 @@ def market_loop():
                              <= now.time()
                              <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
 
-            if in_market:
+            # First iteration: always fetch once so cache is warm regardless of day/time.
+            # Afterwards: only during market hours.
+            if (not first_run_done) or in_market:
                 c = sqlite3.connect(config.DB_FILE)
                 syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
                 c.close()
                 if syms:
                     stock_alert.refresh_tv_cache(syms)
+                first_run_done = True
 
             push_interval = 300 if in_market else 1800
             if time.time() - last_tv_push >= push_interval:
