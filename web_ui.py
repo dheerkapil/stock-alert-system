@@ -34,13 +34,36 @@ GH_CACHE_BRANCH = "cache"
 GH_API        = "https://api.github.com"
 
 # ------------------------------------------------------------------
-#  AUTH
+#  AUTH — OTP codes live in a file so both workers see them
 # ------------------------------------------------------------------
-_OTP = {}
+_OTP_FILE = os.path.join(os.path.dirname(os.path.abspath(config.DB_FILE)), "otp_state.json")
+_OTP_LOCK = threading.Lock()
+
 SESSIONS_DURATION = 30 * 24 * 3600
 OTP_VALIDITY = 300
 OTP_THROTTLE = 60
 MAX_OTP_ATTEMPTS = 5
+
+def _read_otp_file():
+    try:
+        if not os.path.exists(_OTP_FILE):
+            return {}
+        with _OTP_LOCK:
+            with open(_OTP_FILE) as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"OTP file read failed: {e}")
+        return {}
+
+def _write_otp_file(data):
+    try:
+        with _OTP_LOCK:
+            tmp = _OTP_FILE + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(data, f)
+            os.replace(tmp, _OTP_FILE)
+    except Exception as e:
+        logger.error(f"OTP file write failed: {e}")
 
 def _ip():
     xff = request.headers.get('X-Forwarded-For', '')
@@ -89,13 +112,22 @@ def login_page():
 def send_otp():
     ip = _ip()
     now = time.time()
-    if ip in _OTP and now - _OTP[ip]['sent_at'] < OTP_THROTTLE:
-        wait = int(OTP_THROTTLE - (now - _OTP[ip]['sent_at']))
+
+    otp_state = _read_otp_file()
+    existing = otp_state.get(ip)
+
+    if existing and now - existing.get('sent_at', 0) < OTP_THROTTLE:
+        wait = int(OTP_THROTTLE - (now - existing['sent_at']))
         return jsonify({'status': 'error', 'message': f'Wait {wait}s'}), 429
 
     code = f"{random.randint(0, 9999):04d}"
-    _OTP[ip] = {'code': code, 'expiry': now + OTP_VALIDITY,
-                'sent_at': now, 'attempts': 0}
+    otp_state[ip] = {
+        'code': code,
+        'expiry': now + OTP_VALIDITY,
+        'sent_at': now,
+        'attempts': 0,
+    }
+    _write_otp_file(otp_state)
 
     stock_alert.send_telegram(f"🔐 <b>Login OTP</b>\nCode: <b>{code}</b>\nValid 5 min.")
     return jsonify({'status': 'ok'})
@@ -105,20 +137,28 @@ def verify_otp():
     code = str((request.json or {}).get('code', '')).strip()
     ip = _ip()
     now = time.time()
-    e = _OTP.get(ip)
+
+    otp_state = _read_otp_file()
+    e = otp_state.get(ip)
 
     if not e or e['expiry'] < now:
         return jsonify({'status': 'error', 'message': 'No OTP or expired'}), 401
 
-    e['attempts'] += 1
+    e['attempts'] = e.get('attempts', 0) + 1
+
     if e['attempts'] > MAX_OTP_ATTEMPTS:
-        _OTP.pop(ip, None)
+        otp_state.pop(ip, None)
+        _write_otp_file(otp_state)
         return jsonify({'status': 'error', 'message': 'Too many attempts'}), 401
 
     if e['code'] != code:
+        otp_state[ip] = e
+        _write_otp_file(otp_state)
         return jsonify({'status': 'error', 'message': 'Invalid code'}), 401
 
-    _OTP.pop(ip, None)
+    otp_state.pop(ip, None)
+    _write_otp_file(otp_state)
+
     resp = make_response(jsonify({'status': 'ok'}))
     https = (request.headers.get('X-Forwarded-Proto') == 'https') or request.is_secure
     resp.set_cookie('session_id', _mk_session(), max_age=SESSIONS_DURATION,
@@ -336,10 +376,9 @@ def gh_get(filename, branch=None):
         return None
 
 # ------------------------------------------------------------------
-#  NSE SYMBOLS — writer to file, reader via stock_alert
+#  NSE SYMBOLS
 # ------------------------------------------------------------------
 def refresh_nse():
-    """Fetch NSE symbol list from archives, save to file, push to GitHub."""
     try:
         r = requests.get(
             "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
@@ -878,8 +917,10 @@ def market_loop():
 
             if time.time() - last_otp_cleanup >= 300:
                 now_t = time.time()
-                for k in [k for k, v in list(_OTP.items()) if v.get('expiry', 0) < now_t]:
-                    _OTP.pop(k, None)
+                otp_state = _read_otp_file()
+                cleaned = {ip: e for ip, e in otp_state.items() if e.get('expiry', 0) >= now_t}
+                if len(cleaned) != len(otp_state):
+                    _write_otp_file(cleaned)
                 last_otp_cleanup = now_t
 
             time.sleep(55 if in_market else 300)
@@ -889,10 +930,6 @@ def market_loop():
             time.sleep(60)
 
 def eod_fetcher():
-    """
-    Bhavcopy at 19:00, retry every 15 min until midnight.
-    At midnight, if still pending, one Yahoo fallback.
-    """
     last_completed_date = _read_last_eod_date()
     pending_date = None
     next_attempt_ts = None
@@ -904,7 +941,6 @@ def eod_fetcher():
             now = datetime.now(config.TIMEZONE)
             today = now.date()
 
-            # Midnight crossed with pending
             if pending_date is not None and today > pending_date:
                 logger.info(f"eod_fetcher: midnight crossed, Yahoo fallback for {pending_date}")
                 _eod_fallback_yahoo(pending_date)
@@ -914,7 +950,6 @@ def eod_fetcher():
                 time.sleep(60)
                 continue
 
-            # Start new fetch
             if (pending_date is None
                     and now.weekday() < 5
                     and now.hour >= 19
@@ -928,7 +963,6 @@ def eod_fetcher():
                     pending_date = today
                     next_attempt_ts = time.time()
 
-            # Retry pending
             if pending_date is not None and time.time() >= (next_attempt_ts or 0):
                 syms = _watchlist_symbols()
                 if not syms:
@@ -958,8 +992,7 @@ def eod_fetcher():
                         next_attempt_ts = None
 
                     elif status == "stale":
-                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} is stale "
-                                    f"(likely holiday carryforward)")
+                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} is stale")
                         stock_alert.send_telegram(
                             f"⏭️ EOD skip for {pending_date.strftime('%Y-%m-%d')} — market holiday"
                         )
@@ -967,7 +1000,7 @@ def eod_fetcher():
                         pending_date = None
                         next_attempt_ts = None
 
-                    else:  # ok
+                    else:
                         n = persist_bars(rows)
                         push_eod()
                         prune_eod()
