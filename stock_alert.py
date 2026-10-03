@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import time
 import logging
@@ -6,7 +7,7 @@ import threading
 import requests
 import yfinance as yf
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 
 logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,7 +21,7 @@ def get_last_tick():
     return _last_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE — RAM + file-backed (multi-worker safe)
+#  TRADINGVIEW CACHE — RAM + file-backed
 # ------------------------------------------------------------------
 _TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
@@ -34,7 +35,6 @@ def _tv_symbol(sym):
     return sym.upper().replace('-', '_')
 
 def _write_tv_file():
-    """Atomically write current RAM cache to disk."""
     try:
         with _TV_CACHE_LOCK:
             payload = {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
@@ -46,7 +46,6 @@ def _write_tv_file():
         logger.warning(f"TV cache file write failed: {e}")
 
 def _read_tv_file():
-    """Read disk cache, memoized by mtime. Returns {sym: (ts, data)}."""
     try:
         if not os.path.exists(_TV_FILE):
             return {}
@@ -158,10 +157,6 @@ def refresh_tv_cache(symbols):
     return updated
 
 def get_cached(symbols):
-    """
-    Read TV data. RAM first; if RAM is missing entries, fall back to the
-    on-disk snapshot written by whichever process did the last fetch.
-    """
     result = {}
     with _TV_CACHE_LOCK:
         for s in set(symbols):
@@ -206,13 +201,128 @@ def cache_restore(entries, max_age=1800):
     return n
 
 # ------------------------------------------------------------------
-#  YAHOO
+#  NSE BHAVCOPY — primary EOD source
 # ------------------------------------------------------------------
+_NSE_BHAV_URL = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
+
+def _bhav_headers():
+    return {
+        "User-Agent": config.USER_AGENT,
+        "Accept": "text/csv,*/*",
+        "Referer": "https://www.nseindia.com/",
+    }
+
+def fetch_bhavcopy_for_date(target_date, symbols):
+    """
+    Fetch NSE bhavcopy for a single date.
+    Returns:
+      None  → file not available (retry later)
+      []    → file available but no matching symbols (mark complete)
+      [...] → list of (symbol, date_str, open, high, low, close, volume)
+    """
+    url = _NSE_BHAV_URL.format(ddmmyyyy=target_date.strftime('%d%m%Y'))
+    try:
+        r = requests.get(url, headers=_bhav_headers(), timeout=20)
+    except Exception as e:
+        logger.warning(f"Bhavcopy {target_date}: request failed: {e}")
+        return None
+
+    if r.status_code == 404:
+        return None
+    if r.status_code != 200:
+        logger.warning(f"Bhavcopy {target_date}: HTTP {r.status_code}")
+        return None
+
+    try:
+        df = pd.read_csv(io.StringIO(r.text))
+        df.columns = [c.strip() for c in df.columns]
+        if 'SERIES' in df.columns:
+            df['SERIES'] = df['SERIES'].astype(str).str.strip()
+            df = df[df['SERIES'].isin(['EQ', 'BE'])]
+    except Exception as e:
+        logger.warning(f"Bhavcopy {target_date}: parse failed: {e}")
+        return None
+
+    sym_col   = next((c for c in df.columns if c.upper() == 'SYMBOL'), None)
+    open_col  = next((c for c in df.columns if 'OPEN'  in c.upper()), None)
+    high_col  = next((c for c in df.columns if 'HIGH'  in c.upper()), None)
+    low_col   = next((c for c in df.columns if 'LOW'   in c.upper()), None)
+    close_col = next((c for c in df.columns if c.upper() in ('CLOSE_PRICE', 'CLOSE')), None)
+    vol_col   = next((c for c in df.columns if 'TTL_TRD_QNTY' in c.upper() or 'VOLUME' in c.upper()), None)
+
+    if not sym_col or not close_col:
+        logger.warning(f"Bhavcopy {target_date}: missing SYMBOL or CLOSE column")
+        return None
+
+    watch = {s.upper() for s in symbols}
+    sub = df[df[sym_col].astype(str).str.upper().isin(watch)]
+
+    date_str = target_date.strftime('%Y-%m-%d')
+    rows = []
+    for _, row in sub.iterrows():
+        try:
+            sym = str(row[sym_col]).strip().upper()
+            c = float(row[close_col]) if pd.notna(row[close_col]) else None
+            if c is None:
+                continue
+            o = float(row[open_col]) if open_col and pd.notna(row[open_col]) else None
+            h = float(row[high_col]) if high_col and pd.notna(row[high_col]) else None
+            l = float(row[low_col])  if low_col  and pd.notna(row[low_col])  else None
+            v = float(row[vol_col])  if vol_col  and pd.notna(row[vol_col])  else None
+            rows.append((sym, date_str, o, h, l, c, v))
+        except Exception:
+            continue
+
+    logger.info(f"Bhavcopy {target_date}: file OK, {len(rows)} of {len(watch)} matched")
+    return rows
+
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
+    """
+    Multi-day bhavcopy fetch. Skips weekends. Returns tuples
+    (symbol, date_str, o, h, l, c, v) for the last `days` available trading days.
+    """
+    if not symbols:
+        return []
+
+    symbols = list({s.upper() for s in symbols})
+    today = datetime.now(config.TIMEZONE).date()
+
+    # Build candidate dates
+    candidates = []
+    d = today
+    lookback = 0
+    while len(candidates) < days and lookback < days * 3 + 10:
+        if d.weekday() < 5:
+            if not (d == today and not include_today):
+                candidates.append(d)
+        d = d - timedelta(days=1)
+        lookback += 1
+
+    all_rows = []
+    days_found = 0
+    for cand in candidates:
+        if days_found >= days:
+            break
+        rows = fetch_bhavcopy_for_date(cand, symbols)
+        if rows:  # None or [] → skip
+            all_rows.extend(rows)
+            days_found += 1
+        time.sleep(0.3)
+
+    logger.info(f"batch_fetch_daily_bars: {len(all_rows)} rows across {days_found} days")
+    return all_rows
+
+# ------------------------------------------------------------------
+#  YAHOO — fallback only, single date
+# ------------------------------------------------------------------
+def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
+    """Original Yahoo-based fetcher. Used only as midnight fallback."""
     if not symbols:
         return []
     symbols = [s.upper() for s in symbols]
     tickers = [f"{s}.NS" for s in symbols]
+
+    logger.info(f"Yahoo: {days}d bars for {len(symbols)} symbols")
 
     try:
         data = yf.download(
@@ -257,7 +367,7 @@ def batch_fetch_daily_bars(symbols, days=5, include_today=False):
                 rows.append((sym, bar_date.strftime('%Y-%m-%d'),
                              fv('Open'), fv('High'), fv('Low'), fv('Close'), fv('Volume')))
         except Exception as e:
-            logger.warning(f"Extract failed for {sym}: {e}")
+            logger.warning(f"Yahoo extract failed for {sym}: {e}")
 
     return rows
 

@@ -260,6 +260,26 @@ def prune_eod():
     if n:
         logger.info(f"Pruned {n} old EOD rows")
 
+def _watchlist_symbols():
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist') if r[0]]
+        c.close()
+        return syms
+    except Exception:
+        return []
+
+def _read_last_eod_date():
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        row = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
+        c.close()
+        if row and row[0]:
+            return datetime.strptime(row[0], '%Y-%m-%d').date()
+    except Exception:
+        pass
+    return None
+
 # ------------------------------------------------------------------
 #  GITHUB
 # ------------------------------------------------------------------
@@ -519,7 +539,6 @@ def api_alerts():
         eod = eod_vol.get(sym, {})
         lt = last_two.get(sym, {})
 
-        # --- CMP ---
         cmp_price = e.get('price')
         if cmp_price is None:
             cmp_price = lt.get('last')
@@ -528,21 +547,14 @@ def api_alerts():
         if a['cmp'] is None:
             no_data.append(sym)
 
-        # --- trigger ---
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        # --- %Chg ---
-        # TV provides prev_close only while the session is live. On weekends
-        # and holidays it's null, so we compute the last completed trading
-        # day's change from EOD's last two closes.
         tv_prev = e.get('prev_close')
 
         if tv_prev is not None and cmp_price is not None:
-            # Live market: today's price vs TV's prev_close
             a['pct_chg'] = round((cmp_price - tv_prev) / tv_prev * 100, 2) if tv_prev else None
         else:
-            # Closed market: last trading day's change from EOD
             last_c  = lt.get('last')
             prior_c = lt.get('prior')
             if last_c and prior_c and prior_c > 0:
@@ -550,7 +562,6 @@ def api_alerts():
             else:
                 a['pct_chg'] = None
 
-        # --- %Vol_10d and RVOL ---
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
         if not vol or vol == 0:
@@ -794,14 +805,7 @@ def backfill_symbols(symbols):
         logger.info(f"Backfilled {n} rows; no data for: {sorted(missing)}")
 
 def ensure_eod_backfill():
-    """
-    Two jobs:
-      1. Backfill any watchlist symbol that has ZERO EOD rows.
-      2. If the whole table is stale, backfill the entire watchlist.
-    """
     c = sqlite3.connect(config.DB_FILE)
-
-    # (1) Symbols with no EOD data
     rows = c.execute('''
         SELECT DISTINCT w.symbol FROM watchlist w
         LEFT JOIN eod_snapshots e ON w.symbol = e.symbol
@@ -809,7 +813,6 @@ def ensure_eod_backfill():
     ''').fetchall()
     uncovered = [r[0].upper() for r in rows if r[0]]
 
-    # (2) Global freshness
     max_row = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
     max_date = max_row[0] if max_row else None
     syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
@@ -889,37 +892,121 @@ def market_loop():
             time.sleep(60)
 
 def eod_fetcher():
-    last_run = None
+    """
+    State machine:
+      - At 19:00 IST on a weekday, start a bhavcopy fetch for today.
+      - Retry every 15 minutes until it succeeds.
+      - If midnight crosses with the fetch still pending, try Yahoo once.
+      - Send Telegram on success and on permanent failure.
+    """
+    last_completed_date = _read_last_eod_date()
+    pending_date = None
+    next_attempt_ts = None
+
+    logger.info(f"eod_fetcher: starting, last_completed={last_completed_date}")
+
     while True:
         try:
             now = datetime.now(config.TIMEZONE)
             today = now.date()
 
-            if (now.weekday() < 5 and now.hour >= 16 and now.minute >= 30
-                    and last_run != today):
+            # --- Check 1: midnight crossed with a pending fetch ---
+            if pending_date is not None and today > pending_date:
+                logger.info(f"eod_fetcher: midnight crossed, Yahoo fallback for {pending_date}")
+                _eod_fallback_yahoo(pending_date)
+                last_completed_date = pending_date
+                pending_date = None
+                next_attempt_ts = None
+                time.sleep(60)
+                continue
+
+            # --- Check 2: start a new fetch ---
+            if (pending_date is None
+                    and now.weekday() < 5
+                    and now.hour >= 19
+                    and today != last_completed_date):
                 today_str = today.strftime('%Y-%m-%d')
                 if today_str in config.NSE_HOLIDAYS:
-                    logger.info(f"EOD skip: {today_str} is a holiday")
-                    last_run = today
+                    logger.info(f"eod_fetcher: {today_str} is a holiday, skipping")
+                    last_completed_date = today
                 else:
-                    logger.info("EOD fetch starting...")
-                    c = sqlite3.connect(config.DB_FILE)
-                    syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
-                    c.close()
-                    if syms:
-                        rows = stock_alert.batch_fetch_daily_bars(syms, days=5, include_today=True)
+                    logger.info(f"eod_fetcher: starting EOD fetch for {today_str}")
+                    pending_date = today
+                    next_attempt_ts = time.time()
+
+            # --- Check 3: retry pending ---
+            if pending_date is not None and time.time() >= (next_attempt_ts or 0):
+                syms = _watchlist_symbols()
+                if not syms:
+                    logger.info("eod_fetcher: no watchlist symbols")
+                    last_completed_date = pending_date
+                    pending_date = None
+                    next_attempt_ts = None
+                else:
+                    rows = stock_alert.fetch_bhavcopy_for_date(pending_date, syms)
+                    if rows is None:
+                        # File not available → retry in 15 min
+                        next_attempt_ts = time.time() + 900
+                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} not yet available, "
+                                    f"next attempt in 15 min")
+                    elif len(rows) == 0:
+                        # File exists but no matching symbols → mark complete
+                        logger.warning(f"eod_fetcher: bhavcopy for {pending_date} has no matches "
+                                       f"for our {len(syms)} symbols")
+                        stock_alert.send_telegram(
+                            f"⚠️ EOD bhavcopy for {pending_date.strftime('%Y-%m-%d')} "
+                            f"has no rows for our watchlist symbols"
+                        )
+                        last_completed_date = pending_date
+                        pending_date = None
+                        next_attempt_ts = None
+                    else:
                         n = persist_bars(rows)
-                        logger.info(f"EOD stored {n} rows")
-                        if n == 0:
-                            stock_alert.send_telegram(f"⚠️ EOD returned no data\nDate: {today_str}")
-                        prune_eod()
                         push_eod()
-                    last_run = today
+                        prune_eod()
+                        logger.info(f"eod_fetcher: stored {n} rows for {pending_date}")
+                        stock_alert.send_telegram(
+                            f"✅ EOD captured for {pending_date.strftime('%Y-%m-%d')} — {n} symbols"
+                        )
+                        last_completed_date = pending_date
+                        pending_date = None
+                        next_attempt_ts = None
 
             time.sleep(60)
         except Exception as e:
-            logger.error(f"EOD error: {e}")
+            logger.error(f"eod_fetcher error: {e}")
             time.sleep(60)
+
+def _eod_fallback_yahoo(target_date):
+    """Called at midnight when bhavcopy never arrived. One shot at Yahoo."""
+    date_str = target_date.strftime('%Y-%m-%d')
+    try:
+        syms = _watchlist_symbols()
+        if not syms:
+            logger.warning("eod_fetcher yahoo fallback: no watchlist symbols")
+            return
+
+        rows = stock_alert.batch_fetch_daily_bars_yahoo(syms, days=5, include_today=False)
+        target_rows = [r for r in rows if r[1] == date_str]
+
+        if target_rows:
+            n = persist_bars(target_rows)
+            push_eod()
+            prune_eod()
+            logger.info(f"eod_fetcher: yahoo stored {n} rows for {date_str}")
+            stock_alert.send_telegram(
+                f"✅ EOD captured (Yahoo fallback) for {date_str} — {n} symbols"
+            )
+        else:
+            logger.warning(f"eod_fetcher: yahoo returned no rows for {date_str}")
+            stock_alert.send_telegram(
+                f"⚠️ EOD missing for {date_str} — bhavcopy and Yahoo both failed"
+            )
+    except Exception as e:
+        logger.error(f"eod_fetcher yahoo fallback failed: {e}")
+        stock_alert.send_telegram(
+            f"⚠️ EOD missing for {date_str} — Yahoo fallback error"
+        )
 
 def healthcheck_pinger():
     if not HEALTHCHECK_URL:
