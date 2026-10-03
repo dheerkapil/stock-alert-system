@@ -217,10 +217,6 @@ def get_last_two_closes(symbols):
     return out
 
 def get_eod_volume_stats(symbols):
-    """
-    For each symbol: last completed day's volume, and average volume
-    of the 10 days before that. From eod_snapshots.
-    """
     if not symbols:
         return {}
     ph = ','.join('?' * len(symbols))
@@ -512,7 +508,6 @@ def api_alerts():
 
     symbols = list({a['symbol'] for a in alerts})
     tv = stock_alert.get_cached(symbols)
-    prev = get_prev_closes(symbols)
     last_two = get_last_two_closes(symbols)
     eod_vol = get_eod_volume_stats(symbols)
 
@@ -522,42 +517,42 @@ def api_alerts():
         sym = a['symbol']
         e = tv.get(sym, {})
         eod = eod_vol.get(sym, {})
+        lt = last_two.get(sym, {})
 
         # --- CMP ---
         cmp_price = e.get('price')
-        used_last_close = False
         if cmp_price is None:
-            cmp_price = last_two.get(sym, {}).get('last')
-            used_last_close = True
+            cmp_price = lt.get('last')
         a['cmp'] = round(cmp_price, 2) if cmp_price is not None else None
 
         if a['cmp'] is None:
             no_data.append(sym)
 
-        # --- trigger_price ---
+        # --- trigger ---
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        # --- prev_close ---
-        prev_close = e.get('prev_close')
-        if prev_close is None:
-            if used_last_close:
-                prev_close = last_two.get(sym, {}).get('prior')
-            else:
-                prev_close = prev.get(sym)
-
         # --- %Chg ---
-        if cmp_price and prev_close:
-            a['pct_chg'] = round((cmp_price - prev_close) / prev_close * 100, 2)
+        # TV provides prev_close only while the session is live. On weekends
+        # and holidays it's null, so we compute the last completed trading
+        # day's change from EOD's last two closes.
+        tv_prev = e.get('prev_close')
+
+        if tv_prev is not None and cmp_price is not None:
+            # Live market: today's price vs TV's prev_close
+            a['pct_chg'] = round((cmp_price - tv_prev) / tv_prev * 100, 2) if tv_prev else None
         else:
-            a['pct_chg'] = None
+            # Closed market: last trading day's change from EOD
+            last_c  = lt.get('last')
+            prior_c = lt.get('prior')
+            if last_c and prior_c and prior_c > 0:
+                a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
+            else:
+                a['pct_chg'] = None
 
         # --- %Vol_10d and RVOL ---
-        # 1st choice: TradingView live values
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
-
-        # 2nd choice: EOD snapshot (for weekends / when TV returns 0)
         if not vol or vol == 0:
             vol = eod.get('last_vol')
         if not avg or avg == 0:
@@ -788,7 +783,7 @@ def backfill_symbol(sym):
         persist_bars(rows)
         logger.info(f"Backfilled {len(rows)} rows for {sym}")
     else:
-        logger.warning(f"Backfill FAILED for {sym} — no data from Yahoo")
+        logger.warning(f"Backfill FAILED for {sym}")
 
 def backfill_symbols(symbols):
     rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
@@ -796,7 +791,43 @@ def backfill_symbols(symbols):
         n = persist_bars(rows)
         covered = {r[0] for r in rows}
         missing = set(s.upper() for s in symbols) - covered
-        logger.info(f"Backfilled {n} rows; missing: {sorted(missing)}")
+        logger.info(f"Backfilled {n} rows; no data for: {sorted(missing)}")
+
+def ensure_eod_backfill():
+    """
+    Two jobs:
+      1. Backfill any watchlist symbol that has ZERO EOD rows.
+      2. If the whole table is stale, backfill the entire watchlist.
+    """
+    c = sqlite3.connect(config.DB_FILE)
+
+    # (1) Symbols with no EOD data
+    rows = c.execute('''
+        SELECT DISTINCT w.symbol FROM watchlist w
+        LEFT JOIN eod_snapshots e ON w.symbol = e.symbol
+        WHERE e.symbol IS NULL
+    ''').fetchall()
+    uncovered = [r[0].upper() for r in rows if r[0]]
+
+    # (2) Global freshness
+    max_row = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
+    max_date = max_row[0] if max_row else None
+    syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
+    c.close()
+
+    if uncovered:
+        logger.info(f"Backfilling {len(uncovered)} symbols with no EOD: {uncovered[:10]}")
+        threading.Thread(target=backfill_symbols, args=(uncovered,), daemon=True).start()
+
+    today = datetime.now(config.TIMEZONE).date()
+    cutoff = (today - timedelta(days=5)).strftime('%Y-%m-%d')
+    if max_date and max_date >= cutoff:
+        logger.info(f"EOD table fresh (max={max_date})")
+        return
+
+    if syms:
+        logger.info(f"EOD table stale, backfilling {len(syms)} symbols")
+        backfill_symbols(syms)
 
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
@@ -807,6 +838,7 @@ def startup_thread():
     restore_watchlist()
     restore_eod()
     restore_tv_cache()
+    ensure_eod_backfill()
     logger.info("Startup restore complete")
 
 def market_loop():
