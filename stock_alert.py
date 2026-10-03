@@ -21,7 +21,7 @@ def get_last_tick():
     return _last_tick
 
 # ------------------------------------------------------------------
-#  TRADINGVIEW CACHE — RAM + file-backed
+#  TRADINGVIEW CACHE
 # ------------------------------------------------------------------
 _TV_CACHE = {}
 _TV_CACHE_LOCK = threading.Lock()
@@ -201,7 +201,73 @@ def cache_restore(entries, max_age=1800):
     return n
 
 # ------------------------------------------------------------------
-#  NSE BHAVCOPY — primary EOD source
+#  NSE SYMBOL LIST — file-backed, cross-worker safe
+# ------------------------------------------------------------------
+_NSE_FILE = os.path.join(os.path.dirname(os.path.abspath(config.DB_FILE)), "nse_symbols_local.json")
+_NSE_MEMO = {"mtime": 0, "symbols": [], "names": {}}
+_NSE_LOCK = threading.Lock()
+
+def save_nse_symbols(symbols):
+    """Persist the NSE symbol list to disk so all workers see it."""
+    try:
+        tmp = _NSE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(symbols, f)
+        os.replace(tmp, _NSE_FILE)
+        with _NSE_LOCK:
+            _NSE_MEMO["mtime"] = 0
+        logger.info(f"NSE symbols saved to file ({len(symbols)} entries)")
+    except Exception as e:
+        logger.warning(f"NSE file write failed: {e}")
+
+def _read_nse_file():
+    """Returns (symbols_list, name_dict). Memoized by file mtime."""
+    try:
+        if not os.path.exists(_NSE_FILE):
+            return [], {}
+        mtime = os.path.getmtime(_NSE_FILE)
+        with _NSE_LOCK:
+            if mtime == _NSE_MEMO["mtime"] and _NSE_MEMO["symbols"]:
+                return _NSE_MEMO["symbols"], _NSE_MEMO["names"]
+            with open(_NSE_FILE) as f:
+                symbols = json.load(f)
+            names = {i['symbol'].upper(): i['name']
+                     for i in symbols if i.get('symbol')}
+            _NSE_MEMO["mtime"] = mtime
+            _NSE_MEMO["symbols"] = symbols
+            _NSE_MEMO["names"] = names
+            return symbols, names
+    except Exception as e:
+        logger.warning(f"NSE file read failed: {e}")
+        return [], {}
+
+def get_search_results(query, limit=50):
+    """Autocomplete search across all workers."""
+    if not query:
+        return []
+    symbols, _ = _read_nse_file()
+    q = query.strip().upper()
+    out = []
+    for item in symbols:
+        sym = item.get('symbol', '')
+        name = item.get('name', '')
+        if q in sym.upper() or q in name.upper():
+            out.append({"symbol": sym, "name": name})
+            if len(out) >= limit:
+                break
+    return out
+
+def get_company_names(symbols):
+    """Batch company-name lookup."""
+    _, names = _read_nse_file()
+    return {s.upper(): names.get(s.upper(), '') for s in symbols}
+
+def nse_list_size():
+    symbols, _ = _read_nse_file()
+    return len(symbols)
+
+# ------------------------------------------------------------------
+#  NSE BHAVCOPY — EOD source
 # ------------------------------------------------------------------
 _NSE_BHAV_URL = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
 
@@ -212,26 +278,26 @@ def _bhav_headers():
         "Referer": "https://www.nseindia.com/",
     }
 
-def fetch_bhavcopy_for_date(target_date, symbols):
+def fetch_bhavcopy_for_date(target_date, symbols, compare_closes=None):
     """
-    Fetch NSE bhavcopy for a single date.
-    Returns:
-      None  → file not available (retry later)
-      []    → file available but no matching symbols (mark complete)
-      [...] → list of (symbol, date_str, open, high, low, close, volume)
+    Returns (status, rows):
+      ("unavailable", None) — file not published yet, retry later
+      ("empty", None)       — file exists but no matching symbols
+      ("stale", None)       — file duplicates the comparison set (holiday)
+      ("ok", rows)          — valid data
     """
     url = _NSE_BHAV_URL.format(ddmmyyyy=target_date.strftime('%d%m%Y'))
     try:
         r = requests.get(url, headers=_bhav_headers(), timeout=20)
     except Exception as e:
         logger.warning(f"Bhavcopy {target_date}: request failed: {e}")
-        return None
+        return ("unavailable", None)
 
     if r.status_code == 404:
-        return None
+        return ("unavailable", None)
     if r.status_code != 200:
         logger.warning(f"Bhavcopy {target_date}: HTTP {r.status_code}")
-        return None
+        return ("unavailable", None)
 
     try:
         df = pd.read_csv(io.StringIO(r.text))
@@ -241,7 +307,7 @@ def fetch_bhavcopy_for_date(target_date, symbols):
             df = df[df['SERIES'].isin(['EQ', 'BE'])]
     except Exception as e:
         logger.warning(f"Bhavcopy {target_date}: parse failed: {e}")
-        return None
+        return ("unavailable", None)
 
     sym_col   = next((c for c in df.columns if c.upper() == 'SYMBOL'), None)
     open_col  = next((c for c in df.columns if 'OPEN'  in c.upper()), None)
@@ -252,10 +318,14 @@ def fetch_bhavcopy_for_date(target_date, symbols):
 
     if not sym_col or not close_col:
         logger.warning(f"Bhavcopy {target_date}: missing SYMBOL or CLOSE column")
-        return None
+        return ("unavailable", None)
 
     watch = {s.upper() for s in symbols}
     sub = df[df[sym_col].astype(str).str.upper().isin(watch)]
+
+    if len(sub) == 0:
+        logger.info(f"Bhavcopy {target_date}: file OK, 0 of {len(watch)} matched")
+        return ("empty", None)
 
     date_str = target_date.strftime('%Y-%m-%d')
     rows = []
@@ -273,50 +343,60 @@ def fetch_bhavcopy_for_date(target_date, symbols):
         except Exception:
             continue
 
+    if compare_closes and rows:
+        matches = sum(1 for r in rows if compare_closes.get(r[0]) == r[5])
+        pct = matches / len(rows)
+        if pct > 0.99:
+            logger.info(f"Bhavcopy {target_date}: STALE — {matches}/{len(rows)} "
+                        f"({int(pct*100)}%) match comparison set")
+            return ("stale", None)
+
     logger.info(f"Bhavcopy {target_date}: file OK, {len(rows)} of {len(watch)} matched")
-    return rows
+    return ("ok", rows)
 
 def batch_fetch_daily_bars(symbols, days=5, include_today=False):
-    """
-    Multi-day bhavcopy fetch. Skips weekends. Returns tuples
-    (symbol, date_str, o, h, l, c, v) for the last `days` available trading days.
-    """
     if not symbols:
         return []
 
     symbols = list({s.upper() for s in symbols})
     today = datetime.now(config.TIMEZONE).date()
 
-    # Build candidate dates
     candidates = []
     d = today
-    lookback = 0
-    while len(candidates) < days and lookback < days * 3 + 10:
+    guard = 0
+    while len(candidates) < days * 2 and guard < days * 4 + 20:
+        guard += 1
         if d.weekday() < 5:
             if not (d == today and not include_today):
-                candidates.append(d)
+                if d.strftime('%Y-%m-%d') not in config.NSE_HOLIDAYS:
+                    candidates.append(d)
         d = d - timedelta(days=1)
-        lookback += 1
+
+    candidates.reverse()
 
     all_rows = []
+    prev_day_closes = None
     days_found = 0
+
     for cand in candidates:
         if days_found >= days:
             break
-        rows = fetch_bhavcopy_for_date(cand, symbols)
-        if rows:  # None or [] → skip
+        status, rows = fetch_bhavcopy_for_date(cand, symbols, compare_closes=prev_day_closes)
+        if status == "ok" and rows:
             all_rows.extend(rows)
+            prev_day_closes = {r[0]: r[5] for r in rows}
             days_found += 1
+        elif status == "stale":
+            logger.info(f"batch_fetch_daily_bars: dropped stale day {cand}")
         time.sleep(0.3)
 
     logger.info(f"batch_fetch_daily_bars: {len(all_rows)} rows across {days_found} days")
     return all_rows
 
 # ------------------------------------------------------------------
-#  YAHOO — fallback only, single date
+#  YAHOO — midnight fallback only
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
-    """Original Yahoo-based fetcher. Used only as midnight fallback."""
     if not symbols:
         return []
     symbols = [s.upper() for s in symbols]
