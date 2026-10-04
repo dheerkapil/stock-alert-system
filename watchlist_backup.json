@@ -2902,5 +2902,16 @@
     "triggered_at": null,
     "added_at": "2026-10-04 15:16:35",
     "notes": "buy 2500"
+  },
+  {
+    "id": 265,
+    "symbol": "TEMPSENS",
+    "condition": ">",
+    "trigger_price": 570.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-04 15:19:24",
+    "notes": ""
   }
 ]
