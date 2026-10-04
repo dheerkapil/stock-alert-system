@@ -817,7 +817,7 @@
     "id": 75,
     "symbol": "ORCHPHARMA",
     "condition": "<",
-    "trigger_price": 940.0,
+    "trigger_price": 975.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
