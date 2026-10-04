@@ -2741,7 +2741,7 @@
   {
     "id": 250,
     "symbol": "ELIN",
-    "condition": "<",
+    "condition": ">",
     "trigger_price": 93.5,
     "is_active": 1,
     "is_triggered": 0,
