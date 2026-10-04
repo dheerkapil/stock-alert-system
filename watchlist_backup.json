@@ -608,12 +608,12 @@
     "id": 56,
     "symbol": "KMSUGAR",
     "condition": ">",
-    "trigger_price": 35.5,
+    "trigger_price": 29.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
-    "notes": ""
+    "notes": "look for gtt"
   },
   {
     "id": 57,
