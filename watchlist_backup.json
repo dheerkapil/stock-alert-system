@@ -2869,5 +2869,16 @@
     "triggered_at": null,
     "added_at": "2026-10-04 15:10:55",
     "notes": "buy 2500"
+  },
+  {
+    "id": 262,
+    "symbol": "ARDEE",
+    "condition": ">",
+    "trigger_price": 52.75,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-04 15:12:35",
+    "notes": ""
   }
 ]
