@@ -2170,7 +2170,7 @@
     "id": 198,
     "symbol": "DISHTV",
     "condition": ">",
-    "trigger_price": 4.25,
+    "trigger_price": 2.7,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
