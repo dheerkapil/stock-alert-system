@@ -2891,5 +2891,16 @@
     "triggered_at": null,
     "added_at": "2026-10-04 15:13:36",
     "notes": ""
+  },
+  {
+    "id": 264,
+    "symbol": "ADVANCE",
+    "condition": ">",
+    "trigger_price": 124.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-04 15:16:35",
+    "notes": "buy 2500"
   }
 ]
