@@ -2590,8 +2590,8 @@
     "condition": ">",
     "trigger_price": 170.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-05 04:05:41",
     "added_at": "2026-10-02 09:58:57",
     "notes": ""
   },
@@ -2612,8 +2612,8 @@
     "condition": ">",
     "trigger_price": 36.9,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-05 04:10:42",
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
   },
