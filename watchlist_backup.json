@@ -2588,10 +2588,10 @@
     "id": 238,
     "symbol": "DEVX",
     "condition": ">",
-    "trigger_price": 36.9,
+    "trigger_price": 38.5,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-05 04:10:42",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
   },
