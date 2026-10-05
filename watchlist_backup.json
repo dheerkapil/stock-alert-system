@@ -2403,8 +2403,8 @@
     "condition": ">",
     "trigger_price": 147.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-05 07:35:53",
     "added_at": "2026-10-01 17:05:29",
     "notes": ""
   },
