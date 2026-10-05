@@ -990,17 +990,6 @@
     "notes": ""
   },
   {
-    "id": 92,
-    "symbol": "SHANTIGOLD",
-    "condition": ">",
-    "trigger_price": 315.0,
-    "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-05 04:15:44",
-    "added_at": "2026-09-12 17:35:00",
-    "notes": ""
-  },
-  {
     "id": 93,
     "symbol": "SIGNATURE",
     "condition": ">",
