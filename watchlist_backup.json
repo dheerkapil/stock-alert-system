@@ -715,17 +715,6 @@
     "notes": ""
   },
   {
-    "id": 67,
-    "symbol": "MOTISONS",
-    "condition": ">",
-    "trigger_price": 18.25,
-    "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-05 04:20:46",
-    "added_at": "2026-09-12 17:24:00",
-    "notes": ""
-  },
-  {
     "id": 68,
     "symbol": "MRPL",
     "condition": ">",
