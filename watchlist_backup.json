@@ -2277,17 +2277,6 @@
     "notes": ""
   },
   {
-    "id": 211,
-    "symbol": "FINEORG",
-    "condition": ">",
-    "trigger_price": 5200.0,
-    "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
-    "added_at": "2026-09-27 05:29:08",
-    "notes": ""
-  },
-  {
     "id": 212,
     "symbol": "DEEPAKNTR",
     "condition": ">",
