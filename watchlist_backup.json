@@ -2588,7 +2588,7 @@
     "id": 238,
     "symbol": "DEVX",
     "condition": ">",
-    "trigger_price": 36.9,
+    "trigger_price": 40.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
