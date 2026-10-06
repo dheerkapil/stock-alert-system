@@ -2577,7 +2577,7 @@
     "id": 236,
     "symbol": "PINELABS",
     "condition": ">",
-    "trigger_price": 170.0,
+    "trigger_price": 175.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
