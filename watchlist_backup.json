@@ -707,7 +707,7 @@
     "id": 66,
     "symbol": "MOBIKWIK",
     "condition": ">",
-    "trigger_price": 238.0,
+    "trigger_price": 243.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
