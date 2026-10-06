@@ -412,7 +412,7 @@ def refresh_nse():
             logger.error("NSE fetch returned empty list")
             return False
 
-        old_content = gh_get(GH_NSE)
+        old_content = gh_get(GH_NSE, branch=GH_CACHE_BRANCH)
         old_symbols = None
         if old_content:
             try:
@@ -427,7 +427,7 @@ def refresh_nse():
             logger.info(f"NSE: {len(symbols)} symbols saved (CHANGED, will push)")
             threading.Thread(
                 target=lambda: gh_put(GH_NSE, json.dumps(symbols),
-                                      f"NSE symbols: {len(symbols)}"),
+                                      f"NSE symbols: {len(symbols)}", branch=GH_CACHE_BRANCH),
                 daemon=True).start()
         else:
             logger.info(f"NSE: {len(symbols)} symbols saved (no change, no push)")
@@ -440,7 +440,7 @@ def refresh_nse():
 #  GITHUB RESTORE
 # ------------------------------------------------------------------
 def restore_nse():
-    content = gh_get(GH_NSE)
+    content = gh_get(GH_NSE, branch=GH_CACHE_BRANCH)
     if not content:
         return
     try:
@@ -458,7 +458,7 @@ def restore_watchlist():
     if count > 0:
         logger.info(f"Watchlist already has {count} rows")
         return
-    content = gh_get(GH_WATCHLIST)
+    content = gh_get(GH_WATCHLIST, branch=GH_CACHE_BRANCH)
     if not content:
         return
     try:
@@ -491,7 +491,7 @@ def restore_watchlist():
         logger.error(f"Watchlist restore: {e}")
 
 def restore_eod():
-    content = gh_get(GH_EOD)
+    content = gh_get(GH_EOD, branch=GH_CACHE_BRANCH)
     if not content:
         return
     try:
@@ -541,7 +541,7 @@ def push_watchlist():
     rows = [dict(r) for r in c.execute('SELECT * FROM watchlist ORDER BY id')]
     c.close()
     if gh_put(GH_WATCHLIST, json.dumps(rows, indent=2, default=str),
-              f"Watchlist: {len(rows)} alerts"):
+              f"Watchlist: {len(rows)} alerts", branch=GH_CACHE_BRANCH):
         logger.info(f"Backed up {len(rows)} alerts")
 
 def push_eod():
@@ -555,7 +555,7 @@ def push_eod():
     c.close()
     if rows:
         gh_put(GH_EOD, json.dumps(rows, default=str),
-               f"EOD backup: {len(rows)} rows")
+               f"EOD backup: {len(rows)} rows", branch=GH_CACHE_BRANCH)
 
 def push_tv_cache():
     entries = stock_alert.cache_snapshot()
@@ -617,13 +617,15 @@ def api_alerts():
 
         tv_prev = e.get('prev_close')
 
-        if tv_prev is not None and cmp_price is not None:
-            a['pct_chg'] = round((cmp_price - tv_prev) / tv_prev * 100, 2) if tv_prev else None
+        if tv_prev:
+            a['pct_chg'] = (round((cmp_price - tv_prev) / tv_prev * 100, 2)
+                            if cmp_price is not None else None)
         else:
-            last_c  = lt.get('last')
-            prior_c = lt.get('prior')
-            if last_c and prior_c and prior_c > 0:
-                a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
+            # TV has no prev_close for this symbol — use the last stored EOD
+            # close as the previous close, so pct_chg always means today's move.
+            last_c = lt.get('last')
+            if cmp_price is not None and last_c:
+                a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
             else:
                 a['pct_chg'] = None
 
