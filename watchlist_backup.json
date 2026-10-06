@@ -6,6 +6,7 @@
     "trigger_price": 1210.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:03:00",
     "notes": ""
   },
@@ -16,6 +17,7 @@
     "trigger_price": 725.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -26,6 +28,7 @@
     "trigger_price": 560.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -36,6 +39,7 @@
     "trigger_price": 19.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -46,6 +50,7 @@
     "trigger_price": 8.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:39:00",
     "notes": ""
   },
@@ -56,6 +61,7 @@
     "trigger_price": 1220.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -66,6 +72,7 @@
     "trigger_price": 394.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -76,6 +83,7 @@
     "trigger_price": 21.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -86,6 +94,7 @@
     "trigger_price": 205.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -96,6 +105,7 @@
     "trigger_price": 136.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -106,6 +116,7 @@
     "trigger_price": 640.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -116,6 +127,7 @@
     "trigger_price": 69.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -126,6 +138,7 @@
     "trigger_price": 255.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -136,6 +149,7 @@
     "trigger_price": 157.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:18:00",
     "notes": ""
   },
@@ -146,6 +160,7 @@
     "trigger_price": 650.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -156,6 +171,7 @@
     "trigger_price": 3200.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -166,6 +182,7 @@
     "trigger_price": 406.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -176,6 +193,7 @@
     "trigger_price": 200.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -186,6 +204,7 @@
     "trigger_price": 870.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -196,6 +215,7 @@
     "trigger_price": 530.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:42:00",
     "notes": ""
   },
@@ -206,6 +226,7 @@
     "trigger_price": 171.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -216,6 +237,7 @@
     "trigger_price": 4900.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -226,6 +248,7 @@
     "trigger_price": 195.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 10:13:00",
     "notes": "Retrace check"
   },
@@ -236,6 +259,7 @@
     "trigger_price": 485.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -246,6 +270,7 @@
     "trigger_price": 88.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -256,6 +281,7 @@
     "trigger_price": 55.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -266,6 +292,7 @@
     "trigger_price": 10.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -276,6 +303,7 @@
     "trigger_price": 165.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -286,6 +314,7 @@
     "trigger_price": 145.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -296,6 +325,7 @@
     "trigger_price": 395.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -306,6 +336,7 @@
     "trigger_price": 582.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -316,6 +347,7 @@
     "trigger_price": 2795.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-17 21:05:00",
     "notes": ""
   },
@@ -326,6 +358,7 @@
     "trigger_price": 1600.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -336,6 +369,7 @@
     "trigger_price": 180.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -346,6 +380,7 @@
     "trigger_price": 196.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -356,6 +391,7 @@
     "trigger_price": 352.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -366,6 +402,7 @@
     "trigger_price": 50.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -376,6 +413,7 @@
     "trigger_price": 445.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -386,6 +424,7 @@
     "trigger_price": 450.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -396,6 +435,7 @@
     "trigger_price": 230.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -406,6 +446,7 @@
     "trigger_price": 450.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -416,6 +457,7 @@
     "trigger_price": 615.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -426,6 +468,7 @@
     "trigger_price": 255.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:36:00",
     "notes": ""
   },
@@ -436,6 +479,7 @@
     "trigger_price": 49.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -446,6 +490,7 @@
     "trigger_price": 25.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -456,6 +501,7 @@
     "trigger_price": 750.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:41:00",
     "notes": ""
   },
@@ -466,6 +512,7 @@
     "trigger_price": 1700.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -476,6 +523,7 @@
     "trigger_price": 1175.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-16 06:36:00",
     "notes": ""
   },
@@ -486,6 +534,7 @@
     "trigger_price": 390.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -496,6 +545,7 @@
     "trigger_price": 147.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:53:00",
     "notes": ""
   },
@@ -506,6 +556,7 @@
     "trigger_price": 335.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -516,6 +567,7 @@
     "trigger_price": 570.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -526,6 +578,7 @@
     "trigger_price": 215.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -536,6 +589,7 @@
     "trigger_price": 1260.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:36:00",
     "notes": ""
   },
@@ -546,6 +600,7 @@
     "trigger_price": 4530.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -556,6 +611,7 @@
     "trigger_price": 35.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -566,6 +622,7 @@
     "trigger_price": 225.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -576,6 +633,7 @@
     "trigger_price": 270.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -586,6 +644,7 @@
     "trigger_price": 710.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -596,6 +655,7 @@
     "trigger_price": 340.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -606,6 +666,7 @@
     "trigger_price": 280.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -616,6 +677,7 @@
     "trigger_price": 231.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -626,6 +688,7 @@
     "trigger_price": 440.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -636,6 +699,7 @@
     "trigger_price": 1215.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -646,6 +710,7 @@
     "trigger_price": 350.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -656,6 +721,7 @@
     "trigger_price": 238.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -666,6 +732,7 @@
     "trigger_price": 18.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -676,6 +743,7 @@
     "trigger_price": 190.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -686,6 +754,7 @@
     "trigger_price": 252.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -696,6 +765,7 @@
     "trigger_price": 78.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:47:00",
     "notes": ""
   },
@@ -706,6 +776,7 @@
     "trigger_price": 13.75,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-16 10:45:00",
     "notes": ""
   },
@@ -716,6 +787,7 @@
     "trigger_price": 451.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -726,6 +798,7 @@
     "trigger_price": 520.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:31:00",
     "notes": "buy 2500"
   },
@@ -736,6 +809,7 @@
     "trigger_price": 60.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -746,6 +820,7 @@
     "trigger_price": 940.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-16 06:38:00",
     "notes": ""
   },
@@ -756,6 +831,7 @@
     "trigger_price": 440.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -766,6 +842,7 @@
     "trigger_price": 165.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -776,6 +853,7 @@
     "trigger_price": 800.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 23:44:00",
     "notes": ""
   },
@@ -786,6 +864,7 @@
     "trigger_price": 180.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 22:33:00",
     "notes": ""
   },
@@ -796,6 +875,7 @@
     "trigger_price": 64.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -806,6 +886,7 @@
     "trigger_price": 146.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -816,6 +897,7 @@
     "trigger_price": 715.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -826,6 +908,7 @@
     "trigger_price": 158.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:11:00",
     "notes": ""
   },
@@ -836,6 +919,7 @@
     "trigger_price": 725.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:13:00",
     "notes": ""
   },
@@ -846,6 +930,7 @@
     "trigger_price": 18.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:15:00",
     "notes": ""
   },
@@ -856,6 +941,7 @@
     "trigger_price": 435.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -866,6 +952,7 @@
     "trigger_price": 47.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:50:00",
     "notes": ""
   },
@@ -876,6 +963,7 @@
     "trigger_price": 5.6,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 20:07:00",
     "notes": ""
   },
@@ -886,6 +974,7 @@
     "trigger_price": 260.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -896,6 +985,7 @@
     "trigger_price": 4.17,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:49:00",
     "notes": "basmati play"
   },
@@ -906,6 +996,7 @@
     "trigger_price": 142.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -916,6 +1007,7 @@
     "trigger_price": 315.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:35:00",
     "notes": ""
   },
@@ -926,6 +1018,7 @@
     "trigger_price": 835.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -936,6 +1029,7 @@
     "trigger_price": 610.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -946,6 +1040,7 @@
     "trigger_price": 100.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -956,6 +1051,7 @@
     "trigger_price": 84.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -966,6 +1062,7 @@
     "trigger_price": 425.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -976,6 +1073,7 @@
     "trigger_price": 425.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -986,6 +1084,7 @@
     "trigger_price": 175.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -996,6 +1095,7 @@
     "trigger_price": 360.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1006,6 +1106,7 @@
     "trigger_price": 300.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1016,6 +1117,7 @@
     "trigger_price": 130.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1026,6 +1128,7 @@
     "trigger_price": 115.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:47:00",
     "notes": ""
   },
@@ -1036,6 +1139,7 @@
     "trigger_price": 725.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:52:00",
     "notes": ""
   },
@@ -1046,6 +1150,7 @@
     "trigger_price": 970.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1056,6 +1161,7 @@
     "trigger_price": 610.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1066,6 +1172,7 @@
     "trigger_price": 143.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1076,6 +1183,7 @@
     "trigger_price": 94.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1086,6 +1194,7 @@
     "trigger_price": 197.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 09:46:00",
     "notes": ""
   },
@@ -1096,6 +1205,7 @@
     "trigger_price": 16.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1103,9 +1213,10 @@
     "id": 111,
     "symbol": "VERANDA",
     "condition": ">",
-    "trigger_price": 265.0,
+    "trigger_price": 35.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1116,6 +1227,7 @@
     "trigger_price": 51.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1126,6 +1238,7 @@
     "trigger_price": 54.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1136,6 +1249,7 @@
     "trigger_price": 725.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:37:00",
     "notes": "rumour tracking"
   },
@@ -1146,6 +1260,7 @@
     "trigger_price": 136.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1156,6 +1271,7 @@
     "trigger_price": 220.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:48:00",
     "notes": ""
   },
@@ -1166,6 +1282,7 @@
     "trigger_price": 113.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -1176,6 +1293,7 @@
     "trigger_price": 1040.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 16:45:20",
     "notes": ""
   },
@@ -1186,6 +1304,7 @@
     "trigger_price": 775.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 16:46:06",
     "notes": ""
   },
@@ -1196,6 +1315,7 @@
     "trigger_price": 365.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:03:55",
     "notes": ""
   },
@@ -1206,6 +1326,7 @@
     "trigger_price": 895.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:05:53",
     "notes": ""
   },
@@ -1216,6 +1337,7 @@
     "trigger_price": 1900.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:13:00",
     "notes": ""
   },
@@ -1226,6 +1348,7 @@
     "trigger_price": 1082.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:21:06",
     "notes": ""
   },
@@ -1236,6 +1359,7 @@
     "trigger_price": 2000.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:23:45",
     "notes": ""
   },
@@ -1246,6 +1370,7 @@
     "trigger_price": 150.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-18 17:31:09",
     "notes": ""
   },
@@ -1256,6 +1381,7 @@
     "trigger_price": 26.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 03:22:29",
     "notes": ""
   },
@@ -1266,6 +1392,7 @@
     "trigger_price": 304.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 03:51:28",
     "notes": ""
   },
@@ -1276,6 +1403,7 @@
     "trigger_price": 415.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 03:52:35",
     "notes": ""
   },
@@ -1286,6 +1414,7 @@
     "trigger_price": 145.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 03:53:12",
     "notes": ""
   },
@@ -1296,6 +1425,7 @@
     "trigger_price": 915.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:00:35",
     "notes": ""
   },
@@ -1306,6 +1436,7 @@
     "trigger_price": 286.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:01:13",
     "notes": ""
   },
@@ -1316,6 +1447,7 @@
     "trigger_price": 123.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:01:53",
     "notes": ""
   },
@@ -1326,6 +1458,7 @@
     "trigger_price": 203.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:02:26",
     "notes": ""
   },
@@ -1336,6 +1469,7 @@
     "trigger_price": 580.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:02:57",
     "notes": ""
   },
@@ -1346,6 +1480,7 @@
     "trigger_price": 1750.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:03:38",
     "notes": ""
   },
@@ -1356,6 +1491,7 @@
     "trigger_price": 118.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:04:15",
     "notes": ""
   },
@@ -1363,9 +1499,10 @@
     "id": 137,
     "symbol": "ANNU",
     "condition": ">",
-    "trigger_price": 161.0,
+    "trigger_price": 61.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:04:41",
     "notes": ""
   },
@@ -1376,6 +1513,7 @@
     "trigger_price": 85.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:05:16",
     "notes": ""
   },
@@ -1386,6 +1524,7 @@
     "trigger_price": 134.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:05:54",
     "notes": ""
   },
@@ -1396,6 +1535,7 @@
     "trigger_price": 1175.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:06:34",
     "notes": ""
   },
@@ -1406,6 +1546,7 @@
     "trigger_price": 1090.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:32:14",
     "notes": ""
   },
@@ -1416,6 +1557,7 @@
     "trigger_price": 610.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:32:56",
     "notes": "temp"
   },
@@ -1426,6 +1568,7 @@
     "trigger_price": 164.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:33:19",
     "notes": ""
   },
@@ -1436,6 +1579,7 @@
     "trigger_price": 142.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:34:18",
     "notes": ""
   },
@@ -1446,6 +1590,7 @@
     "trigger_price": 486.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:35:43",
     "notes": ""
   },
@@ -1456,6 +1601,7 @@
     "trigger_price": 1700.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:36:55",
     "notes": ""
   },
@@ -1466,6 +1612,7 @@
     "trigger_price": 1500.0,
     "is_active": 1,
     "is_triggered": 1,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:37:41",
     "notes": ""
   },
@@ -1476,6 +1623,7 @@
     "trigger_price": 61.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:38:34",
     "notes": ""
   },
@@ -1486,6 +1634,7 @@
     "trigger_price": 590.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:40:08",
     "notes": ""
   },
@@ -1496,6 +1645,7 @@
     "trigger_price": 550.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:40:49",
     "notes": ""
   },
@@ -1506,6 +1656,7 @@
     "trigger_price": 64.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:42:18",
     "notes": "check RSI Divergence"
   },
@@ -1516,6 +1667,7 @@
     "trigger_price": 216.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:44:12",
     "notes": ""
   },
@@ -1526,6 +1678,7 @@
     "trigger_price": 112.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:46:13",
     "notes": ""
   },
@@ -1536,6 +1689,7 @@
     "trigger_price": 237.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:47:31",
     "notes": ""
   },
@@ -1546,6 +1700,7 @@
     "trigger_price": 188.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:48:07",
     "notes": ""
   },
@@ -1556,6 +1711,7 @@
     "trigger_price": 575.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:54:25",
     "notes": ""
   },
@@ -1566,6 +1722,7 @@
     "trigger_price": 300.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:55:20",
     "notes": ""
   },
@@ -1576,6 +1733,7 @@
     "trigger_price": 41.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:57:31",
     "notes": ""
   },
@@ -1586,6 +1744,7 @@
     "trigger_price": 35.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 04:59:29",
     "notes": ""
   },
@@ -1596,6 +1755,7 @@
     "trigger_price": 158.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:01:35",
     "notes": ""
   },
@@ -1606,6 +1766,7 @@
     "trigger_price": 87.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:02:49",
     "notes": "add 2500"
   },
@@ -1616,6 +1777,7 @@
     "trigger_price": 458.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:07:49",
     "notes": ""
   },
@@ -1626,6 +1788,7 @@
     "trigger_price": 656.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:08:54",
     "notes": ""
   },
@@ -1636,6 +1799,7 @@
     "trigger_price": 1084.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:10:03",
     "notes": ""
   },
@@ -1646,6 +1810,7 @@
     "trigger_price": 290.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:11:43",
     "notes": ""
   },
@@ -1656,6 +1821,7 @@
     "trigger_price": 142.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 05:20:42",
     "notes": ""
   },
@@ -1666,6 +1832,7 @@
     "trigger_price": 175.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:15:04",
     "notes": ""
   },
@@ -1676,6 +1843,7 @@
     "trigger_price": 228.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:16:19",
     "notes": ""
   },
@@ -1686,6 +1854,7 @@
     "trigger_price": 122.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:16:55",
     "notes": ""
   },
@@ -1696,6 +1865,7 @@
     "trigger_price": 541.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:17:26",
     "notes": ""
   },
@@ -1706,6 +1876,7 @@
     "trigger_price": 542.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:19:06",
     "notes": ""
   },
@@ -1716,6 +1887,7 @@
     "trigger_price": 233.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:19:51",
     "notes": ""
   },
@@ -1726,6 +1898,7 @@
     "trigger_price": 220.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:40:43",
     "notes": ""
   },
@@ -1736,6 +1909,7 @@
     "trigger_price": 98.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:47:18",
     "notes": ""
   },
@@ -1746,6 +1920,7 @@
     "trigger_price": 142.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:48:10",
     "notes": ""
   },
@@ -1756,6 +1931,7 @@
     "trigger_price": 345.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:49:11",
     "notes": ""
   },
@@ -1766,6 +1942,7 @@
     "trigger_price": 1420.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:51:33",
     "notes": ""
   },
@@ -1776,6 +1953,7 @@
     "trigger_price": 77.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:52:40",
     "notes": ""
   },
@@ -1786,17 +1964,8 @@
     "trigger_price": 360.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 07:56:44",
-    "notes": ""
-  },
-  {
-    "id": 180,
-    "symbol": "INVENTURE",
-    "condition": ">",
-    "trigger_price": 1900.0,
-    "is_active": 1,
-    "is_triggered": 0,
-    "added_at": "2026-09-19 11:04:56",
     "notes": ""
   },
   {
@@ -1806,6 +1975,7 @@
     "trigger_price": 63.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 11:09:11",
     "notes": ""
   },
@@ -1816,6 +1986,7 @@
     "trigger_price": 9.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:06:54",
     "notes": ""
   },
@@ -1826,6 +1997,7 @@
     "trigger_price": 94.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:09:25",
     "notes": ""
   },
@@ -1836,6 +2008,7 @@
     "trigger_price": 200.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:11:38",
     "notes": ""
   },
@@ -1846,6 +2019,7 @@
     "trigger_price": 165.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:14:55",
     "notes": ""
   },
@@ -1856,6 +2030,7 @@
     "trigger_price": 115.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:18:29",
     "notes": ""
   },
@@ -1866,6 +2041,7 @@
     "trigger_price": 137.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:20:26",
     "notes": ""
   },
@@ -1876,6 +2052,7 @@
     "trigger_price": 133.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 12:30:22",
     "notes": ""
   },
@@ -1886,6 +2063,7 @@
     "trigger_price": 256.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 14:09:29",
     "notes": ""
   },
@@ -1896,6 +2074,7 @@
     "trigger_price": 112.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 14:10:11",
     "notes": ""
   },
@@ -1906,6 +2085,7 @@
     "trigger_price": 153.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-19 14:11:14",
     "notes": ""
   },
@@ -1916,6 +2096,7 @@
     "trigger_price": 185.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-21 15:42:00",
     "notes": ""
   },
@@ -1926,6 +2107,7 @@
     "trigger_price": 760.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-22 15:19:53",
     "notes": ""
   },
@@ -1936,6 +2118,7 @@
     "trigger_price": 4.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:09:58",
     "notes": ""
   },
@@ -1946,6 +2129,7 @@
     "trigger_price": 250.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:24:08",
     "notes": ""
   },
@@ -1956,6 +2140,7 @@
     "trigger_price": 205.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:24:48",
     "notes": ""
   },
@@ -1966,6 +2151,7 @@
     "trigger_price": 3.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:29:14",
     "notes": ""
   },
@@ -1976,6 +2162,7 @@
     "trigger_price": 308.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:36:17",
     "notes": ""
   },
@@ -1986,6 +2173,7 @@
     "trigger_price": 4.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:38:05",
     "notes": ""
   },
@@ -1996,6 +2184,7 @@
     "trigger_price": 505.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 07:55:24",
     "notes": ""
   },
@@ -2006,6 +2195,7 @@
     "trigger_price": 310.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 08:13:48",
     "notes": ""
   },
@@ -2016,6 +2206,7 @@
     "trigger_price": 265.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 08:15:51",
     "notes": ""
   },
@@ -2026,6 +2217,7 @@
     "trigger_price": 61.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 09:46:17",
     "notes": ""
   },
@@ -2036,6 +2228,7 @@
     "trigger_price": 830.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 09:49:34",
     "notes": ""
   },
@@ -2046,6 +2239,7 @@
     "trigger_price": 10.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 09:54:21",
     "notes": ""
   },
@@ -2056,6 +2250,7 @@
     "trigger_price": 160.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:23:29",
     "notes": ""
   },
@@ -2066,6 +2261,7 @@
     "trigger_price": 17.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:27:33",
     "notes": ""
   },
@@ -2076,6 +2272,7 @@
     "trigger_price": 80.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:30:22",
     "notes": ""
   },
@@ -2086,6 +2283,7 @@
     "trigger_price": 210.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:32:58",
     "notes": ""
   },
@@ -2096,6 +2294,7 @@
     "trigger_price": 303.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:33:59",
     "notes": ""
   },
@@ -2106,6 +2305,7 @@
     "trigger_price": 42.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-26 10:38:34",
     "notes": ""
   },
@@ -2116,6 +2316,7 @@
     "trigger_price": 5200.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-27 05:29:08",
     "notes": ""
   },
@@ -2126,6 +2327,7 @@
     "trigger_price": 1850.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-27 05:30:39",
     "notes": ""
   },
@@ -2136,6 +2338,7 @@
     "trigger_price": 875.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-27 06:42:48",
     "notes": ""
   },
@@ -2146,6 +2349,7 @@
     "trigger_price": 228.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-27 16:38:22",
     "notes": ""
   },
@@ -2156,6 +2360,7 @@
     "trigger_price": 78.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 16:17:39",
     "notes": ""
   },
@@ -2166,6 +2371,7 @@
     "trigger_price": 31.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 16:20:36",
     "notes": ""
   },
@@ -2176,6 +2382,7 @@
     "trigger_price": 250.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 16:39:07",
     "notes": ""
   },
@@ -2186,6 +2393,7 @@
     "trigger_price": 710.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 16:56:10",
     "notes": ""
   },
@@ -2196,6 +2404,7 @@
     "trigger_price": 147.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 17:05:29",
     "notes": ""
   },
@@ -2206,6 +2415,7 @@
     "trigger_price": 187.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 17:07:30",
     "notes": ""
   },
@@ -2216,6 +2426,7 @@
     "trigger_price": 510.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 17:09:46",
     "notes": ""
   },
@@ -2226,6 +2437,7 @@
     "trigger_price": 136.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 03:01:44",
     "notes": ""
   },
@@ -2236,6 +2448,7 @@
     "trigger_price": 13.25,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 03:03:22",
     "notes": "2500"
   },
@@ -2246,6 +2459,7 @@
     "trigger_price": 148.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 03:13:31",
     "notes": "gtt 150"
   },
@@ -2256,6 +2470,7 @@
     "trigger_price": 9.75,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 08:41:23",
     "notes": ""
   },
@@ -2266,6 +2481,7 @@
     "trigger_price": 420.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 08:50:49",
     "notes": ""
   },
@@ -2276,6 +2492,7 @@
     "trigger_price": 240.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 08:52:12",
     "notes": ""
   },
@@ -2283,9 +2500,10 @@
     "id": 229,
     "symbol": "ABLBL",
     "condition": ">",
-    "trigger_price": 187.0,
+    "trigger_price": 86.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:01:46",
     "notes": ""
   },
@@ -2296,6 +2514,7 @@
     "trigger_price": 480.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:03:56",
     "notes": ""
   },
@@ -2306,6 +2525,7 @@
     "trigger_price": 765.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:16:46",
     "notes": ""
   },
@@ -2316,6 +2536,7 @@
     "trigger_price": 650.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:21:05",
     "notes": ""
   },
@@ -2326,6 +2547,7 @@
     "trigger_price": 74.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:22:29",
     "notes": ""
   },
@@ -2336,6 +2558,7 @@
     "trigger_price": 1440.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:25:39",
     "notes": ""
   },
@@ -2346,6 +2569,7 @@
     "trigger_price": 288.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:54:18",
     "notes": ""
   },
@@ -2356,6 +2580,7 @@
     "trigger_price": 600.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:57:24",
     "notes": ""
   },
@@ -2366,6 +2591,7 @@
     "trigger_price": 170.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:58:57",
     "notes": ""
   },
@@ -2376,6 +2602,7 @@
     "trigger_price": 72.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:01:58",
     "notes": ""
   },
@@ -2386,6 +2613,7 @@
     "trigger_price": 36.9,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
   },
@@ -2396,6 +2624,7 @@
     "trigger_price": 210.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:21:28",
     "notes": ""
   },
@@ -2406,6 +2635,7 @@
     "trigger_price": 440.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:25:29",
     "notes": ""
   },
@@ -2416,6 +2646,7 @@
     "trigger_price": 142.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:29:25",
     "notes": ""
   },
@@ -2423,9 +2654,10 @@
     "id": 243,
     "symbol": "BLSE",
     "condition": ">",
-    "trigger_price": 335.0,
+    "trigger_price": 166.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 11:02:08",
     "notes": ""
   },
@@ -2433,9 +2665,10 @@
     "id": 244,
     "symbol": "BLSE",
     "condition": ">",
-    "trigger_price": 420.0,
+    "trigger_price": 205.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 11:13:32",
     "notes": ""
   },
@@ -2446,6 +2679,7 @@
     "trigger_price": 95.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 12:33:13",
     "notes": ""
   },
@@ -2456,6 +2690,7 @@
     "trigger_price": 3300.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 12:35:34",
     "notes": ""
   },
@@ -2466,6 +2701,7 @@
     "trigger_price": 334.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 12:39:24",
     "notes": ""
   },
@@ -2476,6 +2712,7 @@
     "trigger_price": 239.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:24:15",
     "notes": ""
   },
@@ -2486,6 +2723,7 @@
     "trigger_price": 117.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:25:25",
     "notes": ""
   },
@@ -2496,6 +2734,7 @@
     "trigger_price": 455.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:26:20",
     "notes": ""
   },
@@ -2506,6 +2745,7 @@
     "trigger_price": 93.5,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:43:37",
     "notes": ""
   },
@@ -2516,6 +2756,7 @@
     "trigger_price": 1475.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:45:57",
     "notes": ""
   },
@@ -2526,6 +2767,7 @@
     "trigger_price": 3650.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:54:47",
     "notes": ""
   },
@@ -2536,6 +2778,7 @@
     "trigger_price": 440.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:55:40",
     "notes": ""
   },
@@ -2546,6 +2789,7 @@
     "trigger_price": 2275.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 14:00:38",
     "notes": ""
   },
@@ -2556,6 +2800,7 @@
     "trigger_price": 625.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 14:03:56",
     "notes": ""
   },
@@ -2566,6 +2811,7 @@
     "trigger_price": 1150.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 14:04:49",
     "notes": ""
   },
@@ -2576,6 +2822,7 @@
     "trigger_price": 215.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 14:07:29",
     "notes": ""
   },
@@ -2586,6 +2833,7 @@
     "trigger_price": 345.0,
     "is_active": 1,
     "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-03 04:10:21",
     "notes": ""
   }
