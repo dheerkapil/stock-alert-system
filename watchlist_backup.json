@@ -938,7 +938,7 @@
     "id": 88,
     "symbol": "SALASAR",
     "condition": ">",
-    "trigger_price": 0.25,
+    "trigger_price": 4.25,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
