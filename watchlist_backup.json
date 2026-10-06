@@ -2358,7 +2358,7 @@
     "symbol": "ONEPOINT",
     "condition": ">",
     "trigger_price": 78.5,
-    "is_active": 1,
+    "is_active": 0,
     "is_triggered": 0,
     "triggered_at": null,
     "added_at": "2026-10-01 16:17:39",
