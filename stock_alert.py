@@ -314,6 +314,7 @@ def fetch_bhavcopy_for_date(target_date, symbols, compare_closes=None):
     high_col  = next((c for c in df.columns if 'HIGH'  in c.upper()), None)
     low_col   = next((c for c in df.columns if 'LOW'   in c.upper()), None)
     close_col = next((c for c in df.columns if c.upper() in ('CLOSE_PRICE', 'CLOSE')), None)
+    prev_col  = next((c for c in df.columns if 'PREV' in c.upper() and 'CLOSE' in c.upper()), None)
     vol_col   = next((c for c in df.columns if 'TTL_TRD_QNTY' in c.upper() or 'VOLUME' in c.upper()), None)
 
     if not sym_col or not close_col:
@@ -339,7 +340,8 @@ def fetch_bhavcopy_for_date(target_date, symbols, compare_closes=None):
             h = float(row[high_col]) if high_col and pd.notna(row[high_col]) else None
             l = float(row[low_col])  if low_col  and pd.notna(row[low_col])  else None
             v = float(row[vol_col])  if vol_col  and pd.notna(row[vol_col])  else None
-            rows.append((sym, date_str, o, h, l, c, v))
+            p = float(row[prev_col]) if prev_col and pd.notna(row[prev_col]) else None
+            rows.append((sym, date_str, o, h, l, c, v, p))
         except Exception:
             continue
 

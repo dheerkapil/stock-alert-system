@@ -208,6 +208,7 @@ def init_db():
             symbol TEXT NOT NULL,
             trade_date TEXT NOT NULL,
             open REAL, high REAL, low REAL, close REAL, volume REAL,
+            prev_close REAL,
             UNIQUE(symbol, trade_date)
         );
         CREATE INDEX IF NOT EXISTS idx_eod_symbol_date ON eod_snapshots (symbol, trade_date);
@@ -230,6 +231,21 @@ def migrate_triggered_at_column():
         c.close()
     except Exception as e:
         logger.error(f"triggered_at migration error: {e}")
+
+def migrate_eod_prev_close():
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        cur = c.cursor()
+        cur.execute("PRAGMA table_info(eod_snapshots)")
+        cols = [r[1] for r in cur.fetchall()]
+        if 'prev_close' not in cols:
+            cur.execute("ALTER TABLE eod_snapshots ADD COLUMN prev_close REAL")
+            c.commit()
+            logger.info("Added prev_close column to eod_snapshots")
+        c.close()
+    except Exception as e:
+        logger.error(f"eod prev_close migration error: {e}")
+
 
 def get_prev_closes(symbols):
     if not symbols:
@@ -257,18 +273,25 @@ def get_last_two_closes(symbols):
     c = sqlite3.connect(config.DB_FILE)
     rows = c.execute(f'''
         WITH r AS (
-            SELECT symbol, trade_date, close,
+            SELECT symbol, trade_date, close, prev_close,
                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS n
             FROM eod_snapshots WHERE symbol IN ({ph})
         )
-        SELECT symbol, trade_date, close, n FROM r WHERE n <= 2
+        SELECT symbol, trade_date, close, prev_close, n FROM r WHERE n <= 2
     ''', symbols).fetchall()
     c.close()
 
     out = {}
-    for sym, d, cl, n in rows:
+    for sym, d, cl, pc, n in rows:
         e = out.setdefault(sym, {})
-        e['last' if n == 1 else 'prior'] = cl
+        if n == 1:
+            e['last'] = cl
+            e['last_date'] = d
+            e['last_prev_close'] = pc
+        else:
+            e['prior'] = cl
+            e['prior_date'] = d
+            e['prior_prev_close'] = pc
     return out
 
 def get_eod_volume_stats(symbols):
@@ -297,10 +320,12 @@ def persist_bars(rows):
         return 0
     c = sqlite3.connect(config.DB_FILE)
     for r in rows:
+        if len(r) == 7:
+            r = (*r, None)
         c.execute('''
             INSERT OR REPLACE INTO eod_snapshots
-            (symbol, trade_date, open, high, low, close, volume)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (symbol, trade_date, open, high, low, close, volume, prev_close)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', r)
     c.commit()
     c.close()
@@ -502,11 +527,11 @@ def restore_eod():
             try:
                 c.execute('''
                     INSERT OR REPLACE INTO eod_snapshots
-                    (symbol, trade_date, open, high, low, close, volume)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (symbol, trade_date, open, high, low, close, volume, prev_close)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (item.get('symbol'), item.get('trade_date'),
                       item.get('open'), item.get('high'), item.get('low'),
-                      item.get('close'), item.get('volume')))
+                      item.get('close'), item.get('volume'), item.get('prev_close')))
                 n += 1
             except Exception:
                 pass
@@ -549,7 +574,7 @@ def push_eod():
     c = sqlite3.connect(config.DB_FILE)
     c.row_factory = sqlite3.Row
     rows = [dict(r) for r in c.execute(
-        'SELECT symbol, trade_date, open, high, low, close, volume '
+        'SELECT symbol, trade_date, open, high, low, close, volume, prev_close '
         'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
         (cutoff,))]
     c.close()
@@ -616,13 +641,23 @@ def api_alerts():
             a['trigger_price'] = round(a['trigger_price'], 2)
 
         tv_prev = e.get('prev_close')
+        today_str = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
 
-        if tv_prev:
+        # If today's EOD row is already in the DB, derive the official day change from Bhavcopy.
+        if lt.get('last_date') == today_str and lt.get('last') is not None:
+            bhav_prev = lt.get('last_prev_close')
+            if bhav_prev and bhav_prev > 0:
+                a['pct_chg'] = round((lt['last'] - bhav_prev) / bhav_prev * 100, 2)
+            else:
+                prior_c = lt.get('prior')
+                a['pct_chg'] = (round((lt['last'] - prior_c) / prior_c * 100, 2)
+                                if prior_c and prior_c > 0 else None)
+        elif tv_prev and tv_prev > 0:
+            # During market hours / before today's EOD is captured, use TV live price vs TV prev_close.
             a['pct_chg'] = (round((cmp_price - tv_prev) / tv_prev * 100, 2)
                             if cmp_price is not None else None)
         else:
-            # TV has no prev_close for this symbol — use the last stored EOD
-            # close as the previous close, so pct_chg always means today's move.
+            # Fallback: use last stored EOD close as the previous close, so pct_chg means today's move.
             last_c = lt.get('last')
             if cmp_price is not None and last_c:
                 a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
@@ -1119,6 +1154,7 @@ def worker_thread():
 # ------------------------------------------------------------------
 init_db()
 migrate_triggered_at_column()
+migrate_eod_prev_close()
 
 threading.Thread(target=startup_thread,      daemon=True).start()
 threading.Thread(target=market_loop,         daemon=True).start()
