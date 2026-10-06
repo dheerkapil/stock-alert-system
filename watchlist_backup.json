@@ -2500,7 +2500,7 @@
     "id": 229,
     "symbol": "ABLBL",
     "condition": ">",
-    "trigger_price": 187.0,
+    "trigger_price": 86.5,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
