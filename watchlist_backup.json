@@ -1969,7 +1969,7 @@
     "notes": ""
   },
   {
-    "id": 181,
+    "id": 180,
     "symbol": "UGARSUGAR",
     "condition": ">",
     "trigger_price": 63.0,
@@ -1980,7 +1980,7 @@
     "notes": ""
   },
   {
-    "id": 182,
+    "id": 181,
     "symbol": "DBEIL",
     "condition": ">",
     "trigger_price": 9.0,
@@ -1991,7 +1991,7 @@
     "notes": ""
   },
   {
-    "id": 183,
+    "id": 182,
     "symbol": "BAJAJHFL",
     "condition": ">",
     "trigger_price": 94.0,
@@ -2002,7 +2002,7 @@
     "notes": ""
   },
   {
-    "id": 184,
+    "id": 183,
     "symbol": "FIRSTCRY",
     "condition": ">",
     "trigger_price": 200.0,
@@ -2013,7 +2013,7 @@
     "notes": ""
   },
   {
-    "id": 185,
+    "id": 184,
     "symbol": "STANLEY",
     "condition": ">",
     "trigger_price": 165.0,
@@ -2024,7 +2024,7 @@
     "notes": ""
   },
   {
-    "id": 186,
+    "id": 185,
     "symbol": "RKSWAMY",
     "condition": ">",
     "trigger_price": 115.0,
@@ -2035,7 +2035,7 @@
     "notes": ""
   },
   {
-    "id": 187,
+    "id": 186,
     "symbol": "VSTL",
     "condition": ">",
     "trigger_price": 137.5,
@@ -2046,7 +2046,7 @@
     "notes": ""
   },
   {
-    "id": 188,
+    "id": 187,
     "symbol": "PARKHOTELS",
     "condition": ">",
     "trigger_price": 133.0,
@@ -2057,7 +2057,7 @@
     "notes": ""
   },
   {
-    "id": 189,
+    "id": 188,
     "symbol": "MOMSBELIEF",
     "condition": ">",
     "trigger_price": 256.0,
@@ -2068,7 +2068,7 @@
     "notes": ""
   },
   {
-    "id": 190,
+    "id": 189,
     "symbol": "STEAMHOUSE",
     "condition": ">",
     "trigger_price": 112.0,
@@ -2079,7 +2079,7 @@
     "notes": ""
   },
   {
-    "id": 191,
+    "id": 190,
     "symbol": "VEEGALAND",
     "condition": ">",
     "trigger_price": 153.0,
@@ -2090,7 +2090,7 @@
     "notes": ""
   },
   {
-    "id": 192,
+    "id": 191,
     "symbol": "GAJA",
     "condition": ">",
     "trigger_price": 185.0,
@@ -2101,7 +2101,7 @@
     "notes": ""
   },
   {
-    "id": 193,
+    "id": 192,
     "symbol": "SUNDROP",
     "condition": ">",
     "trigger_price": 760.0,
@@ -2112,7 +2112,7 @@
     "notes": ""
   },
   {
-    "id": 194,
+    "id": 193,
     "symbol": "UNITECH",
     "condition": ">",
     "trigger_price": 4.5,
@@ -2123,7 +2123,7 @@
     "notes": ""
   },
   {
-    "id": 195,
+    "id": 194,
     "symbol": "CMSINFO",
     "condition": ">",
     "trigger_price": 250.0,
@@ -2134,7 +2134,7 @@
     "notes": ""
   },
   {
-    "id": 196,
+    "id": 195,
     "symbol": "EFCIL",
     "condition": ">",
     "trigger_price": 205.0,
@@ -2145,7 +2145,7 @@
     "notes": ""
   },
   {
-    "id": 197,
+    "id": 196,
     "symbol": "DAVANGERE",
     "condition": ">",
     "trigger_price": 3.0,
@@ -2156,7 +2156,7 @@
     "notes": ""
   },
   {
-    "id": 198,
+    "id": 197,
     "symbol": "AEGISVOPAK",
     "condition": ">",
     "trigger_price": 308.0,
@@ -2167,7 +2167,7 @@
     "notes": ""
   },
   {
-    "id": 199,
+    "id": 198,
     "symbol": "DISHTV",
     "condition": ">",
     "trigger_price": 4.25,
@@ -2178,7 +2178,7 @@
     "notes": ""
   },
   {
-    "id": 200,
+    "id": 199,
     "symbol": "COHANCE",
     "condition": ">",
     "trigger_price": 505.0,
@@ -2189,7 +2189,7 @@
     "notes": ""
   },
   {
-    "id": 201,
+    "id": 200,
     "symbol": "GENESYS",
     "condition": ">",
     "trigger_price": 310.0,
@@ -2200,7 +2200,7 @@
     "notes": ""
   },
   {
-    "id": 202,
+    "id": 201,
     "symbol": "GENESYS",
     "condition": "<",
     "trigger_price": 265.0,
@@ -2211,7 +2211,7 @@
     "notes": ""
   },
   {
-    "id": 203,
+    "id": 202,
     "symbol": "BLKASHYAP",
     "condition": ">",
     "trigger_price": 61.0,
@@ -2222,7 +2222,7 @@
     "notes": ""
   },
   {
-    "id": 204,
+    "id": 203,
     "symbol": "TATACHEM",
     "condition": ">",
     "trigger_price": 830.0,
@@ -2233,7 +2233,7 @@
     "notes": ""
   },
   {
-    "id": 205,
+    "id": 204,
     "symbol": "BTML",
     "condition": ">",
     "trigger_price": 10.0,
@@ -2244,7 +2244,7 @@
     "notes": ""
   },
   {
-    "id": 206,
+    "id": 205,
     "symbol": "MRPL",
     "condition": "<",
     "trigger_price": 160.0,
@@ -2255,7 +2255,7 @@
     "notes": ""
   },
   {
-    "id": 207,
+    "id": 206,
     "symbol": "CCAVENUE",
     "condition": ">",
     "trigger_price": 17.5,
@@ -2266,7 +2266,7 @@
     "notes": ""
   },
   {
-    "id": 208,
+    "id": 207,
     "symbol": "SDBL",
     "condition": ">",
     "trigger_price": 80.0,
@@ -2277,7 +2277,7 @@
     "notes": ""
   },
   {
-    "id": 209,
+    "id": 208,
     "symbol": "NOCIL",
     "condition": ">",
     "trigger_price": 210.0,
@@ -2288,7 +2288,7 @@
     "notes": ""
   },
   {
-    "id": 210,
+    "id": 209,
     "symbol": "JAINREC",
     "condition": ">",
     "trigger_price": 303.0,
@@ -2299,7 +2299,7 @@
     "notes": ""
   },
   {
-    "id": 211,
+    "id": 210,
     "symbol": "KWIL",
     "condition": ">",
     "trigger_price": 42.0,
@@ -2310,7 +2310,7 @@
     "notes": ""
   },
   {
-    "id": 212,
+    "id": 211,
     "symbol": "FINEORG",
     "condition": ">",
     "trigger_price": 5200.0,
@@ -2321,7 +2321,7 @@
     "notes": ""
   },
   {
-    "id": 213,
+    "id": 212,
     "symbol": "DEEPAKNTR",
     "condition": ">",
     "trigger_price": 1850.0,
@@ -2332,7 +2332,7 @@
     "notes": ""
   },
   {
-    "id": 214,
+    "id": 213,
     "symbol": "AVADHSUGAR",
     "condition": ">",
     "trigger_price": 875.0,
@@ -2343,7 +2343,7 @@
     "notes": ""
   },
   {
-    "id": 215,
+    "id": 214,
     "symbol": "JUNIPER",
     "condition": ">",
     "trigger_price": 228.0,
@@ -2354,7 +2354,7 @@
     "notes": ""
   },
   {
-    "id": 216,
+    "id": 215,
     "symbol": "ONEPOINT",
     "condition": ">",
     "trigger_price": 78.5,
@@ -2365,7 +2365,7 @@
     "notes": ""
   },
   {
-    "id": 217,
+    "id": 216,
     "symbol": "IBULLSLTD",
     "condition": ">",
     "trigger_price": 31.5,
@@ -2376,7 +2376,7 @@
     "notes": ""
   },
   {
-    "id": 218,
+    "id": 217,
     "symbol": "TRIVENI",
     "condition": ">",
     "trigger_price": 250.0,
@@ -2387,7 +2387,7 @@
     "notes": ""
   },
   {
-    "id": 219,
+    "id": 218,
     "symbol": "DEEDEV",
     "condition": ">",
     "trigger_price": 710.0,
@@ -2398,7 +2398,7 @@
     "notes": ""
   },
   {
-    "id": 220,
+    "id": 219,
     "symbol": "INDOAMIN",
     "condition": ">",
     "trigger_price": 147.0,
@@ -2409,7 +2409,7 @@
     "notes": ""
   },
   {
-    "id": 221,
+    "id": 220,
     "symbol": "LXCHEM",
     "condition": ">",
     "trigger_price": 187.0,
@@ -2420,7 +2420,7 @@
     "notes": ""
   },
   {
-    "id": 222,
+    "id": 221,
     "symbol": "VALIANTORG",
     "condition": ">",
     "trigger_price": 510.0,
@@ -2431,7 +2431,7 @@
     "notes": ""
   },
   {
-    "id": 223,
+    "id": 222,
     "symbol": "MANINFRA",
     "condition": ">",
     "trigger_price": 136.0,
@@ -2442,7 +2442,7 @@
     "notes": ""
   },
   {
-    "id": 224,
+    "id": 223,
     "symbol": "KESORAMIND",
     "condition": ">",
     "trigger_price": 13.25,
@@ -2453,7 +2453,7 @@
     "notes": "2500"
   },
   {
-    "id": 225,
+    "id": 224,
     "symbol": "TFCILTD",
     "condition": ">",
     "trigger_price": 148.0,
@@ -2464,7 +2464,7 @@
     "notes": "gtt 150"
   },
   {
-    "id": 226,
+    "id": 225,
     "symbol": "ZEEMEDIA",
     "condition": ">",
     "trigger_price": 9.75,
@@ -2475,7 +2475,7 @@
     "notes": ""
   },
   {
-    "id": 227,
+    "id": 226,
     "symbol": "CEIGALL",
     "condition": ">",
     "trigger_price": 420.0,
@@ -2486,7 +2486,7 @@
     "notes": ""
   },
   {
-    "id": 228,
+    "id": 227,
     "symbol": "CUB",
     "condition": ">",
     "trigger_price": 240.0,
@@ -2497,7 +2497,7 @@
     "notes": ""
   },
   {
-    "id": 229,
+    "id": 228,
     "symbol": "ABLBL",
     "condition": ">",
     "trigger_price": 86.5,
@@ -2508,7 +2508,7 @@
     "notes": ""
   },
   {
-    "id": 230,
+    "id": 229,
     "symbol": "COHANCE",
     "condition": ">",
     "trigger_price": 480.0,
@@ -2519,7 +2519,7 @@
     "notes": ""
   },
   {
-    "id": 231,
+    "id": 230,
     "symbol": "MANIPALHOS",
     "condition": ">",
     "trigger_price": 765.0,
@@ -2530,7 +2530,7 @@
     "notes": ""
   },
   {
-    "id": 232,
+    "id": 231,
     "symbol": "KUSUMGAR",
     "condition": ">",
     "trigger_price": 650.0,
@@ -2541,7 +2541,7 @@
     "notes": ""
   },
   {
-    "id": 233,
+    "id": 232,
     "symbol": "HEXAGON",
     "condition": ">",
     "trigger_price": 74.0,
@@ -2552,7 +2552,7 @@
     "notes": ""
   },
   {
-    "id": 234,
+    "id": 233,
     "symbol": "CLEANMAX",
     "condition": ">",
     "trigger_price": 1440.0,
@@ -2563,7 +2563,7 @@
     "notes": ""
   },
   {
-    "id": 235,
+    "id": 234,
     "symbol": "PARKHOSPS",
     "condition": ">",
     "trigger_price": 288.0,
@@ -2574,7 +2574,7 @@
     "notes": ""
   },
   {
-    "id": 236,
+    "id": 235,
     "symbol": "CAPILLARY",
     "condition": ">",
     "trigger_price": 600.0,
@@ -2585,7 +2585,7 @@
     "notes": ""
   },
   {
-    "id": 237,
+    "id": 236,
     "symbol": "PINELABS",
     "condition": ">",
     "trigger_price": 170.0,
@@ -2596,7 +2596,7 @@
     "notes": ""
   },
   {
-    "id": 238,
+    "id": 237,
     "symbol": "GLOTTIS",
     "condition": ">",
     "trigger_price": 72.0,
@@ -2607,7 +2607,7 @@
     "notes": ""
   },
   {
-    "id": 239,
+    "id": 238,
     "symbol": "DEVX",
     "condition": ">",
     "trigger_price": 36.9,
@@ -2618,7 +2618,7 @@
     "notes": "buy 2500"
   },
   {
-    "id": 240,
+    "id": 239,
     "symbol": "LAXMIDENTL",
     "condition": ">",
     "trigger_price": 210.0,
@@ -2629,7 +2629,7 @@
     "notes": ""
   },
   {
-    "id": 241,
+    "id": 240,
     "symbol": "SURAKSHA",
     "condition": ">",
     "trigger_price": 440.0,
@@ -2640,7 +2640,7 @@
     "notes": ""
   },
   {
-    "id": 242,
+    "id": 241,
     "symbol": "ARKADE",
     "condition": ">",
     "trigger_price": 142.0,
@@ -2651,7 +2651,7 @@
     "notes": ""
   },
   {
-    "id": 243,
+    "id": 242,
     "symbol": "BLSE",
     "condition": ">",
     "trigger_price": 166.0,
@@ -2662,7 +2662,7 @@
     "notes": ""
   },
   {
-    "id": 244,
+    "id": 243,
     "symbol": "BLSE",
     "condition": ">",
     "trigger_price": 205.0,
@@ -2673,7 +2673,7 @@
     "notes": ""
   },
   {
-    "id": 245,
+    "id": 244,
     "symbol": "HITECH",
     "condition": ">",
     "trigger_price": 95.0,
@@ -2684,7 +2684,7 @@
     "notes": ""
   },
   {
-    "id": 246,
+    "id": 245,
     "symbol": "BBL",
     "condition": ">",
     "trigger_price": 3300.0,
@@ -2695,7 +2695,7 @@
     "notes": ""
   },
   {
-    "id": 247,
+    "id": 246,
     "symbol": "FLAIR",
     "condition": ">",
     "trigger_price": 334.0,
@@ -2706,7 +2706,7 @@
     "notes": ""
   },
   {
-    "id": 248,
+    "id": 247,
     "symbol": "UDS",
     "condition": ">",
     "trigger_price": 239.0,
@@ -2717,7 +2717,7 @@
     "notes": ""
   },
   {
-    "id": 249,
+    "id": 248,
     "symbol": "KALAMANDIR",
     "condition": ">",
     "trigger_price": 117.0,
@@ -2728,7 +2728,7 @@
     "notes": ""
   },
   {
-    "id": 250,
+    "id": 249,
     "symbol": "EMSLIMITED",
     "condition": ">",
     "trigger_price": 455.0,
@@ -2739,7 +2739,7 @@
     "notes": ""
   },
   {
-    "id": 251,
+    "id": 250,
     "symbol": "ELIN",
     "condition": "<",
     "trigger_price": 93.5,
@@ -2750,10 +2750,10 @@
     "notes": ""
   },
   {
-    "id": 252,
+    "id": 251,
     "symbol": "MEDANTA",
     "condition": ">",
-    "trigger_price": 1475.0,
+    "trigger_price": 1372.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
@@ -2761,7 +2761,7 @@
     "notes": ""
   },
   {
-    "id": 253,
+    "id": 252,
     "symbol": "PRUDENT",
     "condition": ">",
     "trigger_price": 3650.0,
@@ -2772,7 +2772,7 @@
     "notes": ""
   },
   {
-    "id": 254,
+    "id": 253,
     "symbol": "HARIOMPIPE",
     "condition": ">",
     "trigger_price": 440.0,
@@ -2783,7 +2783,7 @@
     "notes": ""
   },
   {
-    "id": 255,
+    "id": 254,
     "symbol": "TEGA",
     "condition": ">",
     "trigger_price": 2275.0,
@@ -2794,7 +2794,7 @@
     "notes": ""
   },
   {
-    "id": 256,
+    "id": 255,
     "symbol": "KRSNAA",
     "condition": ">",
     "trigger_price": 625.0,
@@ -2805,7 +2805,7 @@
     "notes": ""
   },
   {
-    "id": 257,
+    "id": 256,
     "symbol": "WINDLAS",
     "condition": ">",
     "trigger_price": 1150.0,
@@ -2816,7 +2816,7 @@
     "notes": ""
   },
   {
-    "id": 258,
+    "id": 257,
     "symbol": "SURYODAY",
     "condition": ">",
     "trigger_price": 215.0,
@@ -2827,7 +2827,7 @@
     "notes": ""
   },
   {
-    "id": 259,
+    "id": 258,
     "symbol": "NORTHARC",
     "condition": ">",
     "trigger_price": 345.0,
