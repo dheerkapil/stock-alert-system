@@ -2191,8 +2191,8 @@
   {
     "id": 201,
     "symbol": "GENESYS",
-    "condition": "<",
-    "trigger_price": 265.0,
+    "condition": ">",
+    "trigger_price": 315.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
