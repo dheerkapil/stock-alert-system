@@ -2403,8 +2403,8 @@
     "condition": ">",
     "trigger_price": 148.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-07 04:20:38",
     "added_at": "2026-10-02 03:13:31",
     "notes": "gtt 150"
   },
@@ -2557,8 +2557,8 @@
     "condition": ">",
     "trigger_price": 40.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-07 04:20:37",
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
   },
