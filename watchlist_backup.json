@@ -2530,17 +2530,6 @@
     "notes": ""
   },
   {
-    "id": 232,
-    "symbol": "PINELABS",
-    "condition": ">",
-    "trigger_price": 175.0,
-    "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-07 04:10:34",
-    "added_at": "2026-10-02 09:58:57",
-    "notes": ""
-  },
-  {
     "id": 233,
     "symbol": "GLOTTIS",
     "condition": ">",
