@@ -223,7 +223,7 @@
     "id": 21,
     "symbol": "DAMCAPITAL",
     "condition": ">",
-    "trigger_price": 171.0,
+    "trigger_price": 170.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
