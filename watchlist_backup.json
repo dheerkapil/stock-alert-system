@@ -2040,8 +2040,8 @@
     "condition": ">",
     "trigger_price": 120.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-07 04:05:33",
     "added_at": "2026-09-19 14:10:11",
     "notes": ""
   },
@@ -2315,8 +2315,8 @@
     "condition": ">",
     "trigger_price": 79.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-07 04:05:32",
     "added_at": "2026-10-01 16:17:39",
     "notes": ""
   },
@@ -2535,8 +2535,8 @@
     "condition": ">",
     "trigger_price": 175.0,
     "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
+    "is_triggered": 1,
+    "triggered_at": "2026-10-07 04:10:34",
     "added_at": "2026-10-02 09:58:57",
     "notes": ""
   },
