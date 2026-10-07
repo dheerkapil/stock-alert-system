@@ -2686,11 +2686,11 @@
   {
     "id": 246,
     "symbol": "ELIN",
-    "condition": "<",
-    "trigger_price": 93.5,
+    "condition": ">",
+    "trigger_price": 83.0,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-07 03:30:20",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 13:43:37",
     "notes": ""
   },
