@@ -2792,5 +2792,16 @@
     "triggered_at": null,
     "added_at": "2026-10-06 16:50:51",
     "notes": ""
+  },
+  {
+    "id": 256,
+    "symbol": "CHEMPLASTS",
+    "condition": ">",
+    "trigger_price": 235.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-07 15:49:47",
+    "notes": ""
   }
 ]
