@@ -2312,11 +2312,11 @@
   {
     "id": 211,
     "symbol": "ONEPOINT",
-    "condition": ">",
-    "trigger_price": 79.0,
+    "condition": "<",
+    "trigger_price": 77.0,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-07 04:05:32",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-01 16:17:39",
     "notes": ""
   },
