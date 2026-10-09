@@ -2825,5 +2825,16 @@
     "triggered_at": "2026-10-08 03:30:53",
     "added_at": "2026-10-07 16:35:23",
     "notes": ""
+  },
+  {
+    "id": 260,
+    "symbol": "LICHSGFIN",
+    "condition": ">",
+    "trigger_price": 590.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-09 15:44:07",
+    "notes": ""
   }
 ]
