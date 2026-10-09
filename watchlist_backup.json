@@ -2836,5 +2836,16 @@
     "triggered_at": null,
     "added_at": "2026-10-09 15:44:07",
     "notes": ""
+  },
+  {
+    "id": 261,
+    "symbol": "IGL",
+    "condition": ">",
+    "trigger_price": 71.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-09 16:10:53",
+    "notes": ""
   }
 ]
