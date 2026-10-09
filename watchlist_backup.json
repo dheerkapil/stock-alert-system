@@ -2880,5 +2880,16 @@
     "triggered_at": null,
     "added_at": "2026-10-09 16:54:02",
     "notes": ""
+  },
+  {
+    "id": 265,
+    "symbol": "EPACKPEB",
+    "condition": ">",
+    "trigger_price": 278.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-09 16:56:26",
+    "notes": ""
   }
 ]
