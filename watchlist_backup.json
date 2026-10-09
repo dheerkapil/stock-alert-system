@@ -2847,5 +2847,16 @@
     "triggered_at": null,
     "added_at": "2026-10-09 16:10:53",
     "notes": ""
+  },
+  {
+    "id": 262,
+    "symbol": "ARIS",
+    "condition": ">",
+    "trigger_price": 147.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-09 16:12:22",
+    "notes": ""
   }
 ]
