@@ -2968,5 +2968,16 @@
     "triggered_at": null,
     "added_at": "2026-10-10 17:07:43",
     "notes": ""
+  },
+  {
+    "id": 273,
+    "symbol": "TATATECH",
+    "condition": ">",
+    "trigger_price": 880.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 17:18:14",
+    "notes": ""
   }
 ]
