@@ -2891,5 +2891,16 @@
     "triggered_at": null,
     "added_at": "2026-10-09 16:56:26",
     "notes": ""
+  },
+  {
+    "id": 266,
+    "symbol": "ONWARDTEC",
+    "condition": ">",
+    "trigger_price": 312.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 01:08:39",
+    "notes": ""
   }
 ]
