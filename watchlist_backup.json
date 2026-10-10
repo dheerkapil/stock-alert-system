@@ -2928,7 +2928,7 @@
   {
     "id": 269,
     "symbol": "JSLL",
-    "condition": "<",
+    "condition": ">",
     "trigger_price": 485.0,
     "is_active": 1,
     "is_triggered": 0,
