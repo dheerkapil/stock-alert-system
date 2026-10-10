@@ -2913,5 +2913,16 @@
     "triggered_at": null,
     "added_at": "2026-10-10 02:39:16",
     "notes": ""
+  },
+  {
+    "id": 268,
+    "symbol": "CASTROLIND",
+    "condition": "<",
+    "trigger_price": 190.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 02:39:40",
+    "notes": ""
   }
 ]
