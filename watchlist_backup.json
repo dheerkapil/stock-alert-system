@@ -2990,5 +2990,16 @@
     "triggered_at": null,
     "added_at": "2026-10-10 17:24:54",
     "notes": ""
+  },
+  {
+    "id": 275,
+    "symbol": "AEGISLOG",
+    "condition": ">",
+    "trigger_price": 1485.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 17:26:35",
+    "notes": ""
   }
 ]
