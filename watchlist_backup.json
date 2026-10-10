@@ -3056,5 +3056,16 @@
     "triggered_at": null,
     "added_at": "2026-10-10 17:46:57",
     "notes": ""
+  },
+  {
+    "id": 281,
+    "symbol": "TEJASNET",
+    "condition": ">",
+    "trigger_price": 648.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 17:49:27",
+    "notes": ""
   }
 ]
