@@ -3034,5 +3034,16 @@
     "triggered_at": null,
     "added_at": "2026-10-10 17:33:27",
     "notes": ""
+  },
+  {
+    "id": 279,
+    "symbol": "INOXWIND",
+    "condition": ">",
+    "trigger_price": 77.5,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-10 17:38:34",
+    "notes": ""
   }
 ]
