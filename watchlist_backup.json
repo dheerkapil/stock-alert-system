@@ -3111,16 +3111,5 @@
     "triggered_at": null,
     "added_at": "2026-10-11 04:47:32",
     "notes": ""
-  },
-  {
-    "id": 285,
-    "symbol": "RCOM",
-    "condition": ">",
-    "trigger_price": 500.0,
-    "is_active": 1,
-    "is_triggered": 0,
-    "triggered_at": null,
-    "added_at": "2026-10-11 07:36:33",
-    "notes": ""
   }
 ]
