@@ -622,10 +622,10 @@ def api_alerts():
     company_names = stock_alert.get_company_names(symbols)
 
     now_ist = datetime.now(config.TIMEZONE)
-    in_market = (now_ist.weekday() < 5
-                 and datetime.strptime(config.START_TIME, "%H:%M").time()
-                     <= now_ist.time()
-                     <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
+    today_str = now_ist.strftime('%Y-%m-%d')
+    is_weekday = now_ist.weekday() < 5
+    is_holiday = today_str in config.NSE_HOLIDAYS
+    trading_day = is_weekday and not is_holiday
 
     no_data = []
 
@@ -647,18 +647,21 @@ def api_alerts():
             a['trigger_price'] = round(a['trigger_price'], 2)
 
         # ─── DAY CHANGE ─────────────────────────────────────────
-        # Ground truth = bhavcopy. Never trust TV's prev_close off-market.
-        #   • Market open  → CMP (live) vs last completed EOD close
-        #   • Market closed → last completed day's move (bhavcopy prev_close)
         last_c  = lt.get('last')
         last_pc = lt.get('last_prev_close')
         prior_c = lt.get('prior')
 
-        if in_market and cmp_price is not None and last_c and last_c > 0:
+        if lt.get('last_date') == today_str and last_c is not None and last_pc and last_pc > 0:
+            # 1. Today's bhavcopy captured → official day move
+            a['pct_chg'] = round((last_c - last_pc) / last_pc * 100, 2)
+        elif trading_day and cmp_price is not None and last_c and last_c > 0:
+            # 2. Trading day & TV price present (live or post-close, pre-EOD)
             a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
         elif last_c is not None and last_pc and last_pc > 0:
+            # 3. Non-trading day → last completed session's move
             a['pct_chg'] = round((last_c - last_pc) / last_pc * 100, 2)
         elif last_c is not None and prior_c and prior_c > 0:
+            # 4. Fallback
             a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
         else:
             a['pct_chg'] = None
