@@ -37,7 +37,6 @@ GAP_SCAN_INTERVAL = 1800
 GAP_MAX_CALENDAR_DAYS = 4
 CACHE_FRESH_SECONDS = 300
 
-# Track dates we've already pinged about this session, so we don't spam
 _pinged_holidays = set()
 
 # ------------------------------------------------------------------
@@ -59,7 +58,7 @@ def _read_otp_file():
             with open(_OTP_FILE) as f:
                 return json.load(f)
     except Exception as e:
-        logger.warning(f"OTP file read failed: {e}")
+        logger.warning(f"OTP read failed: {e}")
         return {}
 
 def _write_otp_file(data):
@@ -70,7 +69,7 @@ def _write_otp_file(data):
                 json.dump(data, f)
             os.replace(tmp, _OTP_FILE)
     except Exception as e:
-        logger.error(f"OTP file write failed: {e}")
+        logger.error(f"OTP write failed: {e}")
 
 def _ip():
     xff = request.headers.get('X-Forwarded-For', '')
@@ -119,21 +118,15 @@ def login_page():
 def send_otp():
     ip = _ip()
     now = time.time()
-
     otp_state = _read_otp_file()
     existing = otp_state.get(ip)
-
     if existing and now - existing.get('sent_at', 0) < OTP_THROTTLE:
         wait = int(OTP_THROTTLE - (now - existing['sent_at']))
         return jsonify({'status': 'error', 'message': f'Wait {wait}s'}), 429
 
     code = f"{random.randint(0, 9999):04d}"
-    otp_state[ip] = {
-        'code': code,
-        'expiry': now + OTP_VALIDITY,
-        'sent_at': now,
-        'attempts': 0,
-    }
+    otp_state[ip] = {'code': code, 'expiry': now + OTP_VALIDITY,
+                     'sent_at': now, 'attempts': 0}
     _write_otp_file(otp_state)
 
     stock_alert.send_telegram(f"🔐 <b>Login OTP</b>\nCode: <b>{code}</b>\nValid 5 min.")
@@ -144,7 +137,6 @@ def verify_otp():
     code = str((request.json or {}).get('code', '')).strip()
     ip = _ip()
     now = time.time()
-
     otp_state = _read_otp_file()
     e = otp_state.get(ip)
 
@@ -152,7 +144,6 @@ def verify_otp():
         return jsonify({'status': 'error', 'message': 'No OTP or expired'}), 401
 
     e['attempts'] = e.get('attempts', 0) + 1
-
     if e['attempts'] > MAX_OTP_ATTEMPTS:
         otp_state.pop(ip, None)
         _write_otp_file(otp_state)
@@ -215,7 +206,6 @@ def init_db():
             symbol TEXT NOT NULL,
             trade_date TEXT NOT NULL,
             open REAL, high REAL, low REAL, close REAL, volume REAL,
-            prev_close REAL,
             UNIQUE(symbol, trade_date)
         );
         CREATE INDEX IF NOT EXISTS idx_eod_symbol_date ON eod_snapshots (symbol, trade_date);
@@ -223,7 +213,7 @@ def init_db():
     ''')
     c.commit()
     c.close()
-    logger.info("Database ready")
+    logger.info("DB ready")
 
 def migrate_triggered_at_column():
     try:
@@ -236,21 +226,7 @@ def migrate_triggered_at_column():
             c.commit()
         c.close()
     except Exception as e:
-        logger.error(f"triggered_at migration error: {e}")
-
-def migrate_eod_prev_close():
-    try:
-        c = sqlite3.connect(config.DB_FILE)
-        cur = c.cursor()
-        cur.execute("PRAGMA table_info(eod_snapshots)")
-        cols = [r[1] for r in cur.fetchall()]
-        if 'prev_close' not in cols:
-            cur.execute("ALTER TABLE eod_snapshots ADD COLUMN prev_close REAL")
-            c.commit()
-        c.close()
-    except Exception as e:
-        logger.error(f"eod prev_close migration error: {e}")
-
+        logger.error(f"triggered_at migration: {e}")
 
 def get_last_two_closes(symbols):
     if not symbols:
@@ -303,20 +279,16 @@ def persist_bars(rows):
     if not rows:
         return 0
     c = sqlite3.connect(config.DB_FILE)
-    for r in rows:
-        if len(r) == 7:
-            r = (*r, None)
-        c.execute('''
-            INSERT OR REPLACE INTO eod_snapshots
-            (symbol, trade_date, open, high, low, close, volume, prev_close)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', r)
+    c.executemany('''
+        INSERT OR REPLACE INTO eod_snapshots
+        (symbol, trade_date, open, high, low, close, volume)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', rows)
     c.commit()
     c.close()
     return len(rows)
 
 def prune_eod():
-    """Keep the last BACKFILL_DAYS worth of trade dates; delete older."""
     c = sqlite3.connect(config.DB_FILE)
     rows = c.execute('''
         SELECT DISTINCT trade_date FROM eod_snapshots
@@ -330,7 +302,7 @@ def prune_eod():
     c.commit()
     c.close()
     if n:
-        logger.info(f"Pruned {n} old EOD rows (kept >= {oldest_keep})")
+        logger.info(f"Pruned {n} rows (kept >= {oldest_keep})")
 
 def _watchlist_symbols():
     try:
@@ -353,7 +325,6 @@ def _read_last_eod_date():
     return None
 
 def _prev_day_closes_all():
-    """Closes for every symbol on the most recent stored trade date."""
     try:
         c = sqlite3.connect(config.DB_FILE)
         max_d = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
@@ -368,7 +339,6 @@ def _prev_day_closes_all():
         return {}
 
 def _last_n_trading_days(n, include_today=False):
-    """Last N weekday non-holiday dates (descending)."""
     today = datetime.now(config.TIMEZONE).date()
     out = []
     d = today
@@ -396,7 +366,6 @@ def gh_put(filename, content, message, branch=None):
     url = f"{GH_API}/repos/{GITHUB_REPO}/contents/{filename}"
     if branch:
         url += f"?ref={branch}"
-
     sha = None
     try:
         r = requests.get(url, headers=_gh_headers(), timeout=10)
@@ -407,15 +376,11 @@ def gh_put(filename, content, message, branch=None):
     except Exception:
         return False
 
-    body = {
-        "message": message,
-        "content": base64.b64encode(content.encode()).decode(),
-    }
+    body = {"message": message, "content": base64.b64encode(content.encode()).decode()}
     if sha:
         body["sha"] = sha
     if branch:
         body["branch"] = branch
-
     try:
         r = requests.put(url, headers=_gh_headers(), json=body, timeout=60)
         return r.status_code in (200, 201)
@@ -437,7 +402,7 @@ def gh_get(filename, branch=None):
         return None
 
 # ------------------------------------------------------------------
-#  NSE SYMBOLS
+#  NSE SYMBOLS REFRESH
 # ------------------------------------------------------------------
 def refresh_nse():
     try:
@@ -455,7 +420,6 @@ def refresh_nse():
         symbols = [{"symbol": row[sym_col].strip(), "name": row[name_col].strip()}
                    for _, row in df.iterrows()]
         if not symbols:
-            logger.error("NSE fetch returned empty list")
             return False
 
         old_content = gh_get(GH_NSE, branch=GH_CACHE_BRANCH)
@@ -464,26 +428,22 @@ def refresh_nse():
             try:
                 old_symbols = json.loads(old_content)
             except Exception:
-                old_symbols = None
+                pass
 
-        changed = (old_symbols != symbols)
         stock_alert.save_nse_symbols(symbols)
-
-        if changed:
-            logger.info(f"NSE: {len(symbols)} symbols saved (CHANGED, will push)")
+        if old_symbols != symbols:
+            logger.info(f"NSE: {len(symbols)} symbols (changed, pushing)")
             threading.Thread(
                 target=lambda: gh_put(GH_NSE, json.dumps(symbols),
                                       f"NSE symbols: {len(symbols)}", branch=GH_CACHE_BRANCH),
                 daemon=True).start()
-        else:
-            logger.info(f"NSE: {len(symbols)} symbols saved (no change)")
         return True
     except Exception as e:
-        logger.error(f"NSE fetch failed: {e}")
+        logger.error(f"NSE refresh failed: {e}")
         return False
 
 # ------------------------------------------------------------------
-#  GITHUB RESTORE
+#  RESTORE FROM GITHUB
 # ------------------------------------------------------------------
 def restore_nse():
     content = gh_get(GH_NSE, branch=GH_CACHE_BRANCH)
@@ -493,7 +453,7 @@ def restore_nse():
         data = json.loads(content)
         if isinstance(data, list) and data:
             stock_alert.save_nse_symbols(data)
-            logger.info(f"✅ Restored {len(data)} NSE symbols from GitHub")
+            logger.info(f"✅ Restored {len(data)} NSE symbols")
     except Exception as e:
         logger.error(f"NSE restore: {e}")
 
@@ -502,7 +462,7 @@ def restore_watchlist():
     count = c.execute('SELECT COUNT(*) FROM watchlist').fetchone()[0]
     c.close()
     if count > 0:
-        logger.info(f"Watchlist already has {count} rows")
+        logger.info(f"Watchlist has {count} rows, skip restore")
         return
     content = gh_get(GH_WATCHLIST, branch=GH_CACHE_BRANCH)
     if not content:
@@ -542,23 +502,17 @@ def restore_eod():
         return
     try:
         data = json.loads(content)
-        c = sqlite3.connect(config.DB_FILE)
-        n = 0
+        rows = []
         for item in data:
             try:
-                c.execute('''
-                    INSERT OR REPLACE INTO eod_snapshots
-                    (symbol, trade_date, open, high, low, close, volume, prev_close)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (item.get('symbol'), item.get('trade_date'),
-                      item.get('open'), item.get('high'), item.get('low'),
-                      item.get('close'), item.get('volume'), item.get('prev_close')))
-                n += 1
+                rows.append((item.get('symbol'), item.get('trade_date'),
+                             item.get('open'), item.get('high'), item.get('low'),
+                             item.get('close'), item.get('volume')))
             except Exception:
                 pass
-        c.commit()
-        c.close()
-        logger.info(f"✅ Restored {n} EOD rows from GitHub")
+        if rows:
+            n = persist_bars(rows)
+            logger.info(f"✅ Restored {n} EOD rows")
     except Exception as e:
         logger.error(f"EOD restore: {e}")
 
@@ -569,9 +523,8 @@ def restore_tv_cache():
     try:
         data = json.loads(content)
         saved = data.get("saved_at", 0)
-        age = time.time() - saved
-        if age > 1800:
-            logger.info(f"TV cache {int(age)}s old — skipping")
+        if time.time() - saved > 1800:
+            logger.info(f"TV cache too old ({int(time.time() - saved)}s), skipping")
             return
         n = stock_alert.cache_restore(data.get("entries", {}), max_age=1800)
         logger.info(f"✅ Restored {n} TV cache entries")
@@ -591,7 +544,6 @@ def push_watchlist():
         logger.info(f"Backed up {len(rows)} alerts")
 
 def push_eod():
-    """Push the last BACKFILL_DAYS trade dates (whole market) to GitHub."""
     c = sqlite3.connect(config.DB_FILE)
     rows = c.execute('''
         SELECT DISTINCT trade_date FROM eod_snapshots
@@ -603,24 +555,22 @@ def push_eod():
     oldest = rows[-1][0]
     c.row_factory = sqlite3.Row
     data = [dict(r) for r in c.execute(
-        'SELECT symbol, trade_date, open, high, low, close, volume, prev_close '
+        'SELECT symbol, trade_date, open, high, low, close, volume '
         'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
         (oldest,))]
     c.close()
     if data:
         ok = gh_put(GH_EOD, json.dumps(data, default=str),
-                    f"EOD backup: {len(data)} rows ({len(rows)} days)",
-                    branch=GH_CACHE_BRANCH)
+                    f"EOD: {len(data)} rows ({len(rows)} days)", branch=GH_CACHE_BRANCH)
         if ok:
-            logger.info(f"Pushed {len(data)} EOD rows to GitHub")
+            logger.info(f"EOD → GitHub ({len(data)} rows)")
 
 def push_tv_cache():
     entries = stock_alert.cache_snapshot()
     if not entries:
         return
     payload = json.dumps({"saved_at": time.time(), "entries": entries}, default=str)
-    if gh_put(GH_CACHE, payload, f"TV cache: {len(entries)}",
-              branch=GH_CACHE_BRANCH):
+    if gh_put(GH_CACHE, payload, f"TV cache: {len(entries)}", branch=GH_CACHE_BRANCH):
         logger.info(f"TV cache → GitHub ({len(entries)})")
 
 # ------------------------------------------------------------------
@@ -633,28 +583,23 @@ def index():
 @app.route('/api/search')
 def search():
     q = request.args.get('q', '').strip()
-    if not q:
-        return jsonify([])
-    return jsonify(stock_alert.get_search_results(q))
+    return jsonify(stock_alert.get_search_results(q) if q else [])
 
 @app.route('/api/debug/eod/<symbol>')
 def api_debug_eod(symbol):
     c = sqlite3.connect(config.DB_FILE)
     c.row_factory = sqlite3.Row
     rows = [dict(r) for r in c.execute(
-        'SELECT trade_date, open, high, low, close, volume, prev_close '
+        'SELECT trade_date, open, high, low, close, volume '
         'FROM eod_snapshots WHERE symbol = ? ORDER BY trade_date DESC LIMIT 20',
         (symbol.upper(),))]
     c.close()
     return jsonify(rows)
 
 def _compute_alert_stats(sym):
-    """Compute (pct_chg, rvol) for a symbol from cache + DB."""
     tv = stock_alert.get_cached([sym])
     cmp_price = tv.get(sym, {}).get('price')
-
-    last_two = get_last_two_closes([sym])
-    lt = last_two.get(sym, {})
+    lt = get_last_two_closes([sym]).get(sym, {})
     last_c = lt.get('last')
     prior_c = lt.get('prior')
 
@@ -664,13 +609,11 @@ def _compute_alert_stats(sym):
     elif last_c and prior_c and prior_c > 0:
         pct = round((last_c - prior_c) / prior_c * 100, 2)
 
-    eod_vol = get_eod_volume_stats([sym])
     e = tv.get(sym, {})
-    ed = eod_vol.get(sym, {})
+    ed = get_eod_volume_stats([sym]).get(sym, {})
     vol = e.get('volume') or ed.get('last_vol')
     avg = e.get('avg_vol_10d') or ed.get('avg_prior_10d')
     rvol = round(vol / avg, 2) if vol and avg and avg > 0 else None
-
     return pct, rvol
 
 @app.route('/api/alerts')
@@ -679,7 +622,6 @@ def api_alerts():
     c.row_factory = sqlite3.Row
     alerts = [dict(r) for r in c.execute('SELECT * FROM watchlist ORDER BY symbol')]
     c.close()
-
     if not alerts:
         return jsonify([])
 
@@ -702,18 +644,15 @@ def api_alerts():
         eod = eod_vol.get(sym, {})
         lt = last_two.get(sym, {})
 
-        cmp_price = e.get('price')
-        if cmp_price is None:
-            cmp_price = lt.get('last')
+        cmp_price = e.get('price') or lt.get('last')
         a['cmp'] = round(cmp_price, 2) if cmp_price is not None else None
-
         if a['cmp'] is None:
             no_data.append(sym)
 
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        # ─── DAY CHANGE ─────────────────────────────────────────
+        # ─── DAY CHANGE — from DB rows only ────────────────────
         last_c  = lt.get('last')
         prior_c = lt.get('prior')
         last_d  = lt.get('last_date')
@@ -740,13 +679,8 @@ def api_alerts():
         else:
             a['pct_chg'] = None
 
-        vol = e.get('volume')
-        avg = e.get('avg_vol_10d')
-        if not vol or vol == 0:
-            vol = eod.get('last_vol')
-        if not avg or avg == 0:
-            avg = eod.get('avg_prior_10d')
-
+        vol = e.get('volume') or eod.get('last_vol')
+        avg = e.get('avg_vol_10d') or eod.get('avg_prior_10d')
         if vol and avg and avg > 0:
             ratio = vol / avg
             a['vol_pct'] = round(ratio * 100, 1)
@@ -760,18 +694,15 @@ def api_alerts():
             a['notes'] = ''
 
     if no_data:
-        logger.warning(f"No price data for {len(no_data)} symbols: {no_data}")
+        logger.warning(f"No price data: {len(no_data)} symbols")
 
     return jsonify(alerts)
 
 def _refresh_new_symbol(sym):
-    """Warm TV cache for a newly added symbol. EOD rows already exist (whole market)."""
     try:
         stock_alert.refresh_tv_cache([sym])
-        logger.info(f"Warm: TV cache updated for {sym}")
     except Exception as e:
-        logger.warning(f"TV warm failed for {sym}: {e}")
-    # In case some day is missing, kick repair.
+        logger.warning(f"TV warm {sym}: {e}")
     threading.Thread(target=repair_eod_gaps, daemon=True).start()
 
 @app.route('/api/add', methods=['POST'])
@@ -796,7 +727,6 @@ def api_add():
         c.close()
         return jsonify({'status': 'duplicate', 'message': f'{sym} already in list'}), 200
 
-    # "Condition already met" warning — only trust fresh TV cache.
     live = stock_alert.get_cached([sym]).get(sym, {}).get('price')
     age = stock_alert.get_cache_age(sym)
     cache_fresh = age is not None and age < CACHE_FRESH_SECONDS
@@ -813,10 +743,8 @@ def api_add():
                   (sym, cond, price, notes))
         c.commit()
         c.close()
-
         threading.Thread(target=_refresh_new_symbol, args=(sym,), daemon=True).start()
         threading.Thread(target=push_watchlist, daemon=True).start()
-
         return jsonify({'status': 'ok', 'symbol': sym, 'condition': cond, 'price': price})
     except Exception as e:
         c.close()
@@ -975,22 +903,14 @@ def api_import():
             pass
     c.commit()
     c.close()
-
-    # Whole-market EOD already in DB; just kick repair in case a day is missing.
     threading.Thread(target=repair_eod_gaps, daemon=True).start()
     threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok', 'count': len(data)})
 
 # ------------------------------------------------------------------
-#  GAP REPAIR  (whole-market, by day)
+#  GAP REPAIR  (whole market, by day)
 # ------------------------------------------------------------------
 def repair_eod_gaps():
-    """
-    Ensure every one of the last BACKFILL_DAYS trading days has rows in DB.
-    Missing days are fetched from bhavcopy (whole market) once, then stored forever.
-    Undetected-holiday detection: if a weekday not in NSE_HOLIDAYS returns 404,
-    treat as holiday and ping Telegram (once per session per date).
-    """
     want_days = _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
     if not want_days:
         return
@@ -1003,8 +923,7 @@ def repair_eod_gaps():
     if not missing:
         return
 
-    logger.info(f"EOD repair: {len(missing)} days missing: "
-                f"{[d.strftime('%Y-%m-%d') for d in missing]}")
+    logger.info(f"EOD repair: {len(missing)} days missing")
 
     prev_closes = _prev_day_closes_all()
     fetched_any = False
@@ -1021,7 +940,6 @@ def repair_eod_gaps():
         elif status == "stale":
             logger.info(f"EOD repair: {day_str} stale — skipping")
         elif status == "unavailable":
-            # Weekday, not on holiday list, bhavcopy 404 → likely undetected holiday.
             if day_str not in _pinged_holidays:
                 _pinged_holidays.add(day_str)
                 stock_alert.send_telegram(
@@ -1052,12 +970,11 @@ def gap_scan_loop():
         try:
             repair_eod_gaps()
         except Exception as e:
-            logger.error(f"gap_scan_loop error: {e}")
+            logger.error(f"gap_scan_loop: {e}")
         time.sleep(GAP_SCAN_INTERVAL)
 
 def market_loop():
     time.sleep(30)
-
     last_tv_push = 0
     last_nse_fetch = datetime.now(config.TIMEZONE).date()
     last_otp_cleanup = 0
@@ -1098,9 +1015,8 @@ def market_loop():
                 last_otp_cleanup = now_t
 
             time.sleep(55 if in_market else 300)
-
         except Exception as e:
-            logger.error(f"market_loop error: {e}")
+            logger.error(f"market_loop: {e}")
             time.sleep(60)
 
 def eod_fetcher():
@@ -1108,7 +1024,7 @@ def eod_fetcher():
     pending_date = None
     next_attempt_ts = None
 
-    logger.info(f"eod_fetcher: starting, last_completed={last_completed_date}")
+    logger.info(f"eod_fetcher start, last_completed={last_completed_date}")
 
     while True:
         try:
@@ -1116,7 +1032,7 @@ def eod_fetcher():
             today = now.date()
 
             if pending_date is not None and today > pending_date:
-                logger.info(f"eod_fetcher: midnight crossed, Yahoo fallback for {pending_date}")
+                logger.info(f"eod_fetcher: midnight crossed, Yahoo rescue for {pending_date}")
                 _eod_fallback_yahoo(pending_date)
                 last_completed_date = pending_date
                 pending_date = None
@@ -1130,10 +1046,10 @@ def eod_fetcher():
                     and today != last_completed_date):
                 today_str = today.strftime('%Y-%m-%d')
                 if today_str in config.NSE_HOLIDAYS:
-                    logger.info(f"eod_fetcher: {today_str} on holiday list, skipping")
+                    logger.info(f"eod_fetcher: {today_str} on holiday list, skip")
                     last_completed_date = today
                 else:
-                    logger.info(f"eod_fetcher: starting EOD fetch for {today_str}")
+                    logger.info(f"eod_fetcher: start fetch for {today_str}")
                     pending_date = today
                     next_attempt_ts = time.time()
 
@@ -1142,29 +1058,19 @@ def eod_fetcher():
                 status, rows = stock_alert.fetch_bhavcopy_for_date(
                     pending_date, symbols=None, compare_closes=prev_closes
                 )
-
                 if status == "unavailable":
                     next_attempt_ts = time.time() + 900
-                    logger.info(f"eod_fetcher: bhavcopy for {pending_date} not yet available, "
-                                f"next attempt in 15 min")
-
-                elif status == "empty":
-                    logger.warning(f"eod_fetcher: bhavcopy for {pending_date} empty")
+                    logger.info(f"eod_fetcher: {pending_date} unavailable, retry 15 min")
+                elif status in ("empty", "stale"):
+                    logger.info(f"eod_fetcher: {pending_date} {status}, skip")
                     last_completed_date = pending_date
                     pending_date = None
                     next_attempt_ts = None
-
-                elif status == "stale":
-                    logger.info(f"eod_fetcher: bhavcopy for {pending_date} stale")
-                    last_completed_date = pending_date
-                    pending_date = None
-                    next_attempt_ts = None
-
                 else:
                     n = persist_bars(rows)
                     prune_eod()
                     push_eod()
-                    logger.info(f"eod_fetcher: stored {n} rows for {pending_date} (whole market)")
+                    logger.info(f"eod_fetcher: {n} rows for {pending_date}")
                     stock_alert.send_telegram(
                         f"✅ EOD captured for {pending_date.strftime('%Y-%m-%d')} — {n} symbols"
                     )
@@ -1174,11 +1080,10 @@ def eod_fetcher():
 
             time.sleep(60)
         except Exception as e:
-            logger.error(f"eod_fetcher error: {e}")
+            logger.error(f"eod_fetcher: {e}")
             time.sleep(60)
 
 def _eod_fallback_yahoo(target_date):
-    """Last-resort only, restricted to watchlist symbols."""
     date_str = target_date.strftime('%Y-%m-%d')
     try:
         syms = _watchlist_symbols()
@@ -1190,17 +1095,17 @@ def _eod_fallback_yahoo(target_date):
             n = persist_bars(target_rows)
             push_eod()
             prune_eod()
-            logger.info(f"eod_fetcher: yahoo stored {n} rows for {date_str}")
+            logger.info(f"Yahoo rescue: {n} rows for {date_str}")
             stock_alert.send_telegram(
                 f"✅ EOD captured (Yahoo fallback) for {date_str} — {n} symbols (watchlist only)"
             )
         else:
-            logger.warning(f"eod_fetcher: yahoo returned no rows for {date_str}")
+            logger.warning(f"Yahoo returned no rows for {date_str}")
             stock_alert.send_telegram(
                 f"⚠️ EOD missing for {date_str} — bhavcopy and Yahoo both failed"
             )
     except Exception as e:
-        logger.error(f"eod_fetcher yahoo fallback failed: {e}")
+        logger.error(f"Yahoo fallback failed: {e}")
 
 def healthcheck_pinger():
     if not HEALTHCHECK_URL:
@@ -1208,8 +1113,7 @@ def healthcheck_pinger():
     time.sleep(60)
     while True:
         try:
-            age = time.time() - stock_alert.get_last_tick()
-            if age < 900:
+            if time.time() - stock_alert.get_last_tick() < 900:
                 try:
                     requests.get(HEALTHCHECK_URL, timeout=10)
                 except Exception:
@@ -1224,7 +1128,7 @@ def worker_thread():
         try:
             stock_alert.worker_loop()
         except Exception as e:
-            logger.exception(f"Worker crashed, restarting in 30s: {e}")
+            logger.exception(f"Worker crashed, restart in 30s: {e}")
             time.sleep(30)
 
 # ------------------------------------------------------------------
@@ -1232,7 +1136,6 @@ def worker_thread():
 # ------------------------------------------------------------------
 init_db()
 migrate_triggered_at_column()
-migrate_eod_prev_close()
 
 threading.Thread(target=startup_thread,      daemon=True).start()
 threading.Thread(target=market_loop,         daemon=True).start()

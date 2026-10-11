@@ -43,7 +43,7 @@ def _write_tv_file():
             json.dump(payload, f)
         os.replace(tmp, _TV_FILE)
     except Exception as e:
-        logger.warning(f"TV cache file write failed: {e}")
+        logger.warning(f"TV cache write failed: {e}")
 
 def _read_tv_file():
     try:
@@ -69,36 +69,30 @@ def _read_tv_file():
             _TV_FILE_MEMO["data"] = data
             return data
     except Exception as e:
-        logger.warning(f"TV cache file read failed: {e}")
+        logger.warning(f"TV cache read failed: {e}")
         return {}
 
 def _tv_fetch(symbols):
     global _backoff_until
-
     result = {}
-    total_chunks = (len(symbols) + config.TRADINGVIEW_CHUNK_SIZE - 1) // config.TRADINGVIEW_CHUNK_SIZE
+    total = (len(symbols) + config.TRADINGVIEW_CHUNK_SIZE - 1) // config.TRADINGVIEW_CHUNK_SIZE
 
     for idx, i in enumerate(range(0, len(symbols), config.TRADINGVIEW_CHUNK_SIZE), start=1):
         chunk = symbols[i:i + config.TRADINGVIEW_CHUNK_SIZE]
         payload = {
             "symbols": {"tickers": [f"NSE:{_tv_symbol(s)}" for s in chunk]},
-            "columns": [
-                "close", "volume",
-                "average_volume_10d_calc", "relative_volume_10d_calc",
-                "prev_close_price",
-            ]
+            "columns": ["close", "volume", "average_volume_10d_calc",
+                        "relative_volume_10d_calc", "prev_close_price"],
         }
         try:
             r = requests.post("https://scanner.tradingview.com/india/scan",
                               json=payload, timeout=8)
-
             if r.status_code == 429:
                 _backoff_until = time.time() + config.TV_CACHE_BACKOFF_SECONDS
-                logger.warning(f"TV 429 on chunk {idx}/{total_chunks}")
+                logger.warning(f"TV 429 chunk {idx}/{total}")
                 return result
-
             if r.status_code != 200:
-                logger.warning(f"TV chunk {idx}/{total_chunks} HTTP {r.status_code}")
+                logger.warning(f"TV chunk {idx}/{total} HTTP {r.status_code}")
                 time.sleep(config.TRADINGVIEW_DELAY)
                 continue
 
@@ -118,8 +112,7 @@ def _tv_fetch(symbols):
                         result[s] = data
                         break
         except Exception as e:
-            logger.warning(f"TV chunk {idx}/{total_chunks} failed: {e}")
-
+            logger.warning(f"TV chunk {idx}/{total} failed: {e}")
         time.sleep(config.TRADINGVIEW_DELAY)
 
     return result
@@ -127,7 +120,6 @@ def _tv_fetch(symbols):
 def refresh_tv_cache(symbols):
     if time.time() < _backoff_until:
         return 0
-
     symbols = list(set(symbols))
     now = time.time()
 
@@ -135,11 +127,10 @@ def refresh_tv_cache(symbols):
         missing = [s for s in symbols
                    if s not in _TV_CACHE
                    or (now - _TV_CACHE[s][0]) >= config.TV_CACHE_TTL_SECONDS]
-
     if not missing:
         return 0
 
-    logger.info(f"TV refresh: {len(missing)} missing of {len(symbols)}")
+    logger.info(f"TV refresh: {len(missing)} of {len(symbols)}")
     fetched = _tv_fetch(missing)
 
     updated = 0
@@ -152,8 +143,7 @@ def refresh_tv_cache(symbols):
 
     if updated:
         _write_tv_file()
-
-    logger.info(f"TV refresh wrote {updated} to RAM+file")
+    logger.info(f"TV refresh wrote {updated}")
     return updated
 
 def get_cached(symbols):
@@ -166,33 +156,25 @@ def get_cached(symbols):
 
     missing = set(symbols) - set(result.keys())
     if missing:
-        file_cache = _read_tv_file()
-        for s in missing:
-            e = file_cache.get(s)
-            if e:
+        for s, e in _read_tv_file().items():
+            if s in missing:
                 result[s] = e[1]
-
     return result
 
 def get_cache_age(symbol):
-    """Age in seconds of the cached TV entry for a symbol, or None if not cached."""
     with _TV_CACHE_LOCK:
         e = _TV_CACHE.get(symbol)
         if e:
             return time.time() - e[0]
-    file_cache = _read_tv_file()
-    e = file_cache.get(symbol)
-    if e:
-        return time.time() - e[0]
-    return None
+    e = _read_tv_file().get(symbol)
+    return time.time() - e[0] if e else None
 
 def cache_snapshot():
     with _TV_CACHE_LOCK:
         ram = {s: {"ts": ts, "data": d} for s, (ts, d) in _TV_CACHE.items()}
     if ram:
         return ram
-    file_cache = _read_tv_file()
-    return {s: {"ts": ts, "data": d} for s, (ts, d) in file_cache.items()}
+    return {s: {"ts": ts, "data": d} for s, (ts, d) in _read_tv_file().items()}
 
 def cache_restore(entries, max_age=1800):
     now = time.time()
@@ -213,7 +195,7 @@ def cache_restore(entries, max_age=1800):
     return n
 
 # ------------------------------------------------------------------
-#  NSE SYMBOL LIST — file-backed, cross-worker safe
+#  NSE SYMBOL LIST — for autocomplete only
 # ------------------------------------------------------------------
 _NSE_FILE = os.path.join(os.path.dirname(os.path.abspath(config.DB_FILE)), "nse_symbols_local.json")
 _NSE_MEMO = {"mtime": 0, "symbols": [], "names": {}}
@@ -227,9 +209,9 @@ def save_nse_symbols(symbols):
         os.replace(tmp, _NSE_FILE)
         with _NSE_LOCK:
             _NSE_MEMO["mtime"] = 0
-        logger.info(f"NSE symbols saved to file ({len(symbols)} entries)")
+        logger.info(f"NSE symbols saved ({len(symbols)})")
     except Exception as e:
-        logger.warning(f"NSE file write failed: {e}")
+        logger.warning(f"NSE write failed: {e}")
 
 def _read_nse_file():
     try:
@@ -241,14 +223,13 @@ def _read_nse_file():
                 return _NSE_MEMO["symbols"], _NSE_MEMO["names"]
             with open(_NSE_FILE) as f:
                 symbols = json.load(f)
-            names = {i['symbol'].upper(): i['name']
-                     for i in symbols if i.get('symbol')}
+            names = {i['symbol'].upper(): i['name'] for i in symbols if i.get('symbol')}
             _NSE_MEMO["mtime"] = mtime
             _NSE_MEMO["symbols"] = symbols
             _NSE_MEMO["names"] = names
             return symbols, names
     except Exception as e:
-        logger.warning(f"NSE file read failed: {e}")
+        logger.warning(f"NSE read failed: {e}")
         return [], {}
 
 def get_search_results(query, limit=50):
@@ -270,10 +251,6 @@ def get_company_names(symbols):
     _, names = _read_nse_file()
     return {s.upper(): names.get(s.upper(), '') for s in symbols}
 
-def nse_list_size():
-    symbols, _ = _read_nse_file()
-    return len(symbols)
-
 # ------------------------------------------------------------------
 #  NSE BHAVCOPY — the only EOD source
 # ------------------------------------------------------------------
@@ -288,20 +265,14 @@ def _bhav_headers():
 
 def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
     """
-    symbols=None → return every EQ/BE row (whole-market mode).
-    symbols=[...] → filter to just those symbols.
-
-    Returns (status, rows):
-      ("unavailable", None) — file not published yet, retry later
-      ("empty", None)       — file exists but no matching symbols
-      ("stale", None)       — file duplicates the comparison set (holiday)
-      ("ok", rows)          — valid data
+    Whole-market fetch. symbols=None → return every EQ/BE row.
+    Returns (status, rows). rows are 7-tuples: (sym, date, o, h, l, c, v).
     """
     url = _NSE_BHAV_URL.format(ddmmyyyy=target_date.strftime('%d%m%Y'))
     try:
         r = requests.get(url, headers=_bhav_headers(), timeout=20)
     except Exception as e:
-        logger.warning(f"Bhavcopy {target_date}: request failed: {e}")
+        logger.warning(f"Bhavcopy {target_date}: {e}")
         return ("unavailable", None)
 
     if r.status_code == 404:
@@ -321,15 +292,14 @@ def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
         return ("unavailable", None)
 
     sym_col   = next((c for c in df.columns if c.upper() == 'SYMBOL'), None)
-    open_col  = next((c for c in df.columns if 'OPEN'  in c.upper()), None)
-    high_col  = next((c for c in df.columns if 'HIGH'  in c.upper()), None)
-    low_col   = next((c for c in df.columns if 'LOW'   in c.upper()), None)
+    open_col  = next((c for c in df.columns if 'OPEN' in c.upper()), None)
+    high_col  = next((c for c in df.columns if 'HIGH' in c.upper()), None)
+    low_col   = next((c for c in df.columns if 'LOW' in c.upper()), None)
     close_col = next((c for c in df.columns if c.upper() in ('CLOSE_PRICE', 'CLOSE')), None)
-    prev_col  = next((c for c in df.columns if 'PREV' in c.upper() and 'CLOSE' in c.upper()), None)
     vol_col   = next((c for c in df.columns if 'TTL_TRD_QNTY' in c.upper() or 'VOLUME' in c.upper()), None)
 
     if not sym_col or not close_col:
-        logger.warning(f"Bhavcopy {target_date}: missing SYMBOL or CLOSE column")
+        logger.warning(f"Bhavcopy {target_date}: missing SYMBOL/CLOSE")
         return ("unavailable", None)
 
     if symbols:
@@ -339,7 +309,6 @@ def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
         sub = df
 
     if len(sub) == 0:
-        logger.info(f"Bhavcopy {target_date}: file OK, 0 matched")
         return ("empty", None)
 
     date_str = target_date.strftime('%Y-%m-%d')
@@ -354,65 +323,22 @@ def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
             h = float(row[high_col]) if high_col and pd.notna(row[high_col]) else None
             l = float(row[low_col])  if low_col  and pd.notna(row[low_col])  else None
             v = float(row[vol_col])  if vol_col  and pd.notna(row[vol_col])  else None
-            p = float(row[prev_col]) if prev_col and pd.notna(row[prev_col]) else None
-            rows.append((sym, date_str, o, h, l, c, v, p))
+            rows.append((sym, date_str, o, h, l, c, v))
         except Exception:
             continue
 
+    # Stale-file detection (holiday where NSE serves the previous day's file)
     if compare_closes and rows:
         matches = sum(1 for r in rows if compare_closes.get(r[0]) == r[5])
-        pct = matches / len(rows)
-        if pct > 0.99:
-            logger.info(f"Bhavcopy {target_date}: STALE — {matches}/{len(rows)} "
-                        f"({int(pct*100)}%) match comparison set")
+        if matches / len(rows) > 0.99:
+            logger.info(f"Bhavcopy {target_date}: STALE ({matches}/{len(rows)})")
             return ("stale", None)
 
     logger.info(f"Bhavcopy {target_date}: OK, {len(rows)} rows")
     return ("ok", rows)
 
-def batch_fetch_daily_bars(symbols, days=5, include_today=False, max_retries=3):
-    """Kept for compatibility; whole-market uses repair_eod_gaps instead."""
-    if not symbols:
-        return []
-    symbols = list({s.upper() for s in symbols})
-    today = datetime.now(config.TIMEZONE).date()
-
-    candidates = []
-    d = today
-    guard = 0
-    while len(candidates) < days * 2 and guard < days * 4 + 20:
-        guard += 1
-        if d.weekday() < 5 and d.strftime('%Y-%m-%d') not in config.NSE_HOLIDAYS:
-            if not (d == today and not include_today):
-                candidates.append(d)
-        d = d - timedelta(days=1)
-    candidates.reverse()
-
-    all_rows = []
-    prev_day_closes = None
-    days_found = 0
-
-    for cand in candidates:
-        if days_found >= days:
-            break
-        status, rows = None, None
-        for attempt in range(1, max_retries + 1):
-            status, rows = fetch_bhavcopy_for_date(cand, symbols, compare_closes=prev_day_closes)
-            if status != "unavailable":
-                break
-            if attempt < max_retries:
-                time.sleep(2)
-        if status == "ok" and rows:
-            all_rows.extend(rows)
-            prev_day_closes = {r[0]: r[5] for r in rows}
-            days_found += 1
-        time.sleep(0.3)
-
-    logger.info(f"batch_fetch_daily_bars: {len(all_rows)} rows across {days_found} days")
-    return all_rows
-
 # ------------------------------------------------------------------
-#  YAHOO — midnight fallback only
+#  YAHOO — midnight rescue only
 # ------------------------------------------------------------------
 def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
     if not symbols:
@@ -420,8 +346,7 @@ def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
     symbols = [s.upper() for s in symbols]
     tickers = [f"{s}.NS" for s in symbols]
 
-    logger.info(f"Yahoo: {days}d bars for {len(symbols)} symbols")
-
+    logger.info(f"Yahoo: {days}d for {len(symbols)} symbols")
     try:
         data = yf.download(
             tickers=" ".join(tickers),
@@ -463,7 +388,7 @@ def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
                 rows.append((sym, bar_date.strftime('%Y-%m-%d'),
                              fv('Open'), fv('High'), fv('Low'), fv('Close'), fv('Volume')))
         except Exception as e:
-            logger.warning(f"Yahoo extract failed for {sym}: {e}")
+            logger.warning(f"Yahoo extract {sym}: {e}")
 
     return rows
 
@@ -473,10 +398,8 @@ def batch_fetch_daily_bars_yahoo(symbols, days=5, include_today=False):
 def send_telegram(message, retries=3):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         return False
-
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": config.TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
-
     for attempt in range(1, retries + 1):
         try:
             r = requests.post(url, json=payload, timeout=10)
@@ -486,7 +409,6 @@ def send_telegram(message, retries=3):
             pass
         if attempt < retries:
             time.sleep(2)
-
     logger.error(f"Telegram failed: {message[:60]}")
     return False
 
@@ -514,12 +436,14 @@ def format_alert(alert):
 # ------------------------------------------------------------------
 #  WORKER LOOP
 # ------------------------------------------------------------------
+DUPLICATE_WINDOW = 600  # seconds — prevent re-fire within this window
+
 def worker_loop():
     global _last_tick
 
-    fired_ids = set()
+    fired_at = {}
 
-    logger.info(f"🚀 Worker started. Poll interval: {config.POLL_INTERVAL}s.")
+    logger.info(f"🚀 Worker started. Poll: {config.POLL_INTERVAL}s")
     send_telegram(f"🟢 System online — {datetime.now(config.TIMEZONE).strftime('%Y-%m-%d %H:%M:%S IST')}")
 
     while True:
@@ -545,7 +469,7 @@ def worker_loop():
                 alerts = [a for a in r.json()
                           if a['is_active'] == 1 and a['is_triggered'] == 0]
             except Exception as e:
-                logger.error(f"Failed to fetch alerts: {e}")
+                logger.error(f"Alert fetch failed: {e}")
                 time.sleep(config.POLL_INTERVAL)
                 continue
 
@@ -553,12 +477,16 @@ def worker_loop():
                 time.sleep(config.POLL_INTERVAL)
                 continue
 
+            # Prune fired_at of stale entries
+            cutoff = time.time() - DUPLICATE_WINDOW
+            fired_at = {k: v for k, v in fired_at.items() if v > cutoff}
+
             symbols = list({a['symbol'] for a in alerts})
             prices = get_cached(symbols)
 
             for a in alerts:
                 aid = a['id']
-                if aid in fired_ids:
+                if aid in fired_at:
                     continue
 
                 price = prices.get(a['symbol'], {}).get('price')
@@ -572,12 +500,9 @@ def worker_loop():
                 if not fired:
                     continue
 
-                # Send Telegram once. Add to local set BEFORE the network call so
-                # a slow send doesn't double-fire if the loop re-enters.
-                fired_ids.add(aid)
+                fired_at[aid] = time.time()
                 send_telegram(format_alert(a))
 
-                # Retry mark_triggered a few times.
                 marked = False
                 for attempt in range(1, 4):
                     try:
@@ -589,13 +514,13 @@ def worker_loop():
                             marked = True
                             break
                     except Exception as e:
-                        logger.warning(f"mark_triggered attempt {attempt} failed: {e}")
+                        logger.warning(f"mark_triggered #{attempt} failed: {e}")
                     time.sleep(2)
 
                 if not marked:
-                    logger.error(f"mark_triggered FAILED after retries for id={aid} ({a['symbol']})")
-
-                logger.info(f"Alert {aid} ({a['symbol']}) triggered")
+                    logger.error(f"mark_triggered FAILED for id={aid} ({a['symbol']})")
+                else:
+                    logger.info(f"Alert {aid} ({a['symbol']}) triggered")
 
             time.sleep(config.POLL_INTERVAL)
 
