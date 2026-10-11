@@ -621,6 +621,12 @@ def api_alerts():
     eod_vol = get_eod_volume_stats(symbols)
     company_names = stock_alert.get_company_names(symbols)
 
+    now_ist = datetime.now(config.TIMEZONE)
+    in_market = (now_ist.weekday() < 5
+                 and datetime.strptime(config.START_TIME, "%H:%M").time()
+                     <= now_ist.time()
+                     <= datetime.strptime(config.STOP_TIME, "%H:%M").time())
+
     no_data = []
 
     for a in alerts:
@@ -640,29 +646,22 @@ def api_alerts():
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        tv_prev = e.get('prev_close')
-        today_str = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
+        # ─── DAY CHANGE ─────────────────────────────────────────
+        # Ground truth = bhavcopy. Never trust TV's prev_close off-market.
+        #   • Market open  → CMP (live) vs last completed EOD close
+        #   • Market closed → last completed day's move (bhavcopy prev_close)
+        last_c  = lt.get('last')
+        last_pc = lt.get('last_prev_close')
+        prior_c = lt.get('prior')
 
-        # If today's EOD row is already in the DB, derive the official day change from Bhavcopy.
-        if lt.get('last_date') == today_str and lt.get('last') is not None:
-            bhav_prev = lt.get('last_prev_close')
-            if bhav_prev and bhav_prev > 0:
-                a['pct_chg'] = round((lt['last'] - bhav_prev) / bhav_prev * 100, 2)
-            else:
-                prior_c = lt.get('prior')
-                a['pct_chg'] = (round((lt['last'] - prior_c) / prior_c * 100, 2)
-                                if prior_c and prior_c > 0 else None)
-        elif tv_prev and tv_prev > 0:
-            # During market hours / before today's EOD is captured, use TV live price vs TV prev_close.
-            a['pct_chg'] = (round((cmp_price - tv_prev) / tv_prev * 100, 2)
-                            if cmp_price is not None else None)
+        if in_market and cmp_price is not None and last_c and last_c > 0:
+            a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
+        elif last_c is not None and last_pc and last_pc > 0:
+            a['pct_chg'] = round((last_c - last_pc) / last_pc * 100, 2)
+        elif last_c is not None and prior_c and prior_c > 0:
+            a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
         else:
-            # Fallback: use last stored EOD close as the previous close, so pct_chg means today's move.
-            last_c = lt.get('last')
-            if cmp_price is not None and last_c:
-                a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
-            else:
-                a['pct_chg'] = None
+            a['pct_chg'] = None
 
         vol = e.get('volume')
         avg = e.get('avg_vol_10d')
