@@ -389,17 +389,25 @@ def gh_put(filename, content, message, branch=None):
         return False
 
 def gh_get(filename, branch=None):
+    """Fetch a file from GitHub. Uses the raw media type so files >1 MB work."""
     if not GITHUB_TOKEN:
         return None
     url = f"{GH_API}/repos/{GITHUB_REPO}/contents/{filename}"
     if branch:
         url += f"?ref={branch}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.raw",
+        "User-Agent": "stock-alert",
+    }
     try:
-        r = requests.get(url, headers=_gh_headers(), timeout=30)
+        r = requests.get(url, headers=headers, timeout=60)
         if r.status_code != 200:
+            logger.warning(f"gh_get({filename}): HTTP {r.status_code}")
             return None
-        return base64.b64decode(r.json().get("content", "")).decode()
-    except Exception:
+        return r.text
+    except Exception as e:
+        logger.warning(f"gh_get({filename}): {e}")
         return None
 
 # ------------------------------------------------------------------
@@ -467,6 +475,7 @@ def restore_watchlist():
         return
     content = gh_get(GH_WATCHLIST, branch=GH_CACHE_BRANCH)
     if not content:
+        logger.warning("Watchlist restore: no content from GitHub")
         return
     try:
         data = json.loads(content)
@@ -500,9 +509,13 @@ def restore_watchlist():
 def restore_eod():
     content = gh_get(GH_EOD, branch=GH_CACHE_BRANCH)
     if not content:
+        logger.warning("EOD restore: no content from GitHub")
         return
     try:
         data = json.loads(content)
+        if not isinstance(data, list) or not data:
+            logger.warning("EOD restore: empty or invalid payload")
+            return
         rows = []
         for item in data:
             try:
@@ -514,6 +527,8 @@ def restore_eod():
         if rows:
             n = persist_bars(rows)
             logger.info(f"✅ Restored {n} EOD rows")
+        else:
+            logger.warning("EOD restore: no rows parsed")
     except Exception as e:
         logger.error(f"EOD restore: {e}")
 
@@ -653,7 +668,6 @@ def api_alerts():
         if a.get('trigger_price') is not None:
             a['trigger_price'] = round(a['trigger_price'], 2)
 
-        # ─── DAY CHANGE — from DB rows only ────────────────────
         last_c  = lt.get('last')
         prior_c = lt.get('prior')
         last_d  = lt.get('last_date')
@@ -912,11 +926,6 @@ def api_import():
 #  GAP REPAIR  (whole market, by day)
 # ------------------------------------------------------------------
 def prune_legacy_short_days():
-    """
-    Delete any EOD day that has fewer than LEGACY_DAY_MIN_SYMBOLS distinct symbols.
-    Such rows are from the old watchlist-only code and would block whole-market
-    refetch by repair_eod_gaps (which only checks day presence, not completeness).
-    """
     c = sqlite3.connect(config.DB_FILE)
     rows = c.execute('''
         SELECT trade_date, COUNT(DISTINCT symbol) AS n
