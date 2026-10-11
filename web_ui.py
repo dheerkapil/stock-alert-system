@@ -33,6 +33,13 @@ GH_CACHE      = "tv_cache.json"
 GH_CACHE_BRANCH = "cache"
 GH_API        = "https://api.github.com"
 
+GAP_SCAN_INTERVAL = 1800
+GAP_MAX_CALENDAR_DAYS = 4
+CACHE_FRESH_SECONDS = 300
+
+# Track dates we've already pinged about this session, so we don't spam
+_pinged_holidays = set()
+
 # ------------------------------------------------------------------
 #  AUTH
 # ------------------------------------------------------------------
@@ -227,7 +234,6 @@ def migrate_triggered_at_column():
         if 'triggered_at' not in cols:
             cur.execute("ALTER TABLE watchlist ADD COLUMN triggered_at TIMESTAMP")
             c.commit()
-            logger.info("Added triggered_at column to watchlist")
         c.close()
     except Exception as e:
         logger.error(f"triggered_at migration error: {e}")
@@ -241,30 +247,10 @@ def migrate_eod_prev_close():
         if 'prev_close' not in cols:
             cur.execute("ALTER TABLE eod_snapshots ADD COLUMN prev_close REAL")
             c.commit()
-            logger.info("Added prev_close column to eod_snapshots")
         c.close()
     except Exception as e:
         logger.error(f"eod prev_close migration error: {e}")
 
-
-def get_prev_closes(symbols):
-    if not symbols:
-        return {}
-    today = datetime.now(config.TIMEZONE).strftime('%Y-%m-%d')
-    ph = ','.join('?' * len(symbols))
-    c = sqlite3.connect(config.DB_FILE)
-    rows = c.execute(f'''
-        SELECT e.symbol, e.close
-        FROM eod_snapshots e
-        INNER JOIN (
-            SELECT symbol, MAX(trade_date) AS d
-            FROM eod_snapshots
-            WHERE trade_date < ? AND symbol IN ({ph})
-            GROUP BY symbol
-        ) m ON e.symbol = m.symbol AND e.trade_date = m.d
-    ''', [today] + symbols).fetchall()
-    c.close()
-    return {r[0]: r[1] for r in rows}
 
 def get_last_two_closes(symbols):
     if not symbols:
@@ -273,25 +259,23 @@ def get_last_two_closes(symbols):
     c = sqlite3.connect(config.DB_FILE)
     rows = c.execute(f'''
         WITH r AS (
-            SELECT symbol, trade_date, close, prev_close,
+            SELECT symbol, trade_date, close,
                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS n
             FROM eod_snapshots WHERE symbol IN ({ph})
         )
-        SELECT symbol, trade_date, close, prev_close, n FROM r WHERE n <= 2
+        SELECT symbol, trade_date, close, n FROM r WHERE n <= 2
     ''', symbols).fetchall()
     c.close()
 
     out = {}
-    for sym, d, cl, pc, n in rows:
+    for sym, d, cl, n in rows:
         e = out.setdefault(sym, {})
         if n == 1:
             e['last'] = cl
             e['last_date'] = d
-            e['last_prev_close'] = pc
         else:
             e['prior'] = cl
             e['prior_date'] = d
-            e['prior_prev_close'] = pc
     return out
 
 def get_eod_volume_stats(symbols):
@@ -332,13 +316,21 @@ def persist_bars(rows):
     return len(rows)
 
 def prune_eod():
-    cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=365)).strftime('%Y-%m-%d')
+    """Keep the last BACKFILL_DAYS worth of trade dates; delete older."""
     c = sqlite3.connect(config.DB_FILE)
-    n = c.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (cutoff,)).rowcount
+    rows = c.execute('''
+        SELECT DISTINCT trade_date FROM eod_snapshots
+        ORDER BY trade_date DESC LIMIT ?
+    ''', (config.BACKFILL_DAYS,)).fetchall()
+    if len(rows) < config.BACKFILL_DAYS:
+        c.close()
+        return
+    oldest_keep = rows[-1][0]
+    n = c.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (oldest_keep,)).rowcount
     c.commit()
     c.close()
     if n:
-        logger.info(f"Pruned {n} old EOD rows")
+        logger.info(f"Pruned {n} old EOD rows (kept >= {oldest_keep})")
 
 def _watchlist_symbols():
     try:
@@ -359,6 +351,35 @@ def _read_last_eod_date():
     except Exception:
         pass
     return None
+
+def _prev_day_closes_all():
+    """Closes for every symbol on the most recent stored trade date."""
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        max_d = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
+        if not max_d or not max_d[0]:
+            c.close()
+            return {}
+        rows = c.execute('SELECT symbol, close FROM eod_snapshots WHERE trade_date = ?',
+                         (max_d[0],)).fetchall()
+        c.close()
+        return {r[0]: r[1] for r in rows}
+    except Exception:
+        return {}
+
+def _last_n_trading_days(n, include_today=False):
+    """Last N weekday non-holiday dates (descending)."""
+    today = datetime.now(config.TIMEZONE).date()
+    out = []
+    d = today
+    guard = 0
+    while len(out) < n and guard < n * 4 + 30:
+        guard += 1
+        if d.weekday() < 5 and d.strftime('%Y-%m-%d') not in config.NSE_HOLIDAYS:
+            if include_today or d != today:
+                out.append(d)
+        d = d - timedelta(days=1)
+    return out
 
 # ------------------------------------------------------------------
 #  GITHUB
@@ -396,7 +417,7 @@ def gh_put(filename, content, message, branch=None):
         body["branch"] = branch
 
     try:
-        r = requests.put(url, headers=_gh_headers(), json=body, timeout=15)
+        r = requests.put(url, headers=_gh_headers(), json=body, timeout=60)
         return r.status_code in (200, 201)
     except Exception:
         return False
@@ -408,7 +429,7 @@ def gh_get(filename, branch=None):
     if branch:
         url += f"?ref={branch}"
     try:
-        r = requests.get(url, headers=_gh_headers(), timeout=15)
+        r = requests.get(url, headers=_gh_headers(), timeout=30)
         if r.status_code != 200:
             return None
         return base64.b64decode(r.json().get("content", "")).decode()
@@ -455,7 +476,7 @@ def refresh_nse():
                                       f"NSE symbols: {len(symbols)}", branch=GH_CACHE_BRANCH),
                 daemon=True).start()
         else:
-            logger.info(f"NSE: {len(symbols)} symbols saved (no change, no push)")
+            logger.info(f"NSE: {len(symbols)} symbols saved (no change)")
         return True
     except Exception as e:
         logger.error(f"NSE fetch failed: {e}")
@@ -537,7 +558,7 @@ def restore_eod():
                 pass
         c.commit()
         c.close()
-        logger.info(f"✅ Restored {n} EOD rows")
+        logger.info(f"✅ Restored {n} EOD rows from GitHub")
     except Exception as e:
         logger.error(f"EOD restore: {e}")
 
@@ -570,17 +591,28 @@ def push_watchlist():
         logger.info(f"Backed up {len(rows)} alerts")
 
 def push_eod():
-    cutoff = (datetime.now(config.TIMEZONE).date() - timedelta(days=10)).strftime('%Y-%m-%d')
+    """Push the last BACKFILL_DAYS trade dates (whole market) to GitHub."""
     c = sqlite3.connect(config.DB_FILE)
+    rows = c.execute('''
+        SELECT DISTINCT trade_date FROM eod_snapshots
+        ORDER BY trade_date DESC LIMIT ?
+    ''', (config.BACKFILL_DAYS,)).fetchall()
+    if not rows:
+        c.close()
+        return
+    oldest = rows[-1][0]
     c.row_factory = sqlite3.Row
-    rows = [dict(r) for r in c.execute(
+    data = [dict(r) for r in c.execute(
         'SELECT symbol, trade_date, open, high, low, close, volume, prev_close '
         'FROM eod_snapshots WHERE trade_date >= ? ORDER BY symbol, trade_date',
-        (cutoff,))]
+        (oldest,))]
     c.close()
-    if rows:
-        gh_put(GH_EOD, json.dumps(rows, default=str),
-               f"EOD backup: {len(rows)} rows", branch=GH_CACHE_BRANCH)
+    if data:
+        ok = gh_put(GH_EOD, json.dumps(data, default=str),
+                    f"EOD backup: {len(data)} rows ({len(rows)} days)",
+                    branch=GH_CACHE_BRANCH)
+        if ok:
+            logger.info(f"Pushed {len(data)} EOD rows to GitHub")
 
 def push_tv_cache():
     entries = stock_alert.cache_snapshot()
@@ -605,6 +637,42 @@ def search():
         return jsonify([])
     return jsonify(stock_alert.get_search_results(q))
 
+@app.route('/api/debug/eod/<symbol>')
+def api_debug_eod(symbol):
+    c = sqlite3.connect(config.DB_FILE)
+    c.row_factory = sqlite3.Row
+    rows = [dict(r) for r in c.execute(
+        'SELECT trade_date, open, high, low, close, volume, prev_close '
+        'FROM eod_snapshots WHERE symbol = ? ORDER BY trade_date DESC LIMIT 20',
+        (symbol.upper(),))]
+    c.close()
+    return jsonify(rows)
+
+def _compute_alert_stats(sym):
+    """Compute (pct_chg, rvol) for a symbol from cache + DB."""
+    tv = stock_alert.get_cached([sym])
+    cmp_price = tv.get(sym, {}).get('price')
+
+    last_two = get_last_two_closes([sym])
+    lt = last_two.get(sym, {})
+    last_c = lt.get('last')
+    prior_c = lt.get('prior')
+
+    pct = None
+    if cmp_price is not None and last_c and last_c > 0:
+        pct = round((cmp_price - last_c) / last_c * 100, 2)
+    elif last_c and prior_c and prior_c > 0:
+        pct = round((last_c - prior_c) / prior_c * 100, 2)
+
+    eod_vol = get_eod_volume_stats([sym])
+    e = tv.get(sym, {})
+    ed = eod_vol.get(sym, {})
+    vol = e.get('volume') or ed.get('last_vol')
+    avg = e.get('avg_vol_10d') or ed.get('avg_prior_10d')
+    rvol = round(vol / avg, 2) if vol and avg and avg > 0 else None
+
+    return pct, rvol
+
 @app.route('/api/alerts')
 def api_alerts():
     c = sqlite3.connect(config.DB_FILE)
@@ -623,9 +691,8 @@ def api_alerts():
 
     now_ist = datetime.now(config.TIMEZONE)
     today_str = now_ist.strftime('%Y-%m-%d')
-    is_weekday = now_ist.weekday() < 5
-    is_holiday = today_str in config.NSE_HOLIDAYS
-    trading_day = is_weekday and not is_holiday
+    is_trading_day = (now_ist.weekday() < 5
+                      and today_str not in config.NSE_HOLIDAYS)
 
     no_data = []
 
@@ -648,20 +715,27 @@ def api_alerts():
 
         # ─── DAY CHANGE ─────────────────────────────────────────
         last_c  = lt.get('last')
-        last_pc = lt.get('last_prev_close')
         prior_c = lt.get('prior')
+        last_d  = lt.get('last_date')
+        prior_d = lt.get('prior_date')
 
-        if lt.get('last_date') == today_str and last_c is not None and last_pc and last_pc > 0:
-            # 1. Today's bhavcopy captured → official day move
-            a['pct_chg'] = round((last_c - last_pc) / last_pc * 100, 2)
-        elif trading_day and cmp_price is not None and last_c and last_c > 0:
-            # 2. Trading day & TV price present (live or post-close, pre-EOD)
+        def _gap_ok(d_last, d_prior):
+            if not d_last or not d_prior:
+                return False
+            try:
+                g = (datetime.strptime(d_last, '%Y-%m-%d')
+                     - datetime.strptime(d_prior, '%Y-%m-%d')).days
+                return 0 < g <= GAP_MAX_CALENDAR_DAYS
+            except Exception:
+                return False
+
+        if last_c is None:
+            a['pct_chg'] = None
+        elif last_d == today_str and prior_c and prior_c > 0 and _gap_ok(last_d, prior_d):
+            a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
+        elif is_trading_day and cmp_price is not None and last_c > 0 and last_d != today_str:
             a['pct_chg'] = round((cmp_price - last_c) / last_c * 100, 2)
-        elif last_c is not None and last_pc and last_pc > 0:
-            # 3. Non-trading day → last completed session's move
-            a['pct_chg'] = round((last_c - last_pc) / last_pc * 100, 2)
-        elif last_c is not None and prior_c and prior_c > 0:
-            # 4. Fallback
+        elif prior_c and prior_c > 0 and _gap_ok(last_d, prior_d):
             a['pct_chg'] = round((last_c - prior_c) / prior_c * 100, 2)
         else:
             a['pct_chg'] = None
@@ -691,16 +765,14 @@ def api_alerts():
     return jsonify(alerts)
 
 def _refresh_new_symbol(sym):
-    """Background warm for a newly added symbol: TV + bhavcopy."""
+    """Warm TV cache for a newly added symbol. EOD rows already exist (whole market)."""
     try:
         stock_alert.refresh_tv_cache([sym])
         logger.info(f"Warm: TV cache updated for {sym}")
     except Exception as e:
         logger.warning(f"TV warm failed for {sym}: {e}")
-    try:
-        backfill_symbol(sym)
-    except Exception as e:
-        logger.warning(f"Backfill failed for {sym}: {e}")
+    # In case some day is missing, kick repair.
+    threading.Thread(target=repair_eod_gaps, daemon=True).start()
 
 @app.route('/api/add', methods=['POST'])
 def api_add():
@@ -724,8 +796,12 @@ def api_add():
         c.close()
         return jsonify({'status': 'duplicate', 'message': f'{sym} already in list'}), 200
 
+    # "Condition already met" warning — only trust fresh TV cache.
     live = stock_alert.get_cached([sym]).get(sym, {}).get('price')
-    if live is not None and not force_trig:
+    age = stock_alert.get_cache_age(sym)
+    cache_fresh = age is not None and age < CACHE_FRESH_SECONDS
+
+    if live is not None and cache_fresh and not force_trig:
         if (cond == '>' and live > price) or (cond == '<' and live < price):
             c.close()
             return jsonify({'status': 'warning',
@@ -783,10 +859,11 @@ def api_update(aid):
         c2 = db()
         if cond_met:
             c2.execute('UPDATE watchlist SET is_triggered = 1, is_active = 1 WHERE id = ?', (aid,))
+            pct, rvol = _compute_alert_stats(sym)
             stock_alert.send_telegram(stock_alert.format_alert({
                 'symbol': sym, 'condition': final['condition'],
                 'trigger_price': final['trigger_price'], 'notes': final['notes'],
-                'pct_chg': None, 'rvol': None,
+                'pct_chg': pct, 'rvol': rvol,
             }))
             triggered_now = True
         else:
@@ -826,10 +903,11 @@ def api_reactivate(aid):
     c.close()
 
     if would:
+        pct, rvol = _compute_alert_stats(a['symbol'])
         stock_alert.send_telegram(stock_alert.format_alert({
             'symbol': a['symbol'], 'condition': a['condition'],
             'trigger_price': a['trigger_price'], 'notes': a['notes'],
-            'pct_chg': None, 'rvol': None,
+            'pct_chg': pct, 'rvol': rvol,
         }))
     threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok', 'triggered': would})
@@ -898,58 +976,63 @@ def api_import():
     c.commit()
     c.close()
 
-    syms = list({i.get('symbol', '').upper() for i in data if i.get('symbol')})
-    if syms:
-        threading.Thread(target=backfill_symbols, args=(syms,), daemon=True).start()
+    # Whole-market EOD already in DB; just kick repair in case a day is missing.
+    threading.Thread(target=repair_eod_gaps, daemon=True).start()
     threading.Thread(target=push_watchlist, daemon=True).start()
     return jsonify({'status': 'ok', 'count': len(data)})
 
 # ------------------------------------------------------------------
-#  BACKFILL
+#  GAP REPAIR  (whole-market, by day)
 # ------------------------------------------------------------------
-def backfill_symbol(sym):
-    rows = stock_alert.batch_fetch_daily_bars([sym], days=5, include_today=False)
-    if rows:
-        persist_bars(rows)
-        logger.info(f"Backfilled {len(rows)} rows for {sym}")
-    else:
-        logger.warning(f"Backfill FAILED for {sym}")
-
-def backfill_symbols(symbols):
-    rows = stock_alert.batch_fetch_daily_bars(symbols, days=5, include_today=False)
-    if rows:
-        n = persist_bars(rows)
-        covered = {r[0] for r in rows}
-        missing = set(s.upper() for s in symbols) - covered
-        logger.info(f"Backfilled {n} rows; no data for: {sorted(missing)}")
-
-def ensure_eod_backfill():
-    c = sqlite3.connect(config.DB_FILE)
-    rows = c.execute('''
-        SELECT DISTINCT w.symbol FROM watchlist w
-        LEFT JOIN eod_snapshots e ON w.symbol = e.symbol
-        WHERE e.symbol IS NULL
-    ''').fetchall()
-    uncovered = [r[0].upper() for r in rows if r[0]]
-
-    max_row = c.execute('SELECT MAX(trade_date) FROM eod_snapshots').fetchone()
-    max_date = max_row[0] if max_row else None
-    syms = [r[0].upper() for r in c.execute('SELECT DISTINCT symbol FROM watchlist')]
-    c.close()
-
-    if uncovered:
-        logger.info(f"Backfilling {len(uncovered)} symbols with no EOD: {uncovered[:10]}")
-        threading.Thread(target=backfill_symbols, args=(uncovered,), daemon=True).start()
-
-    today = datetime.now(config.TIMEZONE).date()
-    cutoff = (today - timedelta(days=5)).strftime('%Y-%m-%d')
-    if max_date and max_date >= cutoff:
-        logger.info(f"EOD table fresh (max={max_date})")
+def repair_eod_gaps():
+    """
+    Ensure every one of the last BACKFILL_DAYS trading days has rows in DB.
+    Missing days are fetched from bhavcopy (whole market) once, then stored forever.
+    Undetected-holiday detection: if a weekday not in NSE_HOLIDAYS returns 404,
+    treat as holiday and ping Telegram (once per session per date).
+    """
+    want_days = _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
+    if not want_days:
         return
 
-    if syms:
-        logger.info(f"EOD table stale, backfilling {len(syms)} symbols")
-        backfill_symbols(syms)
+    c = sqlite3.connect(config.DB_FILE)
+    present = {r[0] for r in c.execute('SELECT DISTINCT trade_date FROM eod_snapshots')}
+    c.close()
+
+    missing = [d for d in want_days if d.strftime('%Y-%m-%d') not in present]
+    if not missing:
+        return
+
+    logger.info(f"EOD repair: {len(missing)} days missing: "
+                f"{[d.strftime('%Y-%m-%d') for d in missing]}")
+
+    prev_closes = _prev_day_closes_all()
+    fetched_any = False
+
+    for day in sorted(missing):
+        day_str = day.strftime('%Y-%m-%d')
+        status, rows = stock_alert.fetch_bhavcopy_for_date(
+            day, symbols=None, compare_closes=prev_closes
+        )
+        if status == "ok" and rows:
+            persist_bars(rows)
+            prev_closes = {r[0]: r[5] for r in rows}
+            fetched_any = True
+        elif status == "stale":
+            logger.info(f"EOD repair: {day_str} stale — skipping")
+        elif status == "unavailable":
+            # Weekday, not on holiday list, bhavcopy 404 → likely undetected holiday.
+            if day_str not in _pinged_holidays:
+                _pinged_holidays.add(day_str)
+                stock_alert.send_telegram(
+                    f"⏭️ EOD skip for {day_str} — bhavcopy unavailable and date not in "
+                    f"NSE_HOLIDAYS. Treating as holiday. Update config.py if confirmed."
+                )
+        time.sleep(0.3)
+
+    if fetched_any:
+        prune_eod()
+        threading.Thread(target=push_eod, daemon=True).start()
 
 # ------------------------------------------------------------------
 #  BACKGROUND THREADS
@@ -960,8 +1043,17 @@ def startup_thread():
     restore_watchlist()
     restore_eod()
     restore_tv_cache()
-    ensure_eod_backfill()
+    repair_eod_gaps()
     logger.info("Startup restore complete")
+
+def gap_scan_loop():
+    time.sleep(180)
+    while True:
+        try:
+            repair_eod_gaps()
+        except Exception as e:
+            logger.error(f"gap_scan_loop error: {e}")
+        time.sleep(GAP_SCAN_INTERVAL)
 
 def market_loop():
     time.sleep(30)
@@ -1038,7 +1130,7 @@ def eod_fetcher():
                     and today != last_completed_date):
                 today_str = today.strftime('%Y-%m-%d')
                 if today_str in config.NSE_HOLIDAYS:
-                    logger.info(f"eod_fetcher: {today_str} is a holiday, skipping")
+                    logger.info(f"eod_fetcher: {today_str} on holiday list, skipping")
                     last_completed_date = today
                 else:
                     logger.info(f"eod_fetcher: starting EOD fetch for {today_str}")
@@ -1046,53 +1138,39 @@ def eod_fetcher():
                     next_attempt_ts = time.time()
 
             if pending_date is not None and time.time() >= (next_attempt_ts or 0):
-                syms = _watchlist_symbols()
-                if not syms:
-                    logger.info("eod_fetcher: no watchlist symbols")
+                prev_closes = _prev_day_closes_all()
+                status, rows = stock_alert.fetch_bhavcopy_for_date(
+                    pending_date, symbols=None, compare_closes=prev_closes
+                )
+
+                if status == "unavailable":
+                    next_attempt_ts = time.time() + 900
+                    logger.info(f"eod_fetcher: bhavcopy for {pending_date} not yet available, "
+                                f"next attempt in 15 min")
+
+                elif status == "empty":
+                    logger.warning(f"eod_fetcher: bhavcopy for {pending_date} empty")
                     last_completed_date = pending_date
                     pending_date = None
                     next_attempt_ts = None
+
+                elif status == "stale":
+                    logger.info(f"eod_fetcher: bhavcopy for {pending_date} stale")
+                    last_completed_date = pending_date
+                    pending_date = None
+                    next_attempt_ts = None
+
                 else:
-                    prev_closes = get_prev_closes(syms)
-                    status, rows = stock_alert.fetch_bhavcopy_for_date(
-                        pending_date, syms, compare_closes=prev_closes
+                    n = persist_bars(rows)
+                    prune_eod()
+                    push_eod()
+                    logger.info(f"eod_fetcher: stored {n} rows for {pending_date} (whole market)")
+                    stock_alert.send_telegram(
+                        f"✅ EOD captured for {pending_date.strftime('%Y-%m-%d')} — {n} symbols"
                     )
-
-                    if status == "unavailable":
-                        next_attempt_ts = time.time() + 900
-                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} not yet available, "
-                                    f"next attempt in 15 min")
-
-                    elif status == "empty":
-                        logger.warning(f"eod_fetcher: bhavcopy for {pending_date} has no matches")
-                        stock_alert.send_telegram(
-                            f"⚠️ EOD bhavcopy for {pending_date.strftime('%Y-%m-%d')} "
-                            f"has no rows for our watchlist symbols"
-                        )
-                        last_completed_date = pending_date
-                        pending_date = None
-                        next_attempt_ts = None
-
-                    elif status == "stale":
-                        logger.info(f"eod_fetcher: bhavcopy for {pending_date} is stale")
-                        stock_alert.send_telegram(
-                            f"⏭️ EOD skip for {pending_date.strftime('%Y-%m-%d')} — market holiday"
-                        )
-                        last_completed_date = pending_date
-                        pending_date = None
-                        next_attempt_ts = None
-
-                    else:
-                        n = persist_bars(rows)
-                        push_eod()
-                        prune_eod()
-                        logger.info(f"eod_fetcher: stored {n} rows for {pending_date}")
-                        stock_alert.send_telegram(
-                            f"✅ EOD captured for {pending_date.strftime('%Y-%m-%d')} — {n} symbols"
-                        )
-                        last_completed_date = pending_date
-                        pending_date = None
-                        next_attempt_ts = None
+                    last_completed_date = pending_date
+                    pending_date = None
+                    next_attempt_ts = None
 
             time.sleep(60)
         except Exception as e:
@@ -1100,6 +1178,7 @@ def eod_fetcher():
             time.sleep(60)
 
 def _eod_fallback_yahoo(target_date):
+    """Last-resort only, restricted to watchlist symbols."""
     date_str = target_date.strftime('%Y-%m-%d')
     try:
         syms = _watchlist_symbols()
@@ -1113,7 +1192,7 @@ def _eod_fallback_yahoo(target_date):
             prune_eod()
             logger.info(f"eod_fetcher: yahoo stored {n} rows for {date_str}")
             stock_alert.send_telegram(
-                f"✅ EOD captured (Yahoo fallback) for {date_str} — {n} symbols"
+                f"✅ EOD captured (Yahoo fallback) for {date_str} — {n} symbols (watchlist only)"
             )
         else:
             logger.warning(f"eod_fetcher: yahoo returned no rows for {date_str}")
@@ -1122,9 +1201,6 @@ def _eod_fallback_yahoo(target_date):
             )
     except Exception as e:
         logger.error(f"eod_fetcher yahoo fallback failed: {e}")
-        stock_alert.send_telegram(
-            f"⚠️ EOD missing for {date_str} — Yahoo fallback error"
-        )
 
 def healthcheck_pinger():
     if not HEALTHCHECK_URL:
@@ -1161,6 +1237,7 @@ migrate_eod_prev_close()
 threading.Thread(target=startup_thread,      daemon=True).start()
 threading.Thread(target=market_loop,         daemon=True).start()
 threading.Thread(target=eod_fetcher,         daemon=True).start()
+threading.Thread(target=gap_scan_loop,       daemon=True).start()
 threading.Thread(target=worker_thread,       daemon=True).start()
 threading.Thread(target=healthcheck_pinger,  daemon=True).start()
 
