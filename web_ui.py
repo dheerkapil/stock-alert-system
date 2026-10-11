@@ -36,6 +36,7 @@ GH_API        = "https://api.github.com"
 GAP_SCAN_INTERVAL = 1800
 GAP_MAX_CALENDAR_DAYS = 4
 CACHE_FRESH_SECONDS = 300
+LEGACY_DAY_MIN_SYMBOLS = 1000
 
 _pinged_holidays = set()
 
@@ -910,6 +911,35 @@ def api_import():
 # ------------------------------------------------------------------
 #  GAP REPAIR  (whole market, by day)
 # ------------------------------------------------------------------
+def prune_legacy_short_days():
+    """
+    Delete any EOD day that has fewer than LEGACY_DAY_MIN_SYMBOLS distinct symbols.
+    Such rows are from the old watchlist-only code and would block whole-market
+    refetch by repair_eod_gaps (which only checks day presence, not completeness).
+    """
+    c = sqlite3.connect(config.DB_FILE)
+    rows = c.execute('''
+        SELECT trade_date, COUNT(DISTINCT symbol) AS n
+        FROM eod_snapshots
+        GROUP BY trade_date
+    ''').fetchall()
+
+    deleted_rows = 0
+    deleted_days = 0
+    for d, n in rows:
+        if n < LEGACY_DAY_MIN_SYMBOLS:
+            cur = c.execute('DELETE FROM eod_snapshots WHERE trade_date = ?', (d,))
+            deleted_rows += cur.rowcount
+            deleted_days += 1
+            logger.info(f"Pruned legacy short day {d} ({n} symbols)")
+    c.commit()
+    c.close()
+
+    if deleted_days:
+        logger.info(f"Legacy prune: removed {deleted_rows} rows across {deleted_days} days")
+    else:
+        logger.info(f"Legacy prune: nothing to remove ({len(rows)} days scanned)")
+
 def repair_eod_gaps():
     want_days = _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
     if not want_days:
@@ -961,6 +991,7 @@ def startup_thread():
     restore_watchlist()
     restore_eod()
     restore_tv_cache()
+    prune_legacy_short_days()
     repair_eod_gaps()
     logger.info("Startup restore complete")
 
