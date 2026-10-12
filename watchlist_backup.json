@@ -1609,7 +1609,7 @@
     "id": 148,
     "symbol": "ALPINETEX",
     "condition": ">",
-    "trigger_price": 9.0,
+    "trigger_price": 49.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
