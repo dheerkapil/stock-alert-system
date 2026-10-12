@@ -2398,17 +2398,6 @@
     "notes": "2500"
   },
   {
-    "id": 219,
-    "symbol": "TFCILTD",
-    "condition": ">",
-    "trigger_price": 148.0,
-    "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-07 04:20:38",
-    "added_at": "2026-10-02 03:13:31",
-    "notes": "gtt 150"
-  },
-  {
     "id": 220,
     "symbol": "ZEEMEDIA",
     "condition": ">",
