@@ -467,8 +467,8 @@
     "condition": ">",
     "trigger_price": 25.25,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-14 05:15:47",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-12 17:24:00",
     "notes": ""
   },
@@ -478,8 +478,8 @@
     "condition": ">",
     "trigger_price": 750.0,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-15 07:30:22",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:41:00",
     "notes": ""
   },
