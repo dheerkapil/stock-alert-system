@@ -2491,8 +2491,8 @@
     "condition": ">",
     "trigger_price": 43.5,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-15 08:30:26",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 10:08:24",
     "notes": "buy 2500"
   },
