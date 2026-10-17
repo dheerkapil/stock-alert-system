@@ -3056,5 +3056,16 @@
     "triggered_at": null,
     "added_at": "2026-10-13 15:43:13",
     "notes": "check divergence"
+  },
+  {
+    "id": 285,
+    "symbol": "ORIENTBELL",
+    "condition": ">",
+    "trigger_price": 448.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-17 15:50:39",
+    "notes": ""
   }
 ]
