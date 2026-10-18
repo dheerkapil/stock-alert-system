@@ -1,0 +1,10 @@
+# Ignore everything not needed at runtime — keeps the image small and the
+# build fast. The app restores its data from GitHub on startup, so no local
+# state needs to be baked in.
+.git
+.gitignore
+*.md
+__pycache__
+*.pyc
+*.db
+.DS_Store
