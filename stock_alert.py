@@ -13,7 +13,10 @@ import config
 logging.basicConfig(level="INFO", format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-WEBUI_URL = "https://stock-alert-ui.onrender.com"
+# Public URL of this same service. The worker calls back into the web app's
+# /api/alerts and /api/mark_triggered routes. Set WEBUI_URL on the host (e.g.
+# http://127.0.0.1:8000 when web and worker run in one process).
+WEBUI_URL = os.environ.get("WEBUI_URL", "https://stock-alert-ui.onrender.com")
 
 _last_tick = time.time()
 
