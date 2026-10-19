@@ -2434,10 +2434,10 @@
     "id": 222,
     "symbol": "HEXAGON",
     "condition": ">",
-    "trigger_price": 74.0,
+    "trigger_price": 77.5,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-16 05:10:46",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-10-02 09:22:29",
     "notes": ""
   },
