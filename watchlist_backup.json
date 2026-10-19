@@ -476,10 +476,10 @@
     "id": 44,
     "symbol": "INDHOTEL",
     "condition": ">",
-    "trigger_price": 750.0,
+    "trigger_price": 800.0,
     "is_active": 1,
-    "is_triggered": 1,
-    "triggered_at": "2026-10-16 04:40:42",
+    "is_triggered": 0,
+    "triggered_at": null,
     "added_at": "2026-09-13 07:41:00",
     "notes": ""
   },
