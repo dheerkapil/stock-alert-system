@@ -3078,5 +3078,16 @@
     "triggered_at": null,
     "added_at": "2026-10-17 15:51:33",
     "notes": ""
+  },
+  {
+    "id": 281,
+    "symbol": "MARKOLINES",
+    "condition": ">",
+    "trigger_price": 185.0,
+    "is_active": 1,
+    "is_triggered": 0,
+    "triggered_at": null,
+    "added_at": "2026-10-19 03:10:17",
+    "notes": ""
   }
 ]
