@@ -2247,7 +2247,7 @@
     "id": 206,
     "symbol": "JUNIPER",
     "condition": ">",
-    "trigger_price": 228.0,
+    "trigger_price": 226.0,
     "is_active": 1,
     "is_triggered": 0,
     "triggered_at": null,
