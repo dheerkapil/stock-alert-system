@@ -266,23 +266,49 @@ def _bhav_headers():
         "Referer": "https://www.nseindia.com/",
     }
 
+BHAV_TIMEOUT = 60
+BHAV_ATTEMPTS = 3
+
+
 def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
     """
     Whole-market fetch. symbols=None → return every EQ/BE row.
     Returns (status, rows). rows are 7-tuples: (sym, date, o, h, l, c, v).
+
+    status is one of:
+      "ok"      – parsed rows
+      "empty"   – file parsed, no matching rows
+      "stale"   – rows exist but don't match the requested date
+      "missing" – NSE answered 404: no file published for this date
+      "error"   – transient failure (timeout / 5xx / block page / parse)
+
+    ONLY "missing" may be read as a non-trading day. "error" must be retried —
+    it used to be reported as "unavailable" and then announced as a holiday,
+    which is how a slow response got mistaken for a market holiday.
     """
     url = _NSE_BHAV_URL.format(ddmmyyyy=target_date.strftime('%d%m%Y'))
-    try:
-        r = requests.get(url, headers=_bhav_headers(), timeout=20)
-    except Exception as e:
-        logger.warning(f"Bhavcopy {target_date}: {e}")
-        return ("unavailable", None)
 
-    if r.status_code == 404:
-        return ("unavailable", None)
-    if r.status_code != 200:
-        logger.warning(f"Bhavcopy {target_date}: HTTP {r.status_code}")
-        return ("unavailable", None)
+    r = None
+    for attempt in range(1, BHAV_ATTEMPTS + 1):
+        try:
+            r = requests.get(url, headers=_bhav_headers(), timeout=BHAV_TIMEOUT)
+        except Exception as e:
+            logger.warning(f"Bhavcopy {target_date}: {e} (attempt {attempt}/{BHAV_ATTEMPTS})")
+            r = None
+        else:
+            if r.status_code == 200:
+                break
+            if r.status_code == 404:
+                # the only status that genuinely means "no trading day"
+                return ("missing", None)
+            logger.warning(f"Bhavcopy {target_date}: HTTP {r.status_code} "
+                           f"(attempt {attempt}/{BHAV_ATTEMPTS})")
+            r = None
+        if attempt < BHAV_ATTEMPTS:
+            time.sleep(3 * attempt)
+
+    if r is None or r.status_code != 200:
+        return ("error", None)
 
     try:
         df = pd.read_csv(io.StringIO(r.text))
@@ -292,7 +318,7 @@ def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
             df = df[df['SERIES'].isin(['EQ', 'BE'])]
     except Exception as e:
         logger.warning(f"Bhavcopy {target_date}: parse failed: {e}")
-        return ("unavailable", None)
+        return ("error", None)
 
     sym_col   = next((c for c in df.columns if c.upper() == 'SYMBOL'), None)
     open_col  = next((c for c in df.columns if 'OPEN' in c.upper()), None)
@@ -303,7 +329,7 @@ def fetch_bhavcopy_for_date(target_date, symbols=None, compare_closes=None):
 
     if not sym_col or not close_col:
         logger.warning(f"Bhavcopy {target_date}: missing SYMBOL/CLOSE")
-        return ("unavailable", None)
+        return ("error", None)
 
     if symbols:
         watch = {s.upper() for s in symbols}

@@ -39,6 +39,7 @@ CACHE_FRESH_SECONDS = 300
 LEGACY_DAY_MIN_SYMBOLS = 1000
 
 _pinged_holidays = set()
+_last_eod_hash = None   # skip re-uploading an unchanged EOD table
 
 # ------------------------------------------------------------------
 #  AUTH
@@ -290,15 +291,14 @@ def persist_bars(rows):
     return len(rows)
 
 def prune_eod():
-    c = sqlite3.connect(config.DB_FILE)
-    rows = c.execute('''
-        SELECT DISTINCT trade_date FROM eod_snapshots
-        ORDER BY trade_date DESC LIMIT ?
-    ''', (config.BACKFILL_DAYS,)).fetchall()
-    if len(rows) < config.BACKFILL_DAYS:
-        c.close()
+    """Keep the last BACKFILL_DAYS *calendar trading days* — the same window
+    repair_eod_gaps() works in, so the repair can never fill a day that this
+    deletes a moment later (which caused an endless fetch/prune/re-upload loop)."""
+    keep = _last_n_trading_days(config.BACKFILL_DAYS, include_today=True)
+    if not keep:
         return
-    oldest_keep = rows[-1][0]
+    oldest_keep = min(keep).strftime('%Y-%m-%d')
+    c = sqlite3.connect(config.DB_FILE)
     n = c.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (oldest_keep,)).rowcount
     c.commit()
     c.close()
@@ -361,31 +361,82 @@ _gh_headers = lambda: {
     "User-Agent": "stock-alert",
 }
 
+_gh_put_lock = threading.Lock()
+
+
 def gh_put(filename, content, message, branch=None):
+    """Write one file to the cache branch as a SINGLE force-updated commit.
+
+    The contents API appends a commit per push, so the branch grew without
+    bound (this repo went 9.8 MB -> 23.8 MB with 100+ commits). One orphan
+    commit that the branch is force-pointed at keeps it flat forever.
+    """
+    with _gh_put_lock:
+        return _gh_commit({filename: content}, [], message, branch or GH_CACHE_BRANCH)
+
+
+def _gh_commit(files, deletes, message, branch=None):
     if not GITHUB_TOKEN:
         return False
-    url = f"{GH_API}/repos/{GITHUB_REPO}/contents/{filename}"
-    if branch:
-        url += f"?ref={branch}"
-    sha = None
-    try:
-        r = requests.get(url, headers=_gh_headers(), timeout=10)
-        if r.status_code == 200:
-            sha = r.json().get("sha")
-        elif r.status_code != 404:
-            return False
-    except Exception:
-        return False
+    branch = branch or GH_CACHE_BRANCH
+    repo = GITHUB_REPO
 
-    body = {"message": message, "content": base64.b64encode(content.encode()).decode()}
-    if sha:
-        body["sha"] = sha
-    if branch:
-        body["branch"] = branch
+    base_tree = None
     try:
-        r = requests.put(url, headers=_gh_headers(), json=body, timeout=60)
-        return r.status_code in (200, 201)
+        r = requests.get(f"{GH_API}/repos/{repo}/git/ref/heads/{branch}",
+                         headers=_gh_headers(), timeout=15)
+        if r.status_code == 200:
+            r2 = requests.get(f"{GH_API}/repos/{repo}/git/commits/{r.json()['object']['sha']}",
+                              headers=_gh_headers(), timeout=15)
+            if r2.status_code == 200:
+                base_tree = r2.json()["tree"]["sha"]
     except Exception:
+        pass
+
+    entries = []
+    for path, content in files.items():
+        try:
+            r = requests.post(f"{GH_API}/repos/{repo}/git/blobs", headers=_gh_headers(),
+                              json={"content": content, "encoding": "utf-8"}, timeout=120)
+        except Exception:
+            return False
+        if r.status_code != 201:
+            logger.warning(f"gh_commit blob {path}: HTTP {r.status_code}")
+            return False
+        entries.append({"path": path, "mode": "100644", "type": "blob", "sha": r.json()["sha"]})
+
+    for path in deletes:
+        entries.append({"path": path, "mode": "100644", "type": "blob", "sha": None})
+
+    tree_body = {"tree": entries}
+    if base_tree:
+        tree_body["base_tree"] = base_tree
+
+    try:
+        r = requests.post(f"{GH_API}/repos/{repo}/git/trees", headers=_gh_headers(),
+                          json=tree_body, timeout=60)
+        if r.status_code != 201:
+            logger.warning(f"gh_commit tree: HTTP {r.status_code}")
+            return False
+        tree_sha = r.json()["sha"]
+
+        r = requests.post(f"{GH_API}/repos/{repo}/git/commits", headers=_gh_headers(),
+                          json={"message": message, "tree": tree_sha}, timeout=60)
+        if r.status_code != 201:
+            logger.warning(f"gh_commit commit: HTTP {r.status_code}")
+            return False
+        commit_sha = r.json()["sha"]
+
+        r = requests.patch(f"{GH_API}/repos/{repo}/git/refs/heads/{branch}", headers=_gh_headers(),
+                           json={"sha": commit_sha, "force": True}, timeout=30)
+        if r.status_code in (200, 201):
+            return True
+        # branch may not exist yet
+        r = requests.post(f"{GH_API}/repos/{repo}/git/refs", headers=_gh_headers(),
+                          json={"ref": f"refs/heads/{branch}", "sha": commit_sha}, timeout=30)
+        return r.status_code in (200, 201)
+    except Exception as e:
+        logger.warning(f"gh_commit: {e}")
         return False
 
 def gh_get(filename, branch=None):
@@ -576,9 +627,17 @@ def push_eod():
         (oldest,))]
     c.close()
     if data:
-        ok = gh_put(GH_EOD, json.dumps(data, default=str),
+        # Compact separators (smaller upload) and skip entirely when nothing
+        # actually changed — the repair loop used to re-upload ~3 MB every cycle.
+        payload = json.dumps(data, default=str, separators=(',', ':'))
+        h = hashlib.sha1(payload.encode()).hexdigest()
+        global _last_eod_hash
+        if h == _last_eod_hash:
+            return
+        ok = gh_put(GH_EOD, payload,
                     f"EOD: {len(data)} rows ({len(rows)} days)", branch=GH_CACHE_BRANCH)
         if ok:
+            _last_eod_hash = h
             logger.info(f"EOD → GitHub ({len(data)} rows)")
 
 def push_tv_cache():
@@ -950,7 +1009,15 @@ def prune_legacy_short_days():
         logger.info(f"Legacy prune: nothing to remove ({len(rows)} days scanned)")
 
 def repair_eod_gaps():
-    want_days = _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
+    # Only repair days that prune_eod() will actually KEEP. Previously this asked
+    # for the last N calendar trading days while prune kept the N most recent
+    # days present in the DB — the two slid apart by a day, so the repair fetched
+    # the oldest day and the prune deleted it immediately, every 30 minutes,
+    # re-uploading the whole EOD table each time.
+    keep_days = {d.strftime('%Y-%m-%d')
+                 for d in _last_n_trading_days(config.BACKFILL_DAYS, include_today=True)}
+    want_days = [d for d in _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
+                 if d.strftime('%Y-%m-%d') in keep_days]
     if not want_days:
         return
 
@@ -978,13 +1045,18 @@ def repair_eod_gaps():
             fetched_any = True
         elif status == "stale":
             logger.info(f"EOD repair: {day_str} stale — skipping")
-        elif status == "unavailable":
+        elif status == "missing":
+            # NSE answered 404 — genuinely no file for that date.
+            logger.info(f"EOD repair: {day_str} no bhavcopy (404) — non-trading day")
             if day_str not in _pinged_holidays:
                 _pinged_holidays.add(day_str)
                 stock_alert.send_telegram(
-                    f"⏭️ EOD skip for {day_str} — bhavcopy unavailable and date not in "
-                    f"NSE_HOLIDAYS. Treating as holiday. Update config.py if confirmed."
+                    f"ℹ️ No bhavcopy published for {day_str} (NSE 404) — treating it as a "
+                    f"non-trading day. If it was a trading day, add it to NSE_HOLIDAYS."
                 )
+        else:
+            # transient failure — say so plainly, never call it a holiday
+            logger.warning(f"EOD repair: {day_str} fetch failed (transient) — retrying next scan")
         time.sleep(0.3)
 
     if fetched_any:
@@ -1037,10 +1109,10 @@ def market_loop():
                     stock_alert.refresh_tv_cache(syms)
                 first_run_done = True
 
-            push_interval = 300 if in_market else 1800
-            if time.time() - last_tv_push >= push_interval:
-                push_tv_cache()
-                last_tv_push = time.time()
+            # The TV cache is live price data. It is refreshed from TradingView
+            # on every start and is worthless once stale, so uploading it to
+            # GitHub every 5-30 minutes was pure waste (and added a commit each
+            # time, growing the repo). Deliberately not pushed any more.
 
             if last_nse_fetch != today:
                 refresh_nse()
@@ -1098,9 +1170,14 @@ def eod_fetcher():
                 status, rows = stock_alert.fetch_bhavcopy_for_date(
                     pending_date, symbols=None, compare_closes=prev_closes
                 )
-                if status == "unavailable":
+                if status == "error":
                     next_attempt_ts = time.time() + 900
-                    logger.info(f"eod_fetcher: {pending_date} unavailable, retry 15 min")
+                    logger.info(f"eod_fetcher: {pending_date} fetch failed (transient), retry 15 min")
+                elif status == "missing":
+                    logger.info(f"eod_fetcher: {pending_date} no bhavcopy (404) — non-trading day")
+                    last_completed_date = pending_date
+                    pending_date = None
+                    next_attempt_ts = None
                 elif status in ("empty", "stale"):
                     logger.info(f"eod_fetcher: {pending_date} {status}, skip")
                     last_completed_date = pending_date
