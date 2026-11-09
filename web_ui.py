@@ -1067,14 +1067,10 @@ def repair_eod_gaps():
         elif status == "stale":
             logger.info(f"EOD repair: {day_str} stale — skipping")
         elif status == "missing":
-            # NSE answered 404 — genuinely no file for that date.
-            logger.info(f"EOD repair: {day_str} no bhavcopy (404) — non-trading day")
-            if day_str not in _pinged_holidays:
-                _pinged_holidays.add(day_str)
-                stock_alert.send_telegram(
-                    f"ℹ️ No bhavcopy published for {day_str} (NSE 404) — treating it as a "
-                    f"non-trading day. If it was a trading day, add it to NSE_HOLIDAYS."
-                )
+            # A 404 can mean a holiday, or a file NSE has not published yet / no
+            # longer serves. Just retry on the next scan: no Telegram and no
+            # "holiday" claim (that message used to fire on transient failures).
+            logger.info(f"EOD repair: {day_str} no bhavcopy (404) — will retry next scan")
         else:
             # transient failure — say so plainly, never call it a holiday
             logger.warning(f"EOD repair: {day_str} fetch failed (transient) — retrying next scan")
@@ -1191,14 +1187,14 @@ def eod_fetcher():
                 status, rows = stock_alert.fetch_bhavcopy_for_date(
                     pending_date, symbols=None, compare_closes=prev_closes
                 )
-                if status == "error":
+                if status in ("error", "missing"):
+                    # A 404 at 19:00 usually just means NSE has not published the
+                    # day's file yet — it often appears between 19:00 and 20:00.
+                    # NEVER conclude "non-trading day" here and never mark the day
+                    # complete: doing that threw away the whole day's EOD. Keep
+                    # retrying and let the midnight Yahoo fallback decide.
                     next_attempt_ts = time.time() + 900
-                    logger.info(f"eod_fetcher: {pending_date} fetch failed (transient), retry 15 min")
-                elif status == "missing":
-                    logger.info(f"eod_fetcher: {pending_date} no bhavcopy (404) — non-trading day")
-                    last_completed_date = pending_date
-                    pending_date = None
-                    next_attempt_ts = None
+                    logger.info(f"eod_fetcher: {pending_date} {status} — retry in 15 min")
                 elif status in ("empty", "stale"):
                     logger.info(f"eod_fetcher: {pending_date} {status}, skip")
                     last_completed_date = pending_date
