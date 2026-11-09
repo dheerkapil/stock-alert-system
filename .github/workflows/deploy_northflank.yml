@@ -1,0 +1,94 @@
+name: Deploy to Northflank
+
+# Northflank's own CI does not fire on pushes to this repo (there are no repo
+# webhooks and no auto-build), so every deploy used to mean tapping "Build" on
+# the Commits page — awkward from a phone. This workflow does it for you:
+# on every push to master it starts a Northflank build and then WAITS for it,
+# so the result shows up right here in GitHub (green tick or red cross, with
+# the reason) instead of on the Northflank dashboard.
+#
+# You can also run it by hand from the Actions tab — handy from the GitHub
+# mobile app when you just want to redeploy.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: northflank-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Trigger Northflank build and wait for it
+        env:
+          NF_TOKEN: ${{ secrets.NORTHFLANK_API_TOKEN }}
+          # Override these with repository variables if the IDs ever change.
+          NF_PROJECT: ${{ vars.NORTHFLANK_PROJECT || 'stock-alerts' }}
+          NF_SERVICE: ${{ vars.NORTHFLANK_SERVICE || 'stock-alerts' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NF_TOKEN}" ]; then
+            echo "::warning::Secret NORTHFLANK_API_TOKEN is not set, so no build was triggered."
+            echo "Create a token in Northflank (Account settings -> API tokens) and add it"
+            echo "as a repository secret named NORTHFLANK_API_TOKEN."
+            exit 0
+          fi
+
+          API="https://api.northflank.com/v1/projects/${NF_PROJECT}/services/${NF_SERVICE}"
+
+          echo "Triggering build for ${NF_PROJECT}/${NF_SERVICE} (commit ${GITHUB_SHA:0:7})"
+          code=$(curl -sS -o /tmp/build.json -w '%{http_code}' \
+            -X POST "${API}/build" \
+            -H "Authorization: Bearer ${NF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\": \"${GITHUB_SHA}\"}")
+          echo "HTTP ${code}"
+          cat /tmp/build.json; echo
+
+          if [ "${code}" != "200" ]; then
+            echo "::error::Northflank rejected the build request (HTTP ${code})"
+            exit 1
+          fi
+
+          BUILD_ID=$(python3 -c "import json;print(json.load(open('/tmp/build.json'))['data']['id'])")
+          echo "Build started: ${BUILD_ID}"
+          {
+            echo "### Northflank build \`${BUILD_ID}\`"
+            echo ""
+            echo "Commit \`${GITHUB_SHA:0:7}\` — [open build](https://app.northflank.com)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Wait for it to conclude (builds take ~3-5 min).
+          for i in $(seq 1 60); do
+            sleep 15
+            code=$(curl -sS -o /tmp/status.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${NF_TOKEN}" \
+              "${API}/build/${BUILD_ID}")
+            if [ "${code}" != "200" ]; then
+              echo "status poll HTTP ${code} (attempt ${i})"
+              continue
+            fi
+            concluded=$(python3 -c "import json;d=json.load(open('/tmp/status.json'))['data'];print(str(d.get('concluded',False)).lower())")
+            status=$(python3 -c "import json;d=json.load(open('/tmp/status.json'))['data'];print(d.get('status','UNKNOWN'))")
+            echo "attempt ${i}: status=${status} concluded=${concluded}"
+            if [ "${concluded}" = "true" ]; then
+              echo "### Result: ${status}" >> "$GITHUB_STEP_SUMMARY"
+              cat /tmp/status.json; echo
+              case "${status}" in
+                *SUCCESS*|*COMPLET*) echo "Build finished: ${status}"; exit 0 ;;
+                *) echo "::error::Build concluded as ${status}"; exit 1 ;;
+              esac
+            fi
+          done
+
+          echo "::error::Timed out waiting for the build to conclude"
+          exit 1
