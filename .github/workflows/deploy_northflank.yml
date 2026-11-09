@@ -29,7 +29,10 @@ jobs:
     steps:
       - name: Trigger Northflank build and wait for it
         env:
-          NF_TOKEN: ${{ secrets.NORTHFLANK_API_TOKEN }}
+          # Accept the token under any of the likely names, so a small mismatch in
+          # how the secret was named doesn't silently disable deploys. A secret is
+          # strongly preferred over a variable (variables are not masked).
+          NF_TOKEN: ${{ secrets.NORTHFLANK_API_TOKEN || secrets.NORTHFLANK_TOKEN || secrets.NF_TOKEN || secrets.NORTHFLANK_API_KEY || vars.NORTHFLANK_API_TOKEN }}
           # Override these with repository variables if the IDs ever change.
           NF_PROJECT: ${{ vars.NORTHFLANK_PROJECT || 'stock-alerts' }}
           NF_SERVICE: ${{ vars.NORTHFLANK_SERVICE || 'stock-alerts' }}
@@ -37,9 +40,15 @@ jobs:
           set -euo pipefail
 
           if [ -z "${NF_TOKEN}" ]; then
-            echo "::warning::Secret NORTHFLANK_API_TOKEN is not set, so no build was triggered."
-            echo "Create a token in Northflank (Account settings -> API tokens) and add it"
-            echo "as a repository secret named NORTHFLANK_API_TOKEN."
+            echo "::warning::No Northflank API token found, so no build was triggered."
+            echo "Looked for these names (secrets first):"
+            echo "  secrets.NORTHFLANK_API_TOKEN   <- expected"
+            echo "  secrets.NORTHFLANK_TOKEN"
+            echo "  secrets.NF_TOKEN"
+            echo "  secrets.NORTHFLANK_API_KEY"
+            echo "  vars.NORTHFLANK_API_TOKEN"
+            echo "Add it under Settings -> Secrets and variables -> Actions -> *Secrets*"
+            echo "(not Variables), with the exact name NORTHFLANK_API_TOKEN."
             exit 0
           fi
 
