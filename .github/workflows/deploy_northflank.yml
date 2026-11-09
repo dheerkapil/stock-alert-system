@@ -56,18 +56,34 @@ jobs:
           API="https://api.northflank.com/v1/projects/${NF_PROJECT}/services/${NF_SERVICE}"
 
           echo "Triggering build for ${NF_PROJECT}/${NF_SERVICE} (commit ${GITHUB_SHA:0:7})"
-          code=$(curl -sS -o /tmp/build.json -w '%{http_code}' \
-            -X POST "${API}/build" \
-            -H "Authorization: Bearer ${NF_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"sha\": \"${GITHUB_SHA}\"}")
-          echo "HTTP ${code}"
-          cat /tmp/build.json; echo
 
-          if [ "${code}" != "200" ]; then
+          # The free tier allows ONE active build per object, so a 409 just means
+          # something else is building. Wait for it rather than failing.
+          code=""
+          for attempt in $(seq 1 12); do
+            code=$(curl -sS -o /tmp/build.json -w '%{http_code}' \
+              -X POST "${API}/build" \
+              -H "Authorization: Bearer ${NF_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"sha\": \"${GITHUB_SHA}\"}") || code="000"
+            echo "attempt ${attempt}: HTTP ${code}"
+            [ "${code}" = "200" ] && break
+            if [ "${code}" = "409" ]; then
+              cat /tmp/build.json; echo
+              echo "another build is active (free tier allows one at a time) — waiting 30s"
+              sleep 30
+              continue
+            fi
+            cat /tmp/build.json 2>/dev/null; echo
             echo "::error::Northflank rejected the build request (HTTP ${code})"
             exit 1
+          done
+
+          if [ "${code}" != "200" ]; then
+            echo "::error::Build slot stayed busy for 6 minutes — check for a stuck build on the Builds page"
+            exit 1
           fi
+          cat /tmp/build.json; echo
 
           BUILD_ID=$(python3 -c "import json;print(json.load(open('/tmp/build.json'))['data']['id'])")
           echo "Build started: ${BUILD_ID}"
