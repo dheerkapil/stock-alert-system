@@ -32,7 +32,7 @@ jobs:
           # Accept the token under any of the likely names, so a small mismatch in
           # how the secret was named doesn't silently disable deploys. A secret is
           # strongly preferred over a variable (variables are not masked).
-          NF_TOKEN: ${{ secrets.NORTHFLANK_API_TOKEN || secrets.NORTHFLANK_TOKEN || secrets.NF_TOKEN || secrets.NORTHFLANK_API_KEY || vars.NORTHFLANK_API_TOKEN }}
+          NF_TOKEN: ${{ secrets.NORTHFLANK_API_TOKEN || secrets.NORTHFLANKTOKEN || secrets.NORTHFLANK_TOKEN || secrets.NF_TOKEN || secrets.NORTHFLANK_API_KEY || vars.NORTHFLANK_API_TOKEN }}
           # Override these with repository variables if the IDs ever change.
           NF_PROJECT: ${{ vars.NORTHFLANK_PROJECT || 'stock-alerts' }}
           NF_SERVICE: ${{ vars.NORTHFLANK_SERVICE || 'stock-alerts' }}
@@ -43,6 +43,7 @@ jobs:
             echo "::warning::No Northflank API token found, so no build was triggered."
             echo "Looked for these names (secrets first):"
             echo "  secrets.NORTHFLANK_API_TOKEN   <- expected"
+            echo "  secrets.NORTHFLANKTOKEN"
             echo "  secrets.NORTHFLANK_TOKEN"
             echo "  secrets.NF_TOKEN"
             echo "  secrets.NORTHFLANK_API_KEY"
