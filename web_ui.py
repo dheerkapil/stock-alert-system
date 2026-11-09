@@ -41,6 +41,11 @@ LEGACY_DAY_MIN_SYMBOLS = 1000
 _pinged_holidays = set()
 _last_eod_hash = None   # skip re-uploading an unchanged EOD table
 
+# Bump when behaviour changes. Exposed publicly at /api/version so we can tell
+# which build is actually running on the host.
+CODE_VERSION = "2026-11-09"
+_BOOT_TS = time.time()
+
 # ------------------------------------------------------------------
 #  AUTH
 # ------------------------------------------------------------------
@@ -101,7 +106,8 @@ def _is_worker():
 @app.before_request
 def _gate():
     p = request.path
-    if p in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico', '/api/health'):
+    if p in ('/login', '/api/send_otp', '/api/verify_otp', '/favicon.ico',
+             '/api/health', '/api/version'):
         return None
     if p == '/api/alerts' or p.startswith('/api/mark_triggered'):
         if _is_worker():
@@ -178,6 +184,21 @@ def health():
     if age > 900:
         return jsonify({'status': 'error', 'age': int(age)}), 503
     return jsonify({'status': 'ok', 'age': int(age)}), 200
+
+
+@app.route('/api/version')
+def version():
+    """Public build probe — proves which code is actually running."""
+    return jsonify({
+        'code': CODE_VERSION,
+        'uptime_s': int(time.time() - _BOOT_TS),
+        'pid': os.getpid(),
+        # markers that only exist in the post-2026-11-06 code
+        'single_commit_pushes': True,   # gh_put force-updates one commit
+        'tv_cache_uploads': False,      # removed
+        'eod_hash_skip': True,          # skip unchanged EOD uploads
+        'bhav_status_split': True,      # missing vs error
+    }), 200
 
 # ------------------------------------------------------------------
 #  DATABASE
