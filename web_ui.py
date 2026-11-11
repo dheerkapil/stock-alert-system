@@ -1173,14 +1173,16 @@ def eod_fetcher():
                     and now.weekday() < 5
                     and now.hour >= 19
                     and today != last_completed_date):
+                # No NSE_HOLIDAYS check here, deliberately. The fetch validates
+                # the file's own DATE1 and returns "stale" for a non-trading day,
+                # which is authoritative. A hand-maintained holiday list in front
+                # of it adds nothing except a way to silently drop a real trading
+                # day — which is exactly how 2026-11-09 (a trading day) got
+                # skipped and its EOD lost.
                 today_str = today.strftime('%Y-%m-%d')
-                if today_str in config.NSE_HOLIDAYS:
-                    logger.info(f"eod_fetcher: {today_str} on holiday list, skip")
-                    last_completed_date = today
-                else:
-                    logger.info(f"eod_fetcher: start fetch for {today_str}")
-                    pending_date = today
-                    next_attempt_ts = time.time()
+                logger.info(f"eod_fetcher: start fetch for {today_str}")
+                pending_date = today
+                next_attempt_ts = time.time()
 
             if pending_date is not None and time.time() >= (next_attempt_ts or 0):
                 prev_closes = _prev_day_closes_all()
