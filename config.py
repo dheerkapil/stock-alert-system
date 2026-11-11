@@ -31,28 +31,12 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 # Rolling window size for EOD storage (whole market)
 BACKFILL_DAYS = 10
 
-# NSE trading holidays — update each January when NSE publishes the next year's calendar.
-# Fixed-date holidays below are certain. Variable-date ones are best-effort;
-# verify against NSE's official list each year.
-NSE_HOLIDAYS = {
-    # Fixed-date
-    "2026-01-26",  # Republic Day (Mon)
-    "2026-05-01",  # Maharashtra Day (Fri)
-    "2026-08-15",  # Independence Day (Sat — weekend, no effect)
-    "2026-10-02",  # Gandhi Jayanti (Fri)
-    "2026-12-25",  # Christmas (Fri)
-
-    # Variable-date — VERIFY ANNUALLY against NSE calendar
-    "2026-02-15",  # Mahashivratri (Sun — weekend, no effect)
-    "2026-03-04",  # Holi
-    "2026-03-26",  # Ram Navami
-    "2026-03-31",  # Mahavir Jayanti
-    "2026-04-03",  # Good Friday
-    "2026-04-14",  # Dr. Ambedkar Jayanti
-    "2026-05-27",  # Eid-ul-Adha
-    "2026-08-26",  # Janmashtami
-    "2026-09-14",  # Ganesh Chaturthi
-    "2026-10-20",  # Dussehra
-    "2026-11-09",  # Diwali Balipratipada
-    "2026-11-24",  # Guru Nanak Jayanti
-}
+# NOTE: there is deliberately NO NSE_HOLIDAYS list here.
+#
+# Holidays are handled by the data instead of by a hand-maintained calendar:
+# a non-trading day has no bhavcopy, the fetch returns "stale", and the EOD
+# window counts only days that actually have rows (so a holiday never occupies
+# a slot). The list that used to live here listed 2026-11-09 as Diwali
+# Balipratipada — but that was a real trading day, and because the fetcher
+# trusted the list over the data, that day's EOD was silently dropped and never
+# retried. Removing the list removes that entire class of failure.

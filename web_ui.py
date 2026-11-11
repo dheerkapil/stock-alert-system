@@ -38,7 +38,6 @@ GAP_MAX_CALENDAR_DAYS = 4
 CACHE_FRESH_SECONDS = 300
 LEGACY_DAY_MIN_SYMBOLS = 1000
 
-_pinged_holidays = set()
 _last_eod_hash = None   # skip re-uploading an unchanged EOD table
 
 # Bump when behaviour changes. Exposed publicly at /api/version so we can tell
@@ -311,14 +310,29 @@ def persist_bars(rows):
     c.close()
     return len(rows)
 
+def _present_eod_dates(limit=None):
+    """Trade dates that actually have rows, newest first."""
+    c = sqlite3.connect(config.DB_FILE)
+    q = 'SELECT DISTINCT trade_date FROM eod_snapshots ORDER BY trade_date DESC'
+    if limit:
+        q += f' LIMIT {int(limit)}'
+    rows = [r[0] for r in c.execute(q)]
+    c.close()
+    return rows
+
+
 def prune_eod():
-    """Keep the last BACKFILL_DAYS *calendar trading days* — the same window
-    repair_eod_gaps() works in, so the repair can never fill a day that this
-    deletes a moment later (which caused an endless fetch/prune/re-upload loop)."""
-    keep = _last_n_trading_days(config.BACKFILL_DAYS, include_today=True)
-    if not keep:
+    """Keep the BACKFILL_DAYS most recent days that actually HAVE data.
+
+    The window is defined by the data, not by a calendar: a holiday has no rows,
+    so it never occupies a slot and the window always holds BACKFILL_DAYS real
+    trading days. repair_eod_gaps() derives its range from the same data, so it
+    can never ask for a day this deletes a moment later — which is what produced
+    the old fetch/prune/re-upload loop."""
+    present = _present_eod_dates(config.BACKFILL_DAYS)
+    if len(present) < config.BACKFILL_DAYS:
         return
-    oldest_keep = min(keep).strftime('%Y-%m-%d')
+    oldest_keep = present[-1]          # newest-first, so the last one is the Nth
     c = sqlite3.connect(config.DB_FILE)
     n = c.execute('DELETE FROM eod_snapshots WHERE trade_date < ?', (oldest_keep,)).rowcount
     c.commit()
@@ -360,18 +374,6 @@ def _prev_day_closes_all():
     except Exception:
         return {}
 
-def _last_n_trading_days(n, include_today=False):
-    today = datetime.now(config.TIMEZONE).date()
-    out = []
-    d = today
-    guard = 0
-    while len(out) < n and guard < n * 4 + 30:
-        guard += 1
-        if d.weekday() < 5 and d.strftime('%Y-%m-%d') not in config.NSE_HOLIDAYS:
-            if include_today or d != today:
-                out.append(d)
-        d = d - timedelta(days=1)
-    return out
 
 # ------------------------------------------------------------------
 #  GITHUB
@@ -729,8 +731,10 @@ def api_alerts():
 
     now_ist = datetime.now(config.TIMEZONE)
     today_str = now_ist.strftime('%Y-%m-%d')
-    is_trading_day = (now_ist.weekday() < 5
-                      and today_str not in config.NSE_HOLIDAYS)
+    # Weekday only — no holiday list. On a holiday there is simply no EOD for
+    # that date, so the live TradingView price is still the right thing to show;
+    # a wrong holiday entry here used to freeze this column on a real trading day.
+    is_trading_day = now_ist.weekday() < 5
 
     no_data = []
 
@@ -1030,23 +1034,25 @@ def prune_legacy_short_days():
         logger.info(f"Legacy prune: nothing to remove ({len(rows)} days scanned)")
 
 def repair_eod_gaps():
-    # Only repair days that prune_eod() will actually KEEP. Previously this asked
-    # for the last N calendar trading days while prune kept the N most recent
-    # days present in the DB — the two slid apart by a day, so the repair fetched
-    # the oldest day and the prune deleted it immediately, every 30 minutes,
-    # re-uploading the whole EOD table each time.
-    keep_days = {d.strftime('%Y-%m-%d')
-                 for d in _last_n_trading_days(config.BACKFILL_DAYS, include_today=True)}
-    want_days = [d for d in _last_n_trading_days(config.BACKFILL_DAYS, include_today=False)
-                 if d.strftime('%Y-%m-%d') in keep_days]
-    if not want_days:
+    # Scan the weekdays INSIDE the retained window for days with no data. The
+    # range comes from the data itself (oldest day we keep .. yesterday), so it
+    # can never reach a day prune_eod() would delete — the old fetch/prune loop
+    # came from mixing a calendar window with a data-present one. A holiday is
+    # just a gap: the fetch returns "stale" and we skip it. No holiday list.
+    present_list = _present_eod_dates(config.BACKFILL_DAYS)
+    if not present_list:
         return
+    have = set(present_list)
+    oldest = datetime.strptime(present_list[-1], '%Y-%m-%d').date()
+    yesterday = datetime.now(config.TIMEZONE).date() - timedelta(days=1)
 
-    c = sqlite3.connect(config.DB_FILE)
-    present = {r[0] for r in c.execute('SELECT DISTINCT trade_date FROM eod_snapshots')}
-    c.close()
-
-    missing = [d for d in want_days if d.strftime('%Y-%m-%d') not in present]
+    missing = []
+    d = oldest
+    while d <= yesterday:
+        ds = d.strftime('%Y-%m-%d')
+        if d.weekday() < 5 and ds not in have:
+            missing.append(d)
+        d += timedelta(days=1)
     if not missing:
         return
 
