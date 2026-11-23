@@ -1279,6 +1279,22 @@ def worker_thread():
 init_db()
 migrate_triggered_at_column()
 
+# Restore the user-visible state at IMPORT time, i.e. before gunicorn starts
+# answering (the container runs `gunicorn web_ui:app`, so __main__ never runs).
+# These used to live in startup_thread, which meant that for the first few
+# seconds after every restart /api/alerts was answered from an empty table and
+# the dashboard showed "No alerts set." — indistinguishable from losing every
+# alert, which is exactly what it looked like on 23 Nov.
+#
+# Only the two small ones block here (symbol list + watchlist, both well under a
+# second on a warm cache). The EOD table is ~4 MB and stays in startup_thread so
+# it never delays the port binding.
+for _name, _fn in (('nse', restore_nse), ('watchlist', restore_watchlist)):
+    try:
+        _fn()
+    except Exception as e:
+        logger.exception(f"Startup: {_name} restore failed: {e}")
+
 threading.Thread(target=startup_thread,      daemon=True).start()
 threading.Thread(target=market_loop,         daemon=True).start()
 threading.Thread(target=eod_fetcher,         daemon=True).start()
