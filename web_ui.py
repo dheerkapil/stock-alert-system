@@ -822,9 +822,9 @@ def api_add():
         return jsonify({'status': 'error', 'message': 'Invalid price'}), 400
 
     c = db()
-    if c.execute('SELECT id FROM watchlist WHERE symbol = ?', (sym,)).fetchone() and not force_dup:
-        c.close()
-        return jsonify({'status': 'duplicate', 'message': f'{sym} already in list'}), 200
+    # No duplicate check any more. The dashboard now live-filters the alert list
+    # as you type the symbol, so an existing alert is already visible — a
+    # "duplicate" confirmation on top of that was just an extra click.
 
     live = stock_alert.get_cached([sym]).get(sym, {}).get('price')
     age = stock_alert.get_cache_age(sym)
