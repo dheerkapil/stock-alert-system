@@ -839,6 +839,9 @@ function renderAutocomplete(data) {
 }
 symbolInput.addEventListener('input', function() {
     const query = this.value.trim();
+    // Live-filter the alerts table on whatever is typed in SYMBOL.
+    symbolFilter = query;
+    if (alertsData.length) renderAlerts(sortAlerts(alertsData, sortState));
     if (acFetchTimer) clearTimeout(acFetchTimer);
     if (query.length < 1) { closeAutocomplete(); return; }
     acFetchTimer = setTimeout(() => {
@@ -861,7 +864,11 @@ symbolInput.addEventListener('keydown', function(e) {
     else if (e.key === 'Escape') {
         e.preventDefault();
         if (visible) closeAutocomplete();
-        else if (symbolInput.value) symbolInput.value = '';
+        else if (symbolInput.value) {
+            symbolInput.value = '';
+            symbolFilter = '';
+            if (alertsData.length) renderAlerts(sortAlerts(alertsData, sortState));
+        }
     }
 });
 document.addEventListener('click', function(e) {
@@ -945,6 +952,9 @@ addBtnMobile.addEventListener('click', () => submitForm(false));
 
 let sortState = { column: null, direction: 1, gapMode: 0 };
 let alertsData = [];
+// Live symbol filter: typing in the SYMBOL box narrows the alerts table to
+// matching symbols, so you can see at a glance whether an alert already exists.
+let symbolFilter = '';
 let focusedRowIndex = -1;
 
 const GAP_ICONS = ['↕', '↑', '↓', '⏱↑', '⏱↓'];
@@ -1081,8 +1091,14 @@ function tvUrl(symbol) {
 
 function renderAlerts(data) {
     const tbody = document.getElementById('alertTableBody');
+    if (symbolFilter) {
+        const q = symbolFilter.toUpperCase();
+        data = (data || []).filter(a => String(a.symbol || '').toUpperCase().includes(q));
+    }
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+        tbody.innerHTML = symbolFilter
+            ? `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts matching “${symbolFilter}”.</td></tr>`
+            : `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         focusedRowIndex = -1;
         return;
     }
@@ -1464,6 +1480,8 @@ function handleAddResponse(data, payload) {
         symbolInput.value = '';
         priceInput.value = '';
         notesInput.value = '';
+        // Drop the live symbol filter so the normal full list comes back.
+        symbolFilter = '';
         symbolInput.focus();
 
         alertsData.push({
@@ -1486,19 +1504,6 @@ function handleAddResponse(data, payload) {
         renderAlerts(sortAlerts(alertsData, sortState));
 
         startFastPoll(30000);
-    } else if (data.status === 'duplicate') {
-        showAppModal({
-            title: '⚠️ Duplicate Alert',
-            bodyHTML: `<div>${data.message}</div><div class="modal-warning">Add anyway?</div>`,
-            buttons: [
-                { label: 'OK', class: 'btn-primary', onClick: () => {
-                    payload.force_duplicate = true;
-                    fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                        .then(res => res.json()).then(d => handleAddResponse(d, payload));
-                }},
-                { label: 'Cancel', class: 'btn-secondary', onClick: () => showMessage('warning', '⏸️ Add cancelled.') }
-            ]
-        });
     } else if (data.status === 'warning') {
         showAppModal({
             title: '⚠️ Condition Already Met',
