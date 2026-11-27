@@ -255,6 +255,7 @@
         .col-status  { width: 72px; }
         .col-added   { width: 148px; }
         .col-actions { width: 140px; }
+        .col-updated, .col-triggered { width: 108px; white-space: nowrap; }
 
         thead th.col-symbol {
             position: sticky;
@@ -606,8 +607,9 @@
                         <th class="sortable text-right col-vol" data-sort="vol">% Vol_10d <span class="sort-icon">↕</span></th>
                         <th class="sortable text-right col-rvol" data-sort="rvol">RVOL <span class="sort-icon">↕</span></th>
                         <th class="sortable text-center col-status" data-sort="status">Status <span class="sort-icon">↕</span></th>
-                        <th class="sortable text-left col-added" data-sort="added">Added <span class="sort-icon">↕</span></th>
                         <th class="sortable text-left col-notes" data-sort="notes">Notes <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-left col-updated" data-sort="updated">Updated <span class="sort-icon">↕</span></th>
+                        <th class="sortable text-left col-triggered" data-sort="triggered">Triggered <span class="sort-icon">↕</span></th>
                         <th class="text-center col-actions">Actions</th>
                     </tr>
                 </thead>
@@ -1055,7 +1057,15 @@ function sortAlerts(data, state) {
                 const sv = (i) => i.is_triggered === 1 ? 2 : (i.is_active === 1 ? 0 : 1);
                 return direction * (sv(a) - sv(b));
             }
-            case 'added': return direction * ((new Date(a.added_at).getTime() || 0) - (new Date(b.added_at).getTime() || 0));
+            case 'updated': return direction * ((new Date(a.updated_at || a.added_at).getTime() || 0) - (new Date(b.updated_at || b.added_at).getTime() || 0));
+            case 'triggered': {
+                const ta = parseTriggered(a.triggered_at);
+                const tb = parseTriggered(b.triggered_at);
+                if (ta === null && tb === null) return 0;
+                if (ta === null) return 1;
+                if (tb === null) return -1;
+                return direction * (ta - tb);
+            }
             case 'notes': return direction * ((a.notes || '').localeCompare(b.notes || ''));
             default: return 0;
         }
@@ -1097,8 +1107,8 @@ function renderAlerts(data) {
     }
     if (!data || data.length === 0) {
         tbody.innerHTML = symbolFilter
-            ? `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts matching “${symbolFilter}”.</td></tr>`
-            : `<tr><td colspan="13" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
+            ? `<tr><td colspan="14" class="text-center text-muted" style="font-size:0.9rem;">No alerts matching “${symbolFilter}”.</td></tr>`
+            : `<tr><td colspan="14" class="text-center text-muted" style="font-size:0.9rem;">No alerts set.</td></tr>`;
         focusedRowIndex = -1;
         return;
     }
@@ -1163,6 +1173,8 @@ function renderAlerts(data) {
         }
 
         const dateDisplay = formatDate(a.added_at);
+        const updatedDisplay = formatDate(a.updated_at || a.added_at);
+        const triggeredDisplay = a.triggered_at ? formatDate(a.triggered_at) : '—';
         const companyName = (a.company_name || '').replace(/"/g, '&quot;');
         const cmpForButton = (a.cmp !== null && a.cmp !== undefined) ? a.cmp : '';
         const notes = (a.notes || '').trim();
@@ -1193,8 +1205,9 @@ function renderAlerts(data) {
             <td class="text-right col-vol">${volPctDisplay}</td>
             <td class="text-right col-rvol ${rvolClass}">${rvolDisplay}</td>
             <td class="text-center col-status"><button class="status-btn ${statusClass}" data-action="toggle" data-id="${a.id}" ${disabled} aria-label="Toggle status">${statusText}</button></td>
-            <td class="text-left col-added">${dateDisplay}</td>
             <td class="text-left col-notes">${notesCell}</td>
+            <td class="text-left col-updated">${updatedDisplay}</td>
+            <td class="text-left col-triggered">${triggeredDisplay}</td>
             ${actionsCell}
         </tr>`;
     });
@@ -1658,7 +1671,7 @@ function fetchAlerts() {
         .catch(error => {
             console.error('Fetch error:', error);
             document.getElementById('alertTableBody').innerHTML =
-                `<tr><td colspan="13" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
+                `<tr><td colspan="14" class="text-center text-danger" style="font-size:0.9rem;">Error loading alerts.</td></tr>`;
         });
 }
 
