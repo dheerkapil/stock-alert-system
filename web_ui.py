@@ -603,8 +603,8 @@ def restore_watchlist():
             try:
                 c.execute('''
                     INSERT INTO watchlist
-                    (symbol, condition, trigger_price, is_active, is_triggered, triggered_at, added_at, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (symbol, condition, trigger_price, is_active, is_triggered, triggered_at, added_at, updated_at, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     (item.get('symbol') or '').upper(),
                     item.get('condition', '>'),
@@ -613,6 +613,12 @@ def restore_watchlist():
                     int(item.get('is_triggered', 0)),
                     item.get('triggered_at'),
                     item.get('added_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    # Carry the stored modification time through a restore. Without
+                    # this the column default stamps every row with 'now' on each
+                    # restart, so the Updated column would read 'just now' for the
+                    # whole list after every deploy.
+                    item.get('updated_at') or item.get('added_at')
+                        or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     item.get('notes') or '',
                 ))
                 n += 1
