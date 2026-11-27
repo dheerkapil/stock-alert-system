@@ -219,6 +219,7 @@ def init_db():
             is_triggered INTEGER DEFAULT 0,
             triggered_at TIMESTAMP,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notes TEXT DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_symbol ON watchlist (symbol);
@@ -249,6 +250,49 @@ def migrate_triggered_at_column():
         c.close()
     except Exception as e:
         logger.error(f"triggered_at migration: {e}")
+
+def migrate_updated_at_column():
+    """Add watchlist.updated_at and keep it current on every change.
+
+    The dashboard's 'Updated' column must show the last time an alert was
+    touched — price, condition, notes, activate/deactivate, trigger. Rather than
+    adding CURRENT_TIMESTAMP to nine UPDATE statements (and missing any future
+    one), two triggers maintain it. SQLite has recursive_triggers off by
+    default, so the trigger's own UPDATE does not re-fire it.
+    """
+    try:
+        c = sqlite3.connect(config.DB_FILE)
+        cur = c.cursor()
+        cur.execute("PRAGMA table_info(watchlist)")
+        cols = [r[1] for r in cur.fetchall()]
+        if 'updated_at' not in cols:
+            # ALTER cannot add a non-constant default, so backfill from added_at
+            # and let the triggers keep it current from here on.
+            cur.execute("ALTER TABLE watchlist ADD COLUMN updated_at TIMESTAMP")
+            cur.execute("UPDATE watchlist SET updated_at = COALESCE(added_at, CURRENT_TIMESTAMP)")
+            logger.info("Migration: added watchlist.updated_at")
+        cur.executescript('''
+            CREATE TRIGGER IF NOT EXISTS trg_watchlist_insert
+            AFTER INSERT ON watchlist
+            FOR EACH ROW
+            WHEN NEW.updated_at IS NULL
+            BEGIN
+                UPDATE watchlist SET updated_at = COALESCE(NEW.added_at, CURRENT_TIMESTAMP)
+                 WHERE id = NEW.id;
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS trg_watchlist_updated
+            AFTER UPDATE ON watchlist
+            FOR EACH ROW
+            BEGIN
+                UPDATE watchlist SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+            END;
+        ''')
+        c.commit()
+        c.close()
+    except Exception as e:
+        logger.error(f"updated_at migration: {e}")
+
 
 def get_last_two_closes(symbols):
     if not symbols:
@@ -1278,6 +1322,7 @@ def worker_thread():
 # ------------------------------------------------------------------
 init_db()
 migrate_triggered_at_column()
+migrate_updated_at_column()
 
 # Restore the user-visible state at IMPORT time, i.e. before gunicorn starts
 # answering (the container runs `gunicorn web_ui:app`, so __main__ never runs).
