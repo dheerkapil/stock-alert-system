@@ -241,21 +241,29 @@
 
         @media (min-width: 768px) {
             .table-scroll table { max-width: 1400px; margin-left: auto; margin-right: auto; }
+            /* Full-width is right on a phone, but on desktop a 25%-wide column
+               made this read as a bar rather than a button. */
+            .add-alert-btn { max-width: 200px; }
         }
 
-        .col-symbol  { width: 110px; }
-        .col-cond    { width: 48px; }
-        .col-trigger { width: 82px; }
-        .col-cmp     { width: 82px; }
-        .col-gap     { width: 86px; }
-        .col-mgap    { width: 72px; }
-        .col-chg     { width: 88px; }
-        .col-vol     { width: 82px; }
-        .col-rvol    { width: 78px; }
-        .col-status  { width: 72px; }
+        /* Column widths are budgeted so the two date columns actually fit their
+           "dd/mm/yyyy hh:mm" values and NOTES no longer swallows the slack.
+           Total = 1242px, inside the 1280px min-width, so nothing truncates on a
+           1280-wide screen and anything wider just adds breathing room. */
+        .col-symbol  { width: 100px; }
+        .col-cond    { width: 44px; }
+        .col-trigger { width: 74px; }
+        .col-cmp     { width: 74px; }
+        .col-gap     { width: 76px; }
+        .col-mgap    { width: 62px; }
+        .col-chg     { width: 76px; }
+        .col-vol     { width: 74px; }
+        .col-rvol    { width: 66px; }
+        .col-status  { width: 58px; }
+        .col-notes   { width: 150px; }
         .col-added   { width: 148px; }
-        .col-actions { width: 140px; }
-        .col-updated, .col-triggered { width: 108px; white-space: nowrap; }
+        .col-actions { width: 124px; }
+        .col-updated, .col-triggered { width: 132px; white-space: nowrap; }
 
         thead th.col-symbol {
             position: sticky;
